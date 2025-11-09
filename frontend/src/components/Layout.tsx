@@ -110,7 +110,7 @@ export const Layout = ({ children }: LayoutProps) => {
       )}
 
       {/* Main content */}
-      <div className="flex-1 lg:pl-64 min-h-screen">
+      <div className="flex-1 min-h-screen">
         {/* Mobile header */}
         <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-200 h-16 flex items-center justify-between px-4 shadow-sm">
           <div className="flex items-center space-x-3">
