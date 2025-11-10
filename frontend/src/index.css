@@ -62,4 +62,50 @@
   .badge-info {
     @apply badge bg-blue-50 text-blue-700;
   }
+
+  .range-slider {
+    @apply relative flex h-2 w-full items-center;
+  }
+
+  .range-slider__track {
+    @apply absolute inset-0 h-2 rounded-full bg-gray-200 pointer-events-none;
+  }
+
+  .range-slider__range {
+    @apply absolute h-2 rounded-full bg-primary pointer-events-none;
+  }
+
+  .range-slider__input {
+    @apply absolute inset-0 h-2 w-full cursor-pointer appearance-none bg-transparent;
+  }
+
+  .range-slider__input:first-of-type {
+    z-index: 30;
+  }
+
+  .range-slider__input:last-of-type {
+    z-index: 20;
+  }
+
+  .range-slider__input::-webkit-slider-thumb {
+    @apply h-4 w-4 rounded-full border-2 border-primary bg-white shadow;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .range-slider__input::-moz-range-thumb {
+    @apply h-4 w-4 rounded-full border-2 border-primary bg-white shadow;
+  }
+
+  .range-slider__input::-ms-thumb {
+    @apply h-4 w-4 rounded-full border-2 border-primary bg-white shadow;
+  }
+
+  .range-slider__input::-webkit-slider-runnable-track {
+    @apply h-2 bg-transparent;
+  }
+
+  .range-slider__input::-moz-range-track {
+    @apply h-2 bg-transparent;
+  }
 }

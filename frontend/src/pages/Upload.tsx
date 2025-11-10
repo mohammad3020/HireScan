@@ -1,6 +1,15 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload as UploadIcon, X, File, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import {
+  Upload as UploadIcon,
+  X,
+  File,
+  CheckCircle,
+  AlertCircle,
+  Loader,
+  ChevronDown,
+} from 'lucide-react';
+import { mockJobs } from './jobsData';
 
 interface FileWithPreview extends File {
   preview?: string;
@@ -12,6 +21,7 @@ export const Upload = () => {
   const [files, setFiles] = useState<FileWithPreview[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [selectedJobId, setSelectedJobId] = useState<number>(mockJobs[0]?.id ?? 0);
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -119,6 +129,30 @@ export const Upload = () => {
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Upload Resumes</h1>
         <p className="text-gray-600 mt-1">Upload resumes in batch (PDF, DOC, DOCX - Max 100 files)</p>
+      </div>
+
+      {/* Job Selector */}
+      <div className="rounded-2xl border border-indigo-200 bg-indigo-50/40 p-6">
+        <label className="block text-sm font-medium text-gray-700 mb-3">
+          Select Job Position *
+        </label>
+        <div className="relative">
+          <select
+            value={selectedJobId}
+            onChange={(e) => setSelectedJobId(Number(e.target.value))}
+            className="input-field h-12 w-full bg-white pr-10 text-base font-medium text-gray-800 focus:ring-2 focus:ring-indigo-400"
+          >
+            {mockJobs.map((job) => (
+              <option key={job.id} value={job.id}>
+                {job.title}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        </div>
+        <p className="mt-3 text-xs text-gray-500">
+          Resumes uploaded below will be associated with the selected job position.
+        </p>
       </div>
 
       {/* Upload Area */}

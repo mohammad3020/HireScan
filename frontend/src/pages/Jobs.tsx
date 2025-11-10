@@ -1,46 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Search, Filter, Edit, Trash2, Briefcase } from 'lucide-react';
-
-// Mock data
-const mockJobs = [
-  {
-    id: 1,
-    title: 'Senior Software Engineer',
-    department: 'Engineering',
-    candidates: 24,
-    averageScore: 82.5,
-    status: 'active',
-    created_at: '2024-01-15',
-  },
-  {
-    id: 2,
-    title: 'Product Manager',
-    department: 'Product',
-    candidates: 18,
-    averageScore: 75.3,
-    status: 'active',
-    created_at: '2024-01-20',
-  },
-  {
-    id: 3,
-    title: 'UX Designer',
-    department: 'Design',
-    candidates: 32,
-    averageScore: 88.1,
-    status: 'active',
-    created_at: '2024-02-01',
-  },
-  {
-    id: 4,
-    title: 'Data Scientist',
-    department: 'Engineering',
-    candidates: 15,
-    averageScore: 79.4,
-    status: 'active',
-    created_at: '2024-02-10',
-  },
-];
+import { mockJobs } from './jobsData';
 
 export const Jobs = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -52,14 +13,14 @@ export const Jobs = () => {
     return matchesSearch && matchesDepartment;
   });
 
-  const departments = ['all', ...Array.from(new Set(mockJobs.map((j) => j.department)))];
+  const departments = ['all', 'Engineering', 'Product', 'Design', 'Marketing', 'Sales', 'Data'];
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Job Descriptions</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Job Positions</h1>
           <p className="text-gray-600 mt-1">Manage your job postings and requirements</p>
         </div>
         <Link
@@ -102,53 +63,67 @@ export const Jobs = () => {
       </div>
 
       {/* Jobs List */}
-      <div className="card overflow-hidden">
-        <div className="divide-y divide-gray-200">
-          {filteredJobs.length === 0 ? (
-            <div className="p-12 text-center">
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        {filteredJobs.length === 0 ? (
+          <div className="col-span-full">
+            <div className="card p-12 text-center">
               <Briefcase className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-600">No jobs found</p>
             </div>
-          ) : (
-            filteredJobs.map((job) => (
-              <div key={job.id} className="p-6 hover:bg-gray-50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        <Briefcase className="h-5 w-5 text-primary" />
-                      </div>
-                      <h3 className="text-lg font-semibold text-gray-900">{job.title}</h3>
-                      <span className="badge-success">
-                        {job.status}
-                      </span>
-                    </div>
-                    <div className="ml-11 flex items-center space-x-4 text-sm text-gray-600">
-                      <span className="font-medium">{job.department}</span>
-                      <span className="text-gray-300">•</span>
-                      <span>{job.candidates} candidates</span>
-                      <span className="text-gray-300">•</span>
-                      <span>Avg. Score: <span className="font-semibold text-primary">{job.averageScore}%</span></span>
-                      <span className="text-gray-300">•</span>
-                      <span className="text-gray-500">Created: {new Date(job.created_at).toLocaleDateString()}</span>
-                    </div>
+          </div>
+        ) : (
+          filteredJobs.map((job) => (
+            <div
+              key={job.id}
+              className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition hover:shadow-md"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100">
+                    <Briefcase className="h-6 w-6 text-gray-500" />
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Link
-                      to={`/jobs/${job.id}`}
-                      className="p-2 text-gray-600 hover:text-primary hover:bg-gray-100 rounded-lg transition-colors"
-                    >
-                      <Edit className="h-5 w-5" />
-                    </Link>
-                    <button className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                      <Trash2 className="h-5 w-5" />
-                    </button>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">{job.title}</h3>
+                    <p className="text-sm text-gray-500">{job.department}</p>
                   </div>
                 </div>
+                <div className="flex space-x-1">
+                  <button className="p-2 text-gray-500 hover:text-primary focus:outline-none">
+                    <Edit className="h-4 w-4" />
+                  </button>
+                  <button className="p-2 text-gray-500 hover:text-red-500 focus:outline-none">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-            ))
-          )}
-        </div>
+
+              <div className="mt-4 flex items-center space-x-4 text-sm text-gray-600">
+                <span className="flex items-center space-x-1">
+                  <span className="h-2 w-2 rounded-full bg-gray-400" />
+                  <span>{job.candidates} applicants</span>
+                </span>
+                <span className="flex items-center rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700">
+                  Active
+                </span>
+              </div>
+
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <Link
+                  to={`/jobs/${job.id}/profile`}
+                  className="rounded-lg border border-gray-200 px-4 py-2 text-center text-sm font-medium text-gray-700 transition hover:border-primary hover:text-primary"
+                >
+                  View Details
+                </Link>
+                <Link
+                  to={`/review?jobId=${job.id}`}
+                  className="rounded-lg border border-gray-200 px-4 py-2 text-center text-sm font-medium text-gray-700 transition hover:border-primary hover:text-primary"
+                >
+                  Candidates
+                </Link>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

@@ -7,6 +7,7 @@ import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Jobs } from './pages/Jobs';
 import { JobForm } from './pages/JobForm';
+import { JobProfile } from './pages/JobProfile';
 import { Upload } from './pages/Upload';
 import { Processing } from './pages/Processing';
 import { Review } from './pages/Review';
@@ -67,6 +68,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <Layout>
               <JobForm />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/jobs/:id/profile"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <JobProfile />
             </Layout>
           </ProtectedRoute>
         }
