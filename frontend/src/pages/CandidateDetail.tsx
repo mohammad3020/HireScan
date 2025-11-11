@@ -147,6 +147,21 @@ export const CandidateDetail = () => {
   useParams(); // id available but not used in mock
   const [newNote, setNewNote] = useState('');
   const candidate = mockCandidate;
+  const resume = candidate.resumes?.[0];
+  const parsedResume = resume?.parsed_data;
+  const educationEntries =
+    (parsedResume?.education as any[]) ??
+    ((parsedResume as any)?.parsed_data?.education as any[]) ??
+    [];
+  const formatDate = (value?: string | null) => {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+    });
+  };
 
   const handleAddNote = () => {
     if (newNote.trim()) {
@@ -215,19 +230,27 @@ export const CandidateDetail = () => {
           </div>
 
           {/* Education */}
-          {candidate.resumes[0]?.parsed_data?.education && (
+          {educationEntries?.length > 0 && (
             <div className="card p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Education</h2>
-              <div className="space-y-4">
-                {candidate.resumes[0].parsed_data.education.map((edu: any, index: number) => (
-                  <div key={`${edu.institution}-${index}`} className="border-l-4 border-primary/40 pl-4">
-                    <h3 className="text-sm font-semibold text-gray-900">{edu.institution}</h3>
-                    <p className="text-sm text-gray-700">
-                      {edu.degree} – {edu.field}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Graduated {new Date(edu.end_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
-                    </p>
+              <div className="space-y-6">
+                {educationEntries.map((edu: any, index: number) => (
+                  <div key={`education-${index}`} className="border-l-4 border-secondary pl-4">
+                    <div className="flex flex-col gap-1">
+                      <h3 className="text-lg font-semibold text-gray-900">{edu.degree ?? edu.title}</h3>
+                      <p className="text-sm font-medium text-gray-600">{edu.institution ?? edu.school}</p>
+                      {(edu.field || edu.major) && (
+                        <p className="text-sm text-gray-600">{edu.field ?? edu.major}</p>
+                      )}
+                      {(formatDate(edu.start_date) || formatDate(edu.end_date)) && (
+                        <p className="text-sm text-gray-500 mt-1">
+                          {formatDate(edu.start_date) ?? '—'}{' '}
+                          -{' '}
+                          {formatDate(edu.end_date) ?? 'Present'}
+                        </p>
+                      )}
+                      {edu.description && <p className="text-sm text-gray-600 mt-2">{edu.description}</p>}
+                    </div>
                   </div>
                 ))}
               </div>
