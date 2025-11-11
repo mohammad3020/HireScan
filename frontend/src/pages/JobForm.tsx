@@ -250,7 +250,7 @@ export const JobForm = () => {
         <div className="rounded-2xl border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Job Overview</h2>
           <div className="space-y-5">
-            <div className="max-w-3xl">
+            <div className="max-w-2xl">
               <label className="block text-sm font-medium text-gray-700 mb-2">Job Title *</label>
               <input
                 type="text"
@@ -261,8 +261,8 @@ export const JobForm = () => {
                 required
               />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="max-w-sm">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-x-6 max-w-3xl">
+              <div className="max-w-xs md:max-w-sm">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
                 <select
                   value={formData.department}
@@ -277,7 +277,7 @@ export const JobForm = () => {
                   ))}
                 </select>
               </div>
-              <div className="max-w-sm">
+              <div className="max-w-xs md:max-w-sm">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
                 <input
                   type="text"
@@ -288,8 +288,8 @@ export const JobForm = () => {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="max-w-sm">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-x-6 max-w-3xl">
+              <div className="max-w-xs md:max-w-sm">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Employment Type</label>
                 <select
                   value={formData.employment_type}
@@ -303,7 +303,7 @@ export const JobForm = () => {
                   ))}
                 </select>
               </div>
-              <div className="max-w-sm">
+              <div className="max-w-xs md:max-w-sm">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Experience Level</label>
                 <select
                   value={formData.experience_level}
@@ -318,7 +318,7 @@ export const JobForm = () => {
                 </select>
               </div>
             </div>
-            <div className="max-w-sm space-y-2">
+            <div className="max-w-xs space-y-2">
               <div className="flex flex-wrap items-center gap-3">
                 <label className="block text-sm font-medium text-gray-700">
                   Minimum Years of Experience
@@ -439,7 +439,7 @@ export const JobForm = () => {
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Required Skills</h2>
           <div className="space-y-4">
-            <div className="flex w-full max-w-xl">
+            <div className="flex w-full max-w-lg">
               <input
                 type="text"
                 value={skillInput}
