@@ -29,7 +29,7 @@ def main():
     current_dir = Path(__file__).parent
     
     # Set up file paths
-    cv_file = current_dir / "Pe-CV2.pdf"
+    cv_file = current_dir / "CV_files/Pe-CV2.pdf"
     prompt_name = "parse_resume"
     
     # Check if CV file exists

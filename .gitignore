@@ -220,3 +220,7 @@ coverage/
 .output/
 .turbo/
 
+# AI Service
+ai/CV_files/
+ai/test_output.json
+
