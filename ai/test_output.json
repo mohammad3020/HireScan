@@ -1,0 +1,195 @@
+{
+  "personal_info": {
+    "full_name": "مرضیه زمانی",
+    "phone": "09122517303",
+    "email": "ms.maniz.amani@gmail.com",
+    "address": "تهران - اتوبان بابایی، شهرک حکیمیه",
+    "date_of_birth": "18 خرداد سال 1364",
+    "marital_status": "متاهل",
+    "military_service": null,
+    "links": {
+      "linkedin": "https://www.linkedin.com/in/mani-zamani/",
+      "github": null,
+      "portfolio": null,
+      "website": null,
+      "other": []
+    }
+  },
+  "education": [
+    {
+      "degree": "کارشناسی ارشد",
+      "field": "مدیریت بازرگانی",
+      "institution": "دانشگاه تهران",
+      "location": "تهران",
+      "start_date": "1395",
+      "end_date": "1395",
+      "gpa": null,
+      "honors": null,
+      "thesis": null,
+      "relevant_courses": [
+        "مدیریت منابع انسانی",
+        "مدیریت مالی",
+        "مدیریت استراتژیک",
+        "رفتار سازمانی"
+      ]
+    },
+    {
+      "degree": "کارشناسی",
+      "field": "مهندسی کامپیوتر",
+      "institution": "دانشگاه آزاد اسلامی",
+      "location": null,
+      "start_date": "1392",
+      "end_date": "1392",
+      "gpa": null,
+      "honors": null,
+      "thesis": null,
+      "relevant_courses": []
+    }
+  ],
+  "experience": [
+    {
+      "job_title": "مدیر آموزش و توسعه منابع انسانی",
+      "company": "هلدینگ آواکتان",
+      "company_type": "هلدینگ (Jeanswest, Banimode, DigiWash, Balcafe)",
+      "location": "تهران",
+      "employment_type": null,
+      "start_date": "خرداد 1402",
+      "end_date": "تیر 1404",
+      "duration": null,
+      "is_currently_employed": true,
+      "reasoning": "با توجه به تاریخ پایان که در آینده است (تیر 1404)، فرد در حال حاضر مشغول به کار است",
+      "responsibilities": [
+        "نیاز سنجی آموزشی بر اساس شغل",
+        "طراحی برنامه آموزشی در خدمت مسیر پیشرفت شغلی",
+        "طراحی و اجرای برنامه های آموزشی",
+        "بررسی میزان اثربخشی دوره های آموزشی",
+        "همکاری با مدیران برای بهبود مهارت ها",
+        "توسعه استراتژی های یادگیری و رشد سازمانی",
+        "پیاده سازی سیستم آنبوردینگ",
+        "برنامه ریزی و پیاده سازی آموزش های سازمانی در راستای فرهنگ سازمانی و برندینگ آموزش",
+        "تهیه محتوای آموزشی استاندارد بر اساس انواع الگوهای یادگیری",
+        "پیاده سازی سیستم مدیریت آموزش و LMS"
+      ]
+    },
+    {
+      "job_title": "مدیر پروژه آموزش",
+      "company": "موسسه محک",
+      "company_type": null,
+      "location": "تهران",
+      "employment_type": null,
+      "start_date": "تیر 1396",
+      "end_date": "بهمن 1398",
+      "duration": null,
+      "responsibilities": [
+        "تهیه سند استراتژی توسعه منابع انسانی",
+        "تهیه اسناد شرح شغل برای مشاغل ستادی",
+        "نیازسنجی، برنامه ریزی و اجرای دوره های آموزشی",
+        "پیاده سازی سیستم مدیریت آموزش و LMS"
+      ]
+    }
+  ],
+  "skills": {
+    "technical": [
+      {
+        "category": "مدیریت آموزش",
+        "items": [
+          {
+            "name": "طراحی و پیاده سازی سند آموزش سازمانی",
+            "level": null
+          },
+          {
+            "name": "پیاده سازی استاندارد ISO 10015",
+            "level": "تسلط کامل"
+          },
+          {
+            "name": "پیاده سازی نرم افزارهای مدیریت آموزش",
+            "level": null
+          }
+        ]
+      },
+      {
+        "category": "نرم افزار",
+        "items": [
+          {
+            "name": "فتوشاپ",
+            "level": null
+          }
+        ]
+      }
+    ],
+    "soft": [
+      "کار تیمی",
+      "تاب آوری",
+      "رفتار سازمانی",
+      "مدیریت پروژه"
+    ],
+    "skills_mentioned_in_job_title": [
+      "مدیریت آموزش",
+      "توسعه منابع انسانی",
+      "مدیریت پروژه"
+    ]
+  },
+  "languages": [
+    {
+      "language": "فارسی",
+      "proficiency": null,
+      "skills": null,
+      "certificates": []
+    },
+    {
+      "language": "English",
+      "proficiency": null,
+      "skills": null,
+      "certificates": []
+    },
+    {
+      "language": "ترکی آذربایجانی",
+      "proficiency": null,
+      "skills": null,
+      "certificates": []
+    }
+  ],
+  "courses": [
+    {
+      "name": "رهبری و مهارتهای رفتاری و ارتباطی",
+      "provider": null,
+      "instructor": null,
+      "completion_date": null,
+      "duration": null,
+      "certificate_id": null,
+      "verification_link": null
+    },
+    {
+      "name": "مدلهای ارزیابی اثربخشی آموزش",
+      "provider": null,
+      "instructor": null,
+      "completion_date": null,
+      "duration": null,
+      "certificate_id": null,
+      "verification_link": null
+    },
+    {
+      "name": "آموزش الکترونیکی (E-Learning)",
+      "provider": null,
+      "instructor": null,
+      "completion_date": null,
+      "duration": null,
+      "certificate_id": null,
+      "verification_link": null
+    }
+  ],
+  "other_sections": {
+    "professional_summary": "من با بیش از ۱۲ سال تجربه در حوزه توسعه منابع انسانی، همیشه تلاش کرده ام آموزش را فراتر از انتقال دانش ببینم؛ ابزاری برای رشد واقعی آدم ها و تقویت فرهنگ سازمانی. برایم مهم است برنامه های آموزشی نه تنها پاسخگوی نیازهای مهارتی باشند، بلکه با ارزش های برند و هویت سازمان هم راستا باشند. به روز نگه داشتن محتوا، طراحی مسیرهای یادگیری متناسب، و برگزاری رویدادهای فرهنگی، بخشی از تلاشم برای ساختن محیطی یادگیرنده و الهام بخش است. هدفم این است که آدم ها در کارشان رشد کنند و این رشد، درخشش سازمان را بیشتر کند.",
+    "references": [
+      "آقای هادی رهبری از هلدینگ آواکتان"
+    ]
+  },
+  "extraction_notes": {
+    "ambiguous_items": [],
+    "missing_sections": [],
+    "quality_issues": [],
+    "special_notes": [
+      "رزومه دارای ساختار منظم و خوانا است"
+    ]
+  }
+}
