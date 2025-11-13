@@ -1,0 +1,3 @@
+# This file ensures the CV_files directory is tracked by git
+# All CV files in this directory are ignored by .gitignore
+

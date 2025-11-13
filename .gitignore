@@ -221,6 +221,7 @@ coverage/
 .turbo/
 
 # AI Service
-ai/CV_files/
+ai/CV_files/*
+!ai/CV_files/.gitkeep
 ai/test_output.json
 
