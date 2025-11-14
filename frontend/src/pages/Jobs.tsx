@@ -107,18 +107,12 @@ export const Jobs = () => {
                 </span>
               </div>
 
-              <div className="mt-6 grid grid-cols-2 gap-3">
+              <div className="mt-6">
                 <Link
                   to={`/jobs/${job.id}/profile`}
-                  className="rounded-lg border border-gray-200 px-4 py-2 text-center text-sm font-medium text-gray-700 transition hover:border-primary hover:text-primary"
+                  className="block w-full rounded-lg border border-gray-200 px-4 py-2 text-center text-sm font-medium text-gray-700 transition hover:border-primary hover:text-primary"
                 >
                   View Details
-                </Link>
-                <Link
-                  to={`/review?jobId=${job.id}`}
-                  className="rounded-lg border border-gray-200 px-4 py-2 text-center text-sm font-medium text-gray-700 transition hover:border-primary hover:text-primary"
-                >
-                  Candidates
                 </Link>
               </div>
             </div>

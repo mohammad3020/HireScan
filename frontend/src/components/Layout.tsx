@@ -3,7 +3,6 @@ import { useAuthStore } from '../store/auth';
 import { 
   LayoutDashboard, 
   Briefcase, 
-  Upload, 
   Users, 
   LogOut,
   Menu,
@@ -29,7 +28,6 @@ export const Layout = ({ children }: LayoutProps) => {
   const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Jobs', href: '/jobs', icon: Briefcase },
-    { name: 'Upload', href: '/upload', icon: Upload },
     { name: 'Review', href: '/review', icon: Users },
   ];
 

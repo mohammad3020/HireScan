@@ -1,17 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { mockJobs } from './jobsData';
+import { Link } from 'react-router-dom';
 import {
   Search,
-  RefreshCw,
-  Download,
-  User,
-  TrendingUp,
   ArrowUpDown,
   StickyNote,
   Sparkles,
   Star,
 } from 'lucide-react';
+import { mockCandidates } from './Review';
 
 type CandidateStatus = 'qualified' | 'in_process' | 'new';
 
@@ -33,119 +29,7 @@ type Candidate = {
   isFavorite: boolean;
 };
 
-export const mockCandidates: Candidate[] = [
-  {
-    id: 1,
-    jobId: 1,
-    name: 'Sarah Johnson',
-    email: 'sarah.johnson@example.com',
-    score: 92,
-    experienceScore: 90,
-    educationScore: 88,
-    rank: 1,
-    status: 'qualified',
-    experienceYears: 7,
-    skillset: 'Frontend Engineering',
-    skills: ['React', 'TypeScript', 'Node.js', 'AWS'],
-    notes: 'Great cultural fit. Strong leadership qualities.',
-    aiSummary: 'High match: exceeds role requirements with strong frontend expertise.',
-    isFavorite: true,
-  },
-  {
-    id: 2,
-    jobId: 1,
-    name: 'Michael Chen',
-    email: 'michael.chen@example.com',
-    score: 88,
-    experienceScore: 84,
-    educationScore: 86,
-    rank: 2,
-    status: 'qualified',
-    experienceYears: 5,
-    skillset: 'Fullstack Development',
-    skills: ['React', 'Python', 'Docker'],
-    notes: 'Needs deeper knowledge in DevOps practices.',
-    aiSummary: 'Good match: strong technical base, minor gaps in ops.',
-    isFavorite: false,
-  },
-  {
-    id: 3,
-    jobId: 1,
-    name: 'Emma Williams',
-    email: 'emma.williams@example.com',
-    score: 85,
-    experienceScore: 81,
-    educationScore: 90,
-    rank: 3,
-    status: 'in_process',
-    experienceYears: 6,
-    skillset: 'Frontend Engineering',
-    skills: ['Vue', 'JavaScript', 'GraphQL'],
-    notes: 'Portfolio is impressive. Schedule system design interview.',
-    aiSummary: 'Excellent design thinking, quick learner.',
-    isFavorite: true,
-  },
-  {
-    id: 4,
-    jobId: 1,
-    name: 'David Martinez',
-    email: 'david.martinez@example.com',
-    score: 78,
-    experienceScore: 80,
-    educationScore: 75,
-    rank: 4,
-    status: 'in_process',
-    experienceYears: 4,
-    skillset: 'Backend Engineering',
-    skills: ['Angular', 'TypeScript', 'MongoDB'],
-    notes: 'Needs mentoring plan. Has strong backend fundamentals.',
-    aiSummary: 'Solid backend engineer with growth potential.',
-    isFavorite: false,
-  },
-  {
-    id: 5,
-    jobId: 1,
-    name: 'Lisa Anderson',
-    email: 'lisa.anderson@example.com',
-    score: 75,
-    experienceScore: 72,
-    educationScore: 78,
-    rank: 5,
-    status: 'new',
-    experienceYears: 3,
-    skillset: 'Frontend Engineering',
-    skills: ['React', 'JavaScript', 'CSS'],
-    notes: 'Junior but motivated. Consider for internship track.',
-    aiSummary: 'Average match: junior candidate, high enthusiasm.',
-    isFavorite: false,
-  },
-  {
-    id: 6,
-    jobId: 1,
-    name: 'James Wilson',
-    email: 'james.wilson@example.com',
-    score: 72,
-    experienceScore: 70,
-    educationScore: 74,
-    rank: 6,
-    status: 'new',
-    experienceYears: 5,
-    skillset: 'Frontend Engineering',
-    skills: ['React', 'Redux', 'Jest'],
-    notes: 'Ask for more testing examples.',
-    aiSummary: 'Good testing knowledge, needs broader architecture exposure.',
-    isFavorite: false,
-  },
-];
-
-// Generate job options from mockJobs
-const jobOptions = mockJobs.map(job => ({
-  id: job.id,
-  title: job.title,
-}));
-
-type SortKey = 'name' | 'score' | 'experienceYears' | 'skills';
-type SortKeyExtended = SortKey | 'experienceScore' | 'educationScore' | 'index';
+type SortKeyExtended = 'name' | 'score' | 'experienceYears' | 'skills' | 'experienceScore' | 'educationScore' | 'index';
 type ActiveBucket = 'all' | 'shortlisted' | 'favorite';
 
 const scoreClasses = (value: number) => {
@@ -166,15 +50,12 @@ const ScoreBadge = ({ value }: { value: number }) => (
   </div>
 );
 
-export const Review = () => {
-  const [searchParams] = useSearchParams();
+interface ReviewCandidatesTabProps {
+  jobId: number;
+}
+
+export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
   const [searchTerm, setSearchTerm] = useState('');
-  
-  // Get jobId from query parameter, or default to first job
-  const jobIdFromQuery = searchParams.get('jobId');
-  const initialJobId = jobIdFromQuery ? Number(jobIdFromQuery) : (jobOptions[0]?.id ?? 1);
-  const [selectedJob, setSelectedJob] = useState(initialJobId);
-  
   const [sortKey, setSortKey] = useState<SortKeyExtended>('score');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [openNotesId, setOpenNotesId] = useState<number | null>(null);
@@ -188,16 +69,6 @@ export const Review = () => {
   );
   const [activeBucket, setActiveBucket] = useState<ActiveBucket>('all');
 
-  // Update selectedJob when query parameter changes
-  useEffect(() => {
-    if (jobIdFromQuery) {
-      const jobId = Number(jobIdFromQuery);
-      if (!isNaN(jobId) && jobOptions.some(job => job.id === jobId)) {
-        setSelectedJob(jobId);
-      }
-    }
-  }, [jobIdFromQuery]);
-
   useEffect(() => {
     const handleGlobalClick = () => {
       setOpenNotesId(null);
@@ -207,10 +78,9 @@ export const Review = () => {
     return () => document.removeEventListener('click', handleGlobalClick);
   }, []);
 
-  const job = jobOptions.find((option) => option.id === selectedJob);
   const jobCandidates = useMemo(
-    () => mockCandidates.filter((candidate) => candidate.jobId === selectedJob),
-    [selectedJob]
+    () => mockCandidates.filter((candidate) => candidate.jobId === jobId),
+    [jobId]
   );
 
   const totalResumes = jobCandidates.length;
@@ -301,66 +171,38 @@ export const Review = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Review Candidates Dashboard</h1>
-        <p className="mt-1 text-gray-600">
-          Monitor candidate progress, compare scores, and take quick actions for each applicant.
-        </p>
-      </div>
-      {/* Header */}
-      <div className="card border border-gray-200 p-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Job Position
-            </label>
-            <select
-              value={selectedJob}
-              onChange={(e) => setSelectedJob(Number(e.target.value))}
-              className="input-field h-12 w-full md:w-96 text-base font-medium text-gray-800"
-            >
-              {jobOptions.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.title}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex items-center gap-3"></div>
+      {/* KPI Cards */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <div
+          onClick={() => setActiveBucket('all')}
+          className={`cursor-pointer rounded-2xl border border-gray-200 bg-white p-4 transition ${
+            activeBucket === 'all' ? 'ring-2 ring-primary/40' : ''
+          }`}
+        >
+          <p className="text-xs font-medium uppercase text-gray-500">Total Resumes</p>
+          <p className="mt-2 text-2xl font-semibold text-gray-900">{totalResumes}</p>
         </div>
-
-        <div className="mt-6 grid gap-4 md:grid-cols-4">
-          <div
-            onClick={() => setActiveBucket('all')}
-            className={`cursor-pointer rounded-2xl border border-gray-200 bg-white p-4 transition ${
-              activeBucket === 'all' ? 'ring-2 ring-primary/40' : ''
-            }`}
-          >
-            <p className="text-xs font-medium uppercase text-gray-500">Total Resumes</p>
-            <p className="mt-2 text-2xl font-semibold text-gray-900">{totalResumes}</p>
-          </div>
-          <div
-            onClick={() => setActiveBucket('shortlisted')}
-            className={`cursor-pointer rounded-2xl border border-green-200 bg-green-50 p-4 transition ${
-              activeBucket === 'shortlisted' ? 'ring-2 ring-green-300' : ''
-            }`}
-          >
-            <p className="text-xs font-medium uppercase text-gray-500">Short Listed</p>
-            <p className="mt-2 text-2xl font-semibold text-green-700">{shortListedCount}</p>
-          </div>
-          <div
-            onClick={() => setActiveBucket('favorite')}
-            className={`cursor-pointer rounded-2xl border border-blue-200 bg-blue-50 p-4 transition ${
-              activeBucket === 'favorite' ? 'ring-2 ring-blue-300' : ''
-            }`}
-          >
-            <p className="text-xs font-medium uppercase text-gray-500">Favorite</p>
-            <p className="mt-2 text-2xl font-semibold text-blue-700">{favoriteCount}</p>
-          </div>
-          <div className="rounded-2xl border border-gray-200 bg-white p-4">
-            <p className="text-xs font-medium uppercase text-gray-500">Avg. Score</p>
-            <p className="mt-2 text-2xl font-semibold text-gray-900">{avgScore}</p>
-          </div>
+        <div
+          onClick={() => setActiveBucket('shortlisted')}
+          className={`cursor-pointer rounded-2xl border border-green-200 bg-green-50 p-4 transition ${
+            activeBucket === 'shortlisted' ? 'ring-2 ring-green-300' : ''
+          }`}
+        >
+          <p className="text-xs font-medium uppercase text-gray-500">Short Listed</p>
+          <p className="mt-2 text-2xl font-semibold text-green-700">{shortListedCount}</p>
+        </div>
+        <div
+          onClick={() => setActiveBucket('favorite')}
+          className={`cursor-pointer rounded-2xl border border-blue-200 bg-blue-50 p-4 transition ${
+            activeBucket === 'favorite' ? 'ring-2 ring-blue-300' : ''
+          }`}
+        >
+          <p className="text-xs font-medium uppercase text-gray-500">Favorite</p>
+          <p className="mt-2 text-2xl font-semibold text-blue-700">{favoriteCount}</p>
+        </div>
+        <div className="rounded-2xl border border-gray-200 bg-white p-4">
+          <p className="text-xs font-medium uppercase text-gray-500">Avg. Score</p>
+          <p className="mt-2 text-2xl font-semibold text-gray-900">{avgScore}</p>
         </div>
       </div>
 
@@ -526,18 +368,6 @@ export const Review = () => {
             </tbody>
           </table>
         </div>
-      </div>
-
-      {/* Footer actions */}
-      <div className="flex items-center justify-end gap-3">
-        <button className="btn-outline flex items-center gap-2">
-          <RefreshCw className="h-4 w-4" />
-          Refresh Ranking
-        </button>
-        <button className="btn-primary flex items-center gap-2">
-          <Download className="h-4 w-4" />
-          Export Report
-        </button>
       </div>
     </div>
   );
