@@ -1,19 +1,18 @@
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import {
   ArrowLeft,
   Briefcase,
   MapPin,
   Clock,
   Calendar,
-  Users,
   ShieldAlert,
   Upload,
   Edit,
   FileText,
   UserCheck,
 } from 'lucide-react';
-import { mockJobs } from './jobsData';
+import { useJob, type Job } from '../api/jobs';
 import { Upload as UploadPage } from './Upload';
 import { ReviewCandidatesTab } from './ReviewCandidatesTab';
 
@@ -61,7 +60,7 @@ type TabType = 'details' | 'upload' | 'review';
 export const JobProfile = () => {
   const { id } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  const job = mockJobs.find((position) => position.id === Number(id));
+  const { data: job, isLoading, error } = useJob(Number(id) || 0);
 
   // Get active tab from URL or default to 'details'
   const activeTab = (searchParams.get('tab') || 'details') as TabType;
@@ -86,7 +85,24 @@ export const JobProfile = () => {
     }
   }, [activeTab, id, searchParams, setSearchParams]);
 
-  if (!job) {
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Link
+          to="/jobs"
+          className="inline-flex items-center text-sm font-medium text-primary hover:underline"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to job positions
+        </Link>
+        <div className="card p-12 text-center">
+          <p className="text-gray-600">Loading job data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !job) {
     return (
       <div className="space-y-6">
         <Link
@@ -107,7 +123,26 @@ export const JobProfile = () => {
     );
   }
 
-  const demographic = job.demographicRequirements;
+  const demographic = job.demographic_requirements || {
+    age_range: {
+      min: job.age_range_min,
+      max: job.age_range_max,
+      auto_reject: job.age_range_auto_reject,
+    },
+    gender: job.gender || '',
+    gender_auto_reject: job.gender_auto_reject || false,
+    military_status: job.military_status || '',
+    military_auto_reject: job.military_auto_reject || false,
+    education_level: job.education_level || '',
+    education_level_auto_reject: job.education_level_auto_reject || false,
+    education_major: job.education_major || [],
+    education_major_auto_reject: job.education_major_auto_reject || false,
+    preferred_universities_enabled: job.preferred_universities_enabled || false,
+    preferred_universities_auto_reject: job.preferred_universities_auto_reject || false,
+    preferred_universities: job.preferred_universities || [],
+    target_companies_enabled: job.target_companies_enabled || false,
+    target_companies: job.target_companies || [],
+  };
 
   const DetailsContent = () => (
     <div className="grid gap-6 lg:grid-cols-3">
@@ -125,14 +160,14 @@ export const JobProfile = () => {
                 <span className="text-sm font-semibold text-gray-700">Age Range</span>
                 <span
                   className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${badgeClass(
-                    demographic.ageRange.autoReject
+                    demographic.age_range.auto_reject
                   )}`}
                 >
-                  {formatAutoReject(demographic.ageRange.autoReject)}
+                  {formatAutoReject(demographic.age_range.auto_reject)}
                 </span>
               </div>
               <p className="text-sm text-gray-800">
-                {demographic.ageRange.min ?? '—'} - {demographic.ageRange.max ?? '—'} years old
+                {demographic.age_range.min ?? '—'} - {demographic.age_range.max ?? '—'} years old
               </p>
             </div>
 
@@ -141,13 +176,13 @@ export const JobProfile = () => {
                 <span className="text-sm font-semibold text-gray-700">Gender</span>
                 <span
                   className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${badgeClass(
-                    demographic.genderAutoReject
+                    demographic.gender_auto_reject
                   )}`}
                 >
-                  {formatAutoReject(demographic.genderAutoReject)}
+                  {formatAutoReject(demographic.gender_auto_reject)}
                 </span>
               </div>
-              <p className="text-sm text-gray-800">{formatGender[demographic.gender]}</p>
+              <p className="text-sm text-gray-800">{formatGender[demographic.gender as keyof typeof formatGender] || demographic.gender || 'Any'}</p>
             </div>
 
             <div className="space-y-2 rounded-xl border border-gray-200 p-4">
@@ -155,14 +190,14 @@ export const JobProfile = () => {
                 <span className="text-sm font-semibold text-gray-700">Military Status</span>
                 <span
                   className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${badgeClass(
-                    demographic.militaryAutoReject
+                    demographic.military_auto_reject
                   )}`}
                 >
-                  {formatAutoReject(demographic.militaryAutoReject)}
+                  {formatAutoReject(demographic.military_auto_reject)}
                 </span>
               </div>
               <p className="text-sm text-gray-800">
-                {formatMilitary[demographic.militaryStatus]}
+                {formatMilitary[demographic.military_status as keyof typeof formatMilitary] || demographic.military_status || 'Any'}
               </p>
             </div>
 
@@ -171,14 +206,14 @@ export const JobProfile = () => {
                 <span className="text-sm font-semibold text-gray-700">Education Level</span>
                 <span
                   className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${badgeClass(
-                    demographic.educationLevelAutoReject
+                    demographic.education_level_auto_reject
                   )}`}
                 >
-                  {formatAutoReject(demographic.educationLevelAutoReject)}
+                  {formatAutoReject(demographic.education_level_auto_reject)}
                 </span>
               </div>
               <p className="text-sm text-gray-800">
-                {formatEducationLevel[demographic.educationLevel]}
+                {formatEducationLevel[demographic.education_level as keyof typeof formatEducationLevel] || demographic.education_level || 'Any'}
               </p>
             </div>
 
@@ -187,15 +222,26 @@ export const JobProfile = () => {
                 <span className="text-sm font-semibold text-gray-700">University Major</span>
                 <span
                   className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${badgeClass(
-                    demographic.educationMajorAutoReject
+                    demographic.education_major_auto_reject
                   )}`}
                 >
-                  {formatAutoReject(demographic.educationMajorAutoReject)}
+                  {formatAutoReject(demographic.education_major_auto_reject)}
                 </span>
               </div>
-              <p className="text-sm text-gray-800">
-                {formatEducationMajor[demographic.educationMajor]}
-              </p>
+              {demographic.education_major && demographic.education_major.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {demographic.education_major.map((major, idx) => (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-700"
+                    >
+                      {major}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">No specific major required.</p>
+              )}
             </div>
 
             <div className="space-y-2 rounded-xl border border-gray-200 p-4 md:col-span-2">
@@ -203,18 +249,18 @@ export const JobProfile = () => {
                 <span className="text-sm font-semibold text-gray-700">Preferred Universities</span>
                 <span
                   className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${badgeClass(
-                    demographic.preferredUniversitiesAutoReject
+                    demographic.preferred_universities_auto_reject
                   )}`}
                 >
-                  {formatAutoReject(demographic.preferredUniversitiesAutoReject)}
+                  {formatAutoReject(demographic.preferred_universities_auto_reject)}
                 </span>
               </div>
-              {demographic.preferredUniversitiesEnabled &&
-              demographic.preferredUniversities.length ? (
+              {demographic.preferred_universities_enabled &&
+              demographic.preferred_universities.length ? (
                 <div className="flex flex-wrap gap-2">
-                  {demographic.preferredUniversities.map((university) => (
+                  {demographic.preferred_universities.map((university, idx) => (
                     <span
-                      key={university}
+                      key={idx}
                       className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-700"
                     >
                       {university}
@@ -231,57 +277,40 @@ export const JobProfile = () => {
         </section>
 
         <section className="card p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900">Key Responsibilities</h2>
-          <ul className="space-y-3 text-sm text-gray-700">
-            {job.responsibilities.map((item) => (
-              <li key={item} className="flex items-start">
-                <span className="mr-2 mt-1 h-1.5 w-1.5 rounded-full bg-primary" />
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section className="card p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900">Requirements</h2>
-          <ul className="space-y-3 text-sm text-gray-700">
-            {job.requirements.map((item) => (
-              <li key={item} className="flex items-start">
-                <span className="mr-2 mt-1 h-1.5 w-1.5 rounded-full bg-primary" />
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section className="card p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">Experience & Skills</h2>
             <span
               className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${badgeClass(
-                job.experienceMinYearsAutoReject
+                job.experience_min_years_auto_reject
               )}`}
             >
               <ShieldAlert className="mr-1 h-3 w-3" />
-              {formatAutoReject(job.experienceMinYearsAutoReject)}
+              {formatAutoReject(job.experience_min_years_auto_reject)}
             </span>
           </div>
-          <div className="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-700">
-            <span className="font-medium text-gray-600">Minimum Years of Experience:</span>{' '}
-            <span className="text-gray-900">{job.experienceMinYears}+ years</span>
-          </div>
+          {job.experience_min_years && (
+            <div className="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-700">
+              <span className="font-medium text-gray-600">Minimum Years of Experience:</span>{' '}
+              <span className="text-gray-900">{job.experience_min_years}+ years</span>
+            </div>
+          )}
           <div>
             <h3 className="mb-2 text-sm font-semibold text-gray-800">Required Skills</h3>
-            {job.requiredSkills.length ? (
+            {job.required_skills && job.required_skills.length > 0 ? (
               <div className="flex flex-wrap gap-2">
-                {job.requiredSkills.map((skill) => (
-                  <span
-                    key={skill}
-                    className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
-                  >
-                    {skill}
-                  </span>
-                ))}
+                {job.required_skills.map((skill, idx) => {
+                  const skillName = typeof skill === 'string' ? skill : skill.name;
+                  const skillPriority = typeof skill === 'string' ? null : skill.priority;
+                  return (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+                    >
+                      {skillName}
+                      {skillPriority && <span className="ml-1 text-[10px] opacity-75">({skillPriority})</span>}
+                    </span>
+                  );
+                })}
               </div>
             ) : (
               <p className="text-sm text-gray-500">No specific skills listed.</p>
@@ -294,20 +323,26 @@ export const JobProfile = () => {
         <section className="card space-y-4 p-6">
           <h2 className="text-lg font-semibold text-gray-900">Role Details</h2>
           <div className="space-y-3 text-sm text-gray-700">
-            <div className="flex items-center justify-between">
-              <span>Salary Range</span>
-              <span className="font-medium text-gray-900">
-                {job.salary.min} - {job.salary.max} {job.salary.currency} / {job.salary.period}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Employment Type</span>
-              <span className="font-medium text-gray-900">{job.employmentType}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Experience Level</span>
-              <span className="font-medium text-gray-900">{job.experienceLevel}</span>
-            </div>
+            {(job.salary_min || job.salary_max) && (
+              <div className="flex items-center justify-between">
+                <span>Salary Range</span>
+                <span className="font-medium text-gray-900">
+                  {job.salary_min ? `${job.salary_min}` : '—'} - {job.salary_max ? `${job.salary_max}` : '—'} Million Toman / Month
+                </span>
+              </div>
+            )}
+            {job.employment_type && (
+              <div className="flex items-center justify-between">
+                <span>Employment Type</span>
+                <span className="font-medium text-gray-900">{job.employment_type}</span>
+              </div>
+            )}
+            {job.experience_level && (
+              <div className="flex items-center justify-between">
+                <span>Experience Level</span>
+                <span className="font-medium text-gray-900">{job.experience_level}</span>
+              </div>
+            )}
           </div>
         </section>
       </aside>
@@ -332,15 +367,19 @@ export const JobProfile = () => {
           <div>
             <h1 className="text-3xl font-bold text-gray-900">{job.title}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-gray-600">
-              <span className="font-medium text-primary">{job.department}</span>
-              <span className="flex items-center text-gray-500">
-                <MapPin className="mr-1 h-4 w-4" />
-                {job.location}
-              </span>
-              <span className="flex items-center text-gray-500">
-                <Clock className="mr-1 h-4 w-4" />
-                {job.employmentType}
-              </span>
+              <span className="font-medium text-primary">{job.department_name || 'No Department'}</span>
+              {job.location && (
+                <span className="flex items-center text-gray-500">
+                  <MapPin className="mr-1 h-4 w-4" />
+                  {job.location}
+                </span>
+              )}
+              {job.employment_type && (
+                <span className="flex items-center text-gray-500">
+                  <Clock className="mr-1 h-4 w-4" />
+                  {job.employment_type}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -354,18 +393,13 @@ export const JobProfile = () => {
           </Link>
           <div className="flex flex-col items-end space-y-3 text-sm text-gray-600">
             <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-semibold text-green-700">
-              {job.status.toUpperCase()}
+              ACTIVE
             </span>
             <div className="flex items-center space-x-4">
-              <span className="flex items-center">
-                <Users className="mr-1 h-4 w-4 text-gray-400" />
-                {job.candidates} applicants
-              </span>
               <span className="flex items-center">
                 <Calendar className="mr-1 h-4 w-4 text-gray-400" />
                 Posted {new Date(job.created_at).toLocaleDateString()}
               </span>
-              <span className="text-primary font-semibold">Avg. Score: {job.averageScore}%</span>
             </div>
           </div>
         </div>
@@ -431,3 +465,4 @@ export const JobProfile = () => {
     </div>
   );
 };
+

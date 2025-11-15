@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { Briefcase } from 'lucide-react';
 
 export const Login = () => {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,12 +17,12 @@ export const Login = () => {
     setLoading(true);
 
     try {
-      // Mock login - in real app, this would call the API
-      if (username && password) {
-        await login(username, password);
+      // Login with email instead of username
+      if (email && password) {
+        await login(email, password);
         navigate('/');
       } else {
-        setError('Please enter username and password');
+        setError('Please enter email and password');
       }
     } catch (err) {
       setError('Invalid credentials');
@@ -55,16 +55,16 @@ export const Login = () => {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
-                Username
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                Email
               </label>
               <input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="input-field"
-                placeholder="Enter your username"
+                placeholder="Enter your email"
                 required
               />
             </div>
@@ -93,8 +93,13 @@ export const Login = () => {
             </button>
           </form>
 
-          <div className="mt-6 text-center text-sm text-gray-500">
-            <p>Demo: Use any username and password to login</p>
+          <div className="mt-6 text-center text-sm text-gray-600">
+            <p>
+              Don't have an account?{' '}
+              <Link to="/signup" className="text-primary hover:text-primary-dark font-medium">
+                Sign Up
+              </Link>
+            </p>
           </div>
         </div>
       </div>

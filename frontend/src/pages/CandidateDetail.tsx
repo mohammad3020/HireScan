@@ -80,13 +80,13 @@ const mockCandidate = {
   notes: [
     {
       id: 1,
-      user_username: 'admin',
+      user_email: 'admin@example.com',
       content: 'Strong candidate with excellent technical skills. Recommended for interview.',
       created_at: '2024-01-16T14:20:00Z',
     },
     {
       id: 2,
-      user_username: 'hr_manager',
+      user_email: 'hr_manager@example.com',
       content: 'Follow up on availability for next week.',
       created_at: '2024-01-17T09:15:00Z',
     },
@@ -446,7 +446,7 @@ export const CandidateDetail = () => {
               {candidate.notes.map((note) => (
                 <div key={note.id} className="p-4 bg-gray-50 rounded-lg">
                   <div className="flex items-start justify-between mb-2">
-                    <p className="text-sm font-medium text-gray-900">{note.user_username}</p>
+                    <p className="text-sm font-medium text-gray-900">{note.user_email}</p>
                     <p className="text-xs text-gray-500">
                       {new Date(note.created_at).toLocaleDateString()}
                     </p>

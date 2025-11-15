@@ -4,6 +4,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Layout } from './components/Layout';
 import { Login } from './pages/Login';
+import { SignUp } from './pages/SignUp';
 import { Dashboard } from './pages/Dashboard';
 import { Jobs } from './pages/Jobs';
 import { JobForm } from './pages/JobForm';
@@ -31,6 +32,10 @@ function AppRoutes() {
       <Route
         path="/login"
         element={isAuthenticated ? <Navigate to="/" replace /> : <Login />}
+      />
+      <Route
+        path="/signup"
+        element={isAuthenticated ? <Navigate to="/" replace /> : <SignUp />}
       />
       <Route
         path="/"

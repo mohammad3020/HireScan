@@ -55,7 +55,7 @@ export interface Note {
   id: number;
   candidate: number;
   user: number;
-  user_username?: string;
+  user_email?: string;
   content: string;
   created_at: string;
   updated_at: string;
@@ -117,6 +117,50 @@ export const useAddNote = () => {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['candidates', variables.candidateId] });
+    },
+  });
+};
+
+export interface CVUploadResponse {
+  message: string;
+  successful: number;
+  failed: number;
+  results: Array<{
+    resume_id: number;
+    candidate_id: number;
+    status: 'success';
+    parsed_resume_id: number;
+  }>;
+  errors: Array<{
+    resume_id: number;
+    candidate_id: number;
+    status: 'error';
+    error: string;
+  }>;
+  batch_id?: number;
+}
+
+export const useUploadCV = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ files, jobId }: { files: File[]; jobId?: number }) => {
+      const formData = new FormData();
+      files.forEach((file) => {
+        formData.append('files', file);
+      });
+      if (jobId) {
+        formData.append('job_id', jobId.toString());
+      }
+
+      // Content-Type will be set automatically by axios interceptor for FormData
+      const response = await apiClient.post<CVUploadResponse>('/candidates/upload-cv/', formData);
+      return response.data;
+    },
+    onSuccess: () => {
+      // Invalidate candidates and resumes queries
+      queryClient.invalidateQueries({ queryKey: ['candidates'] });
+      queryClient.invalidateQueries({ queryKey: ['resumes'] });
     },
   });
 };

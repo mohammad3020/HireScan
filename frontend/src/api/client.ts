@@ -9,12 +9,17 @@ const apiClient = axios.create({
   },
 });
 
-// Request interceptor to add JWT token
+// Request interceptor to add JWT token and handle FormData
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    // If data is FormData, remove Content-Type header to let axios set it with boundary
+    // Check for FormData by checking constructor name to avoid instanceof issues
+    if (config.data && typeof config.data === 'object' && config.data.constructor && config.data.constructor.name === 'FormData') {
+      delete config.headers['Content-Type'];
     }
     return config;
   },

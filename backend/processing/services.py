@@ -2,14 +2,30 @@
 Processing services for resume parsing and ranking (synchronous)
 """
 import os
+import sys
 from pathlib import Path
 from django.conf import settings
 from core.openrouter import OpenRouterClient
-from candidates.models import Candidate, Resume, ParsedResume, Experience, Skill, TimelineEvent, JobScore
+from candidates.models import (
+    Candidate, Resume, ParsedResume, Experience, Education, TimelineEvent, JobScore,
+    TechnicalSkill, SoftSkill, SkillMentionedInJobTitle,
+    Project, Award, Language, Course, Publication
+)
 from jobs.models import Job
 from .models import BatchUpload, FileItem
 import PyPDF2
 from docx import Document
+
+# Add ai directory to path to import service
+ai_dir = Path(settings.BASE_DIR).parent / 'ai'
+if str(ai_dir) not in sys.path:
+    sys.path.insert(0, str(ai_dir))
+
+try:
+    from ai.service import process_file_with_prompt
+    HAS_AI_SERVICE = True
+except ImportError:
+    HAS_AI_SERVICE = False
 
 
 def extract_text_from_file(file_path):
@@ -65,7 +81,7 @@ def load_prompt_template(template_name):
 
 def parse_resume_service(resume_instance):
     """
-    Parse a resume using OpenRouter API
+    Parse a resume using OpenRouter API via AI service
     
     Args:
         resume_instance: Resume model instance
@@ -73,17 +89,36 @@ def parse_resume_service(resume_instance):
     Returns:
         ParsedResume instance
     """
-    client = OpenRouterClient()
-    
-    # Extract text from file
+    # Get file path
     file_path = resume_instance.file.path
-    resume_text = extract_text_from_file(file_path)
     
-    # Load prompt template
-    prompt_template = load_prompt_template('parse_resume')
-    
-    # Parse via OpenRouter
-    parsed_data = client.parse_resume(resume_text, prompt_template)
+    # Use AI service if available, otherwise fallback to old method
+    if HAS_AI_SERVICE:
+        try:
+            # Use the AI service to process the file
+            parsed_data = process_file_with_prompt(
+                file_path=str(file_path),
+                prompt_name='parse_resume',
+                model=settings.OPENROUTER_PARSE_MODEL,
+                temperature=0.7,
+                max_tokens=4000,
+                response_format={"type": "json_object"},
+                extract_text=True  # Extract text for better parsing
+            )
+            # Extract text for raw_text field
+            resume_text = extract_text_from_file(file_path)
+        except Exception as e:
+            # Fallback to old method if AI service fails
+            client = OpenRouterClient()
+            resume_text = extract_text_from_file(file_path)
+            prompt_template = load_prompt_template('parse_resume')
+            parsed_data = client.parse_resume(resume_text, prompt_template)
+    else:
+        # Fallback to old method
+        client = OpenRouterClient()
+        resume_text = extract_text_from_file(file_path)
+        prompt_template = load_prompt_template('parse_resume')
+        parsed_data = client.parse_resume(resume_text, prompt_template)
     
     # Create or update ParsedResume
     parsed_resume, created = ParsedResume.objects.get_or_create(
@@ -99,41 +134,178 @@ def parse_resume_service(resume_instance):
         parsed_resume.parsed_data = parsed_data
         parsed_resume.save()
     
+    # Extract personal info
+    personal_info = parsed_data.get('personal_info', {})
+    links = personal_info.get('links', {})
+    
+    # Update ParsedResume with personal information
+    parsed_resume.full_name = personal_info.get('full_name', '')
+    parsed_resume.phone = personal_info.get('phone', '')
+    parsed_resume.email = personal_info.get('email', '')
+    parsed_resume.address = personal_info.get('address', '')
+    parsed_resume.date_of_birth = personal_info.get('date_of_birth', '')
+    parsed_resume.marital_status = personal_info.get('marital_status', '')
+    parsed_resume.military_service = personal_info.get('military_service', '')
+    parsed_resume.linkedin_url = links.get('linkedin', '')
+    parsed_resume.github_url = links.get('github', '')
+    parsed_resume.portfolio_url = links.get('portfolio', '')
+    parsed_resume.website_url = links.get('website', '')
+    parsed_resume.other_links = links.get('other', [])
+    parsed_resume.interests = parsed_data.get('interests', {})
+    parsed_resume.other_sections = parsed_data.get('other_sections', {})
+    parsed_resume.extraction_notes = parsed_data.get('extraction_notes', {})
+    parsed_resume.save()
+    
     # Update candidate information from parsed data
     candidate = resume_instance.candidate
-    if parsed_data.get('name') and not candidate.name:
-        candidate.name = parsed_data['name']
-    if parsed_data.get('email') and not candidate.email:
-        candidate.email = parsed_data['email']
-    if parsed_data.get('phone') and not candidate.phone:
-        candidate.phone = parsed_data.get('phone', '')
-    if parsed_data.get('linkedin_url') and not candidate.linkedin_url:
-        candidate.linkedin_url = parsed_data.get('linkedin_url', '')
-    if parsed_data.get('github_url') and not candidate.github_url:
-        candidate.github_url = parsed_data.get('github_url', '')
+    if parsed_resume.full_name and not candidate.name:
+        candidate.name = parsed_resume.full_name
+    if parsed_resume.email and not candidate.email:
+        candidate.email = parsed_resume.email
+    if parsed_resume.phone and not candidate.phone:
+        candidate.phone = parsed_resume.phone
+    if parsed_resume.linkedin_url and not candidate.linkedin_url:
+        candidate.linkedin_url = parsed_resume.linkedin_url
+    if parsed_resume.github_url and not candidate.github_url:
+        candidate.github_url = parsed_resume.github_url
     candidate.save()
     
-    # Create Experience records
+    # Delete existing related records
+    Education.objects.filter(parsed_resume=parsed_resume).delete()
     Experience.objects.filter(parsed_resume=parsed_resume).delete()
-    for exp_data in parsed_data.get('experiences', []):
-        Experience.objects.create(
+    TechnicalSkill.objects.filter(parsed_resume=parsed_resume).delete()
+    SoftSkill.objects.filter(parsed_resume=parsed_resume).delete()
+    SkillMentionedInJobTitle.objects.filter(parsed_resume=parsed_resume).delete()
+    Project.objects.filter(parsed_resume=parsed_resume).delete()
+    Award.objects.filter(parsed_resume=parsed_resume).delete()
+    Language.objects.filter(parsed_resume=parsed_resume).delete()
+    Course.objects.filter(parsed_resume=parsed_resume).delete()
+    Publication.objects.filter(parsed_resume=parsed_resume).delete()
+    
+    # Create Education records
+    for idx, edu_data in enumerate(parsed_data.get('education', [])):
+        Education.objects.create(
             parsed_resume=parsed_resume,
-            company=exp_data.get('company', ''),
-            role=exp_data.get('role', ''),
-            start_date=exp_data.get('start_date') or None,
-            end_date=exp_data.get('end_date') or None,
-            is_current=exp_data.get('is_current', False),
-            description=exp_data.get('description', '')
+            degree=edu_data.get('degree', ''),
+            field=edu_data.get('field', ''),
+            institution=edu_data.get('institution', ''),
+            location=edu_data.get('location', ''),
+            start_date=edu_data.get('start_date', ''),
+            end_date=edu_data.get('end_date', ''),
+            gpa=edu_data.get('gpa', ''),
+            honors=edu_data.get('honors', ''),
+            thesis=edu_data.get('thesis', ''),
+            relevant_courses=edu_data.get('relevant_courses', []),
+            order=idx
         )
     
-    # Create Skill records
-    Skill.objects.filter(parsed_resume=parsed_resume).delete()
-    for skill_data in parsed_data.get('skills', []):
-        Skill.objects.create(
+    # Create Experience records
+    for idx, exp_data in enumerate(parsed_data.get('experience', [])):
+        Experience.objects.create(
             parsed_resume=parsed_resume,
-            name=skill_data.get('name', ''),
-            category=skill_data.get('category', ''),
-            proficiency=skill_data.get('proficiency', '')
+            job_title=exp_data.get('job_title', ''),
+            company=exp_data.get('company', ''),
+            company_type=exp_data.get('company_type', ''),
+            location=exp_data.get('location', ''),
+            employment_type=exp_data.get('employment_type', ''),
+            start_date=exp_data.get('start_date', ''),
+            end_date=exp_data.get('end_date', ''),
+            duration=exp_data.get('duration', ''),
+            is_currently_employed=exp_data.get('is_currently_employed', False),
+            reasoning=exp_data.get('reasoning', ''),
+            responsibilities=exp_data.get('responsibilities', []),
+            order=idx
+        )
+    
+    # Create Technical Skills
+    skills_data = parsed_data.get('skills', {})
+    technical_skills = skills_data.get('technical', [])
+    for category_data in technical_skills:
+        category = category_data.get('category', '')
+        for item in category_data.get('items', []):
+            TechnicalSkill.objects.create(
+                parsed_resume=parsed_resume,
+                category=category,
+                name=item.get('name', ''),
+                level=item.get('level', '')
+            )
+    
+    # Create Soft Skills
+    for skill_name in skills_data.get('soft', []):
+        SoftSkill.objects.create(
+            parsed_resume=parsed_resume,
+            name=skill_name
+        )
+    
+    # Create Skills Mentioned in Job Title
+    for skill_name in skills_data.get('skills_mentioned_in_job_title', []):
+        SkillMentionedInJobTitle.objects.create(
+            parsed_resume=parsed_resume,
+            name=skill_name
+        )
+    
+    # Create Projects
+    for idx, project_data in enumerate(parsed_data.get('projects', [])):
+        Project.objects.create(
+            parsed_resume=parsed_resume,
+            name=project_data.get('name', ''),
+            role=project_data.get('role', ''),
+            date=project_data.get('date', ''),
+            technologies=project_data.get('technologies', []),
+            description=project_data.get('description', ''),
+            link=project_data.get('link', ''),
+            order=idx
+        )
+    
+    # Create Awards
+    for idx, award_data in enumerate(parsed_data.get('awards', [])):
+        Award.objects.create(
+            parsed_resume=parsed_resume,
+            title=award_data.get('title', ''),
+            issuer=award_data.get('issuer', ''),
+            rank=award_data.get('rank', ''),
+            date=award_data.get('date', ''),
+            description=award_data.get('description', ''),
+            order=idx
+        )
+    
+    # Create Languages
+    for lang_data in parsed_data.get('languages', []):
+        Language.objects.create(
+            parsed_resume=parsed_resume,
+            language=lang_data.get('language', ''),
+            proficiency=lang_data.get('proficiency', ''),
+            skills=lang_data.get('skills', {}),
+            certificates=lang_data.get('certificates', [])
+        )
+    
+    # Create Courses
+    for idx, course_data in enumerate(parsed_data.get('courses', [])):
+        Course.objects.create(
+            parsed_resume=parsed_resume,
+            name=course_data.get('name', ''),
+            provider=course_data.get('provider', ''),
+            instructor=course_data.get('instructor', ''),
+            completion_date=course_data.get('completion_date', ''),
+            duration=course_data.get('duration', ''),
+            certificate_id=course_data.get('certificate_id', ''),
+            verification_link=course_data.get('verification_link', ''),
+            order=idx
+        )
+    
+    # Create Publications
+    for idx, pub_data in enumerate(parsed_data.get('publications', [])):
+        Publication.objects.create(
+            parsed_resume=parsed_resume,
+            title=pub_data.get('title', ''),
+            authors=pub_data.get('authors', []),
+            venue=pub_data.get('venue', ''),
+            year=pub_data.get('year', ''),
+            volume_pages=pub_data.get('volume_pages', ''),
+            doi=pub_data.get('doi', ''),
+            link=pub_data.get('link', ''),
+            citations=pub_data.get('citations', ''),
+            order=idx
         )
     
     # Create timeline event

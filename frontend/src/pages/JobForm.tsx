@@ -1,17 +1,9 @@
-import { type ChangeEvent, useState } from 'react';
+import { type ChangeEvent, useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
 // @ts-ignore
 import { availableSkills } from '../../availableSkills';
-
-// Mock departments
-const departments = [
-  { id: 1, name: 'Engineering' },
-  { id: 2, name: 'Product' },
-  { id: 3, name: 'Design' },
-  { id: 4, name: 'Marketing' },
-  { id: 5, name: 'Sales' },
-];
+import { useJob, useCreateJob, useUpdateJob, useDepartments, type Job } from '../api/jobs';
 
 const genderOptions = [
   { value: '', label: 'Select gender' },
@@ -377,14 +369,22 @@ export const JobForm = () => {
   const navigate = useNavigate();
   const isEdit = !!id;
 
+  const { data: jobData, isLoading: isLoadingJob } = useJob(Number(id) || 0);
+  const { data: departmentsData } = useDepartments();
+  const createJobMutation = useCreateJob();
+  const updateJobMutation = useUpdateJob();
+
+  // Ensure departments is always an array
+  const departments = Array.isArray(departmentsData) ? departmentsData : [];
+
   const [majorInput, setMajorInput] = useState('');
   const [showMajorSuggestions, setShowMajorSuggestions] = useState(false);
   const [showSkillSuggestions, setShowSkillSuggestions] = useState(false);
   const [companyInput, setCompanyInput] = useState('');
 
   const [formData, setFormData] = useState({
-    title: isEdit ? 'Senior Software Engineer' : '',
-    description: isEdit ? 'We are looking for an experienced software engineer...' : '',
+    title: '',
+    description: '',
     department: '',
     location: '',
     employment_type: '',
@@ -415,6 +415,72 @@ export const JobForm = () => {
       },
     },
   });
+
+  // Load job data when editing
+  useEffect(() => {
+    if (isEdit && jobData) {
+      const skills = Array.isArray(jobData.required_skills) 
+        ? jobData.required_skills.map((s: any) => 
+            typeof s === 'string' ? { name: s, priority: 'Important' as const } : s
+          )
+        : [];
+      
+      const demo = jobData.demographic_requirements || {
+        age_range: {
+          min: jobData.age_range_min,
+          max: jobData.age_range_max,
+          auto_reject: jobData.age_range_auto_reject,
+        },
+        gender: jobData.gender || '',
+        gender_auto_reject: jobData.gender_auto_reject || false,
+        military_status: jobData.military_status || '',
+        military_auto_reject: jobData.military_auto_reject || false,
+        education_level: jobData.education_level || '',
+        education_level_auto_reject: jobData.education_level_auto_reject || false,
+        education_major: jobData.education_major || [],
+        education_major_auto_reject: jobData.education_major_auto_reject || false,
+        preferred_universities_enabled: jobData.preferred_universities_enabled || false,
+        preferred_universities_auto_reject: jobData.preferred_universities_auto_reject || false,
+        preferred_universities: jobData.preferred_universities || [],
+        target_companies_enabled: jobData.target_companies_enabled || false,
+        target_companies: jobData.target_companies || [],
+      };
+
+      setFormData({
+        title: jobData.title || '',
+        description: jobData.description || '',
+        department: jobData.department?.toString() || '',
+        location: jobData.location || '',
+        employment_type: jobData.employment_type || '',
+        experience_level: jobData.experience_level || '',
+        salary_min: jobData.salary_min?.toString() || '30',
+        salary_max: jobData.salary_max?.toString() || '80',
+        required_skills: skills,
+        experience_min_years: jobData.experience_min_years?.toString() || '',
+        experience_min_years_auto_reject: jobData.experience_min_years_auto_reject || false,
+        demographic_requirements: {
+          gender: demo.gender || '',
+          gender_auto_reject: demo.gender_auto_reject || false,
+          military_status: demo.military_status || '',
+          military_auto_reject: demo.military_auto_reject || false,
+          education_level: demo.education_level || '',
+          education_level_auto_reject: demo.education_level_auto_reject || false,
+          education_major: demo.education_major || [],
+          education_major_auto_reject: demo.education_major_auto_reject || false,
+          preferred_universities_enabled: demo.preferred_universities_enabled || false,
+          preferred_universities_auto_reject: demo.preferred_universities_auto_reject || false,
+          preferred_universities: demo.preferred_universities || [],
+          target_companies_enabled: demo.target_companies_enabled || false,
+          target_companies: demo.target_companies || [],
+          age_range: {
+            min: demo.age_range?.min?.toString() || '',
+            max: demo.age_range?.max?.toString() || '',
+            auto_reject: demo.age_range?.auto_reject || false,
+          },
+        },
+      });
+    }
+  }, [isEdit, jobData]);
 
   const [skillInput, setSkillInput] = useState('');
   const [skillPriority, setSkillPriority] = useState<'Critical' | 'Important' | 'Nice-to-have'>('Important');
@@ -500,12 +566,62 @@ export const JobForm = () => {
     end: ((salaryRange.max - SALARY_MIN_BOUND) / (SALARY_MAX_BOUND - SALARY_MIN_BOUND)) * 100,
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock save
-    console.log('Saving job:', formData);
-    navigate('/jobs');
+    
+    try {
+      const submitData: any = {
+        title: formData.title,
+        description: formData.description,
+        department: formData.department ? Number(formData.department) : null,
+        location: formData.location,
+        employment_type: formData.employment_type || undefined,
+        experience_level: formData.experience_level || undefined,
+        salary_min: formData.salary_min ? Number(formData.salary_min) : null,
+        salary_max: formData.salary_max ? Number(formData.salary_max) : null,
+        required_skills: formData.required_skills,
+        experience_min_years: formData.experience_min_years ? Number(formData.experience_min_years) : null,
+        experience_min_years_auto_reject: formData.experience_min_years_auto_reject,
+        age_range_min: formData.demographic_requirements.age_range.min ? Number(formData.demographic_requirements.age_range.min) : null,
+        age_range_max: formData.demographic_requirements.age_range.max ? Number(formData.demographic_requirements.age_range.max) : null,
+        age_range_auto_reject: formData.demographic_requirements.age_range.auto_reject,
+        gender: formData.demographic_requirements.gender || undefined,
+        gender_auto_reject: formData.demographic_requirements.gender_auto_reject,
+        military_status: formData.demographic_requirements.military_status || undefined,
+        military_auto_reject: formData.demographic_requirements.military_auto_reject,
+        education_level: formData.demographic_requirements.education_level || undefined,
+        education_level_auto_reject: formData.demographic_requirements.education_level_auto_reject,
+        education_major: formData.demographic_requirements.education_major,
+        education_major_auto_reject: formData.demographic_requirements.education_major_auto_reject,
+        preferred_universities_enabled: formData.demographic_requirements.preferred_universities_enabled,
+        preferred_universities_auto_reject: formData.demographic_requirements.preferred_universities_auto_reject,
+        preferred_universities: formData.demographic_requirements.preferred_universities,
+        target_companies_enabled: formData.demographic_requirements.target_companies_enabled,
+        target_companies: formData.demographic_requirements.target_companies,
+      };
+
+      if (isEdit && id) {
+        await updateJobMutation.mutateAsync({ id: Number(id), data: submitData });
+      } else {
+        await createJobMutation.mutateAsync(submitData);
+      }
+      
+      navigate('/jobs');
+    } catch (error) {
+      console.error('Failed to save job:', error);
+      alert('Failed to save job. Please try again.');
+    }
   };
+
+  if (isEdit && isLoadingJob) {
+    return (
+      <div className="space-y-6">
+        <div className="card p-12 text-center">
+          <p className="text-gray-600">Loading job data...</p>
+        </div>
+      </div>
+    );
+  }
 
   const addSkill = () => {
     if (skillInput.trim() && !formData.required_skills.some(s => s.name === skillInput.trim())) {
@@ -572,7 +688,7 @@ export const JobForm = () => {
                 >
                   <option value="">Select department</option>
                   {departments.map((dept) => (
-                    <option key={dept.id} value={dept.name}>
+                    <option key={dept.id} value={dept.id}>
                       {dept.name}
                     </option>
                   ))}
@@ -1405,9 +1521,12 @@ export const JobForm = () => {
             <button
               type="submit"
               className="btn-primary flex items-center"
+              disabled={createJobMutation.isPending || updateJobMutation.isPending}
             >
               <Save className="h-5 w-5 mr-2" />
-              {isEdit ? 'Update Job' : 'Create Job'}
+              {createJobMutation.isPending || updateJobMutation.isPending 
+                ? 'Saving...' 
+                : isEdit ? 'Update Job' : 'Create Job'}
             </button>
         </div>
       </form>

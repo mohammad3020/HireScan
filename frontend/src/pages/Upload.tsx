@@ -1,14 +1,14 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Upload as UploadIcon,
   X,
-  File,
+  File as FileIcon,
   CheckCircle,
   AlertCircle,
   Loader,
 } from 'lucide-react';
-import { mockJobs } from './jobsData';
+import { useUploadCV } from '../api/candidates';
 
 interface FileWithPreview extends File {
   preview?: string;
@@ -20,22 +20,13 @@ export const Upload = () => {
   const [searchParams] = useSearchParams();
   const [files, setFiles] = useState<FileWithPreview[]>([]);
   const [isDragging, setIsDragging] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
   
-  // Get jobId from query parameter, or default to first job
-  const jobIdFromQuery = searchParams.get('jobId');
-  const initialJobId = jobIdFromQuery ? Number(jobIdFromQuery) : (mockJobs[0]?.id ?? 0);
-  const [selectedJobId, setSelectedJobId] = useState<number>(initialJobId);
-
-  // Update selectedJobId when query parameter changes
-  useEffect(() => {
-    if (jobIdFromQuery) {
-      const jobId = Number(jobIdFromQuery);
-      if (!isNaN(jobId) && mockJobs.some(job => job.id === jobId)) {
-        setSelectedJobId(jobId);
-      }
-    }
-  }, [jobIdFromQuery]);
+  const uploadCV = useUploadCV();
+  
+  // Get jobId from query parameter
+  const jobId = searchParams.get('jobId') ? Number(searchParams.get('jobId')) : undefined;
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -74,10 +65,12 @@ export const Upload = () => {
       alert('Some files were rejected. Only PDF, DOC, and DOCX files are allowed.');
     }
 
-    const newFiles = validFiles.map((file) => ({
-      ...file,
-      status: 'pending' as const,
-    }));
+    // Preserve File objects and add status property
+    const newFiles = validFiles.map((file) => {
+      // Add status property directly to the File object
+      (file as any).status = 'pending';
+      return file;
+    });
 
     setFiles((prev) => {
       const combined = [...prev, ...newFiles];
@@ -97,10 +90,12 @@ export const Upload = () => {
       alert('Some files were rejected. Only PDF, DOC, and DOCX files are allowed.');
     }
 
-    const newFiles = validFiles.map((file) => ({
-      ...file,
-      status: 'pending' as const,
-    }));
+    // Preserve File objects and add status property
+    const newFiles = validFiles.map((file) => {
+      // Add status property directly to the File object
+      (file as any).status = 'pending';
+      return file;
+    });
 
     setFiles((prev) => {
       const combined = [...prev, ...newFiles];
@@ -119,14 +114,79 @@ export const Upload = () => {
   const handleUpload = async () => {
     if (files.length === 0) return;
 
-    setUploading(true);
+    setUploadError(null);
+    setUploadSuccess(null);
     
-    // Mock upload - simulate processing
-    setTimeout(() => {
-      setUploading(false);
-      // Navigate to processing status page
-      navigate('/processing/1');
-    }, 2000);
+    // Update all files to processing status
+    setFiles((prev) => {
+      prev.forEach((file) => {
+        (file as any).status = 'processing';
+      });
+      return [...prev];
+    });
+
+    try {
+      // Ensure we're passing actual File objects
+      // Now that File is not shadowed, we can use it properly
+      const fileObjects = files.filter((f) => {
+        // Check if it's a File object by checking for File properties and methods
+        return f && 
+               typeof f === 'object' && 
+               f instanceof File;
+      }) as File[];
+      
+      if (fileObjects.length === 0) {
+        throw new Error('No valid file objects found');
+      }
+
+      console.log('Uploading files:', fileObjects.map(f => ({ name: f.name, size: f.size, type: f.type })));
+
+      const result = await uploadCV.mutateAsync({
+        files: fileObjects,
+        jobId: jobId,
+      });
+
+      // Update files with results
+      setFiles((prev) => {
+        // Mark first N files as completed (where N = successful count)
+        for (let i = 0; i < result.successful && i < prev.length; i++) {
+          (prev[i] as any).status = 'completed';
+        }
+        // Mark remaining files as failed (if any)
+        for (let i = result.successful; i < prev.length; i++) {
+          (prev[i] as any).status = 'failed';
+        }
+        return [...prev];
+      });
+
+      // Show success message
+      setUploadSuccess(
+        `Successfully processed ${result.successful} out of ${files.length} files.` +
+        (result.failed > 0 ? ` ${result.failed} files failed.` : '')
+      );
+
+      // If batch_id exists, navigate to processing page
+      if (result.batch_id) {
+        setTimeout(() => {
+          navigate(`/processing/${result.batch_id}`);
+        }, 2000);
+      }
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      setUploadError(
+        error.response?.data?.error || 
+        error.message || 
+        'Failed to upload files. Please try again.'
+      );
+      
+      // Update all files to failed status
+      setFiles((prev) => {
+        prev.forEach((file) => {
+          (file as any).status = 'failed';
+        });
+        return [...prev];
+      });
+    }
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -178,20 +238,53 @@ export const Upload = () => {
         </p>
       </div>
 
+      {/* Success/Error Messages */}
+      {uploadSuccess && (
+        <div className="card p-4 bg-green-50 border border-green-200">
+          <div className="flex items-center space-x-2">
+            <CheckCircle className="h-5 w-5 text-green-600" />
+            <p className="text-sm font-medium text-green-800">{uploadSuccess}</p>
+          </div>
+        </div>
+      )}
+
+      {uploadError && (
+        <div className="card p-4 bg-red-50 border border-red-200">
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="h-5 w-5 text-red-600" />
+            <p className="text-sm font-medium text-red-800">{uploadError}</p>
+          </div>
+        </div>
+      )}
+
       {/* Files List */}
       {files.length > 0 && (
         <div className="card">
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Selected Files ({files.length}/100)
-              </h2>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Selected Files ({files.length}/100)
+                </h2>
+                {jobId && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    Job ID: {jobId}
+                  </p>
+                )}
+              </div>
               <button
                 onClick={handleUpload}
-                disabled={uploading}
+                disabled={uploadCV.isPending}
                 className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {uploading ? 'Uploading...' : 'Upload & Process'}
+                {uploadCV.isPending ? (
+                  <>
+                    <Loader className="h-4 w-4 mr-2 animate-spin inline" />
+                    Uploading & Processing...
+                  </>
+                ) : (
+                  'Upload & Process'
+                )}
               </button>
             </div>
           </div>
@@ -200,7 +293,7 @@ export const Upload = () => {
               <div key={index} className="p-4 flex items-center justify-between hover:bg-gray-50">
                 <div className="flex items-center space-x-4 flex-1">
                   <div className="p-2 bg-gray-100 rounded-lg">
-                    <File className="h-5 w-5 text-gray-600" />
+                    <FileIcon className="h-5 w-5 text-gray-600" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
@@ -213,13 +306,22 @@ export const Upload = () => {
                       </span>
                     )}
                     {file.status === 'processing' && (
-                      <Loader className="h-4 w-4 text-blue-600 animate-spin" />
+                      <div className="flex items-center space-x-2">
+                        <Loader className="h-4 w-4 text-blue-600 animate-spin" />
+                        <span className="text-xs text-blue-600">Processing...</span>
+                      </div>
                     )}
                     {file.status === 'completed' && (
-                      <CheckCircle className="h-5 w-5 text-green-600" />
+                      <div className="flex items-center space-x-2">
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                        <span className="text-xs text-green-600">Completed</span>
+                      </div>
                     )}
                     {file.status === 'failed' && (
-                      <AlertCircle className="h-5 w-5 text-red-600" />
+                      <div className="flex items-center space-x-2">
+                        <AlertCircle className="h-5 w-5 text-red-600" />
+                        <span className="text-xs text-red-600">Failed</span>
+                      </div>
                     )}
                   </div>
                 </div>
