@@ -1,6 +1,8 @@
 import { type ChangeEvent, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
+// @ts-ignore
+import { availableSkills } from '../../availableSkills';
 
 // Mock departments
 const departments = [
@@ -377,6 +379,8 @@ export const JobForm = () => {
 
   const [majorInput, setMajorInput] = useState('');
   const [showMajorSuggestions, setShowMajorSuggestions] = useState(false);
+  const [showSkillSuggestions, setShowSkillSuggestions] = useState(false);
+  const [companyInput, setCompanyInput] = useState('');
 
   const [formData, setFormData] = useState({
     title: isEdit ? 'Senior Software Engineer' : '',
@@ -402,6 +406,8 @@ export const JobForm = () => {
       preferred_universities_enabled: false,
       preferred_universities_auto_reject: false,
       preferred_universities: [] as string[],
+      target_companies_enabled: false,
+      target_companies: [] as string[],
       age_range: {
         min: '',
         max: '',
@@ -734,19 +740,81 @@ export const JobForm = () => {
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Required Skills</h2>
           <div className="space-y-4">
-            <div className="flex w-full max-w-2xl gap-2">
-              <input
-                type="text"
-                value={skillInput}
-                onChange={(e) => setSkillInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addSkill())}
-                placeholder="Add a skill and press Enter"
-                className="input-field flex-1"
-              />
+            <div className="flex items-start gap-0">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={skillInput}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setSkillInput(value);
+                    if (value.trim()) {
+                      setShowSkillSuggestions(true);
+                    } else {
+                      setShowSkillSuggestions(false);
+                    }
+                  }}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addSkill();
+                    }
+                  }}
+                  onFocus={() => {
+                    if (skillInput.trim()) {
+                      setShowSkillSuggestions(true);
+                    }
+                  }}
+                  onBlur={() => {
+                    // Delay to allow click on suggestion
+                    setTimeout(() => setShowSkillSuggestions(false), 200);
+                  }}
+                  placeholder="Type or select skill..."
+                  className="input-field max-w-[200px] rounded-r-none"
+                />
+                {showSkillSuggestions && skillInput.trim() && (
+                  <div className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+                    {availableSkills
+                      .filter((skill: string) =>
+                        skill.toLowerCase().includes(skillInput.toLowerCase()) &&
+                        !formData.required_skills.some(s => s.name.toLowerCase() === skill.toLowerCase())
+                      )
+                      .slice(0, 10)
+                      .map((skill: string, index: number) => (
+                        <button
+                          key={index}
+                          type="button"
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-primary/10 hover:text-primary transition-colors"
+                          onClick={() => {
+                            if (!formData.required_skills.some(s => s.name.toLowerCase() === skill.toLowerCase())) {
+                              setFormData({
+                                ...formData,
+                                required_skills: [...formData.required_skills, { name: skill, priority: skillPriority }],
+                              });
+                            }
+                            setSkillInput('');
+                            setShowSkillSuggestions(false);
+                            setSkillPriority('Important');
+                          }}
+                        >
+                          {skill}
+                        </button>
+                      ))}
+                    {availableSkills.filter((skill: string) =>
+                      skill.toLowerCase().includes(skillInput.toLowerCase()) &&
+                      !formData.required_skills.some(s => s.name.toLowerCase() === skill.toLowerCase())
+                    ).length === 0 && skillInput && (
+                      <div className="px-4 py-2 text-sm text-gray-500">
+                        No matching skill found. You can type a custom skill and press Enter.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
               <select
                 value={skillPriority}
                 onChange={(e) => setSkillPriority(e.target.value as 'Critical' | 'Important' | 'Nice-to-have')}
-                className="input-field max-w-[180px]"
+                className="input-field max-w-[200px] rounded-none border-l-0"
               >
                 <option value="Critical">Critical</option>
                 <option value="Important">Important</option>
@@ -755,7 +823,7 @@ export const JobForm = () => {
               <button
                 type="button"
                 onClick={addSkill}
-                className="btn-secondary whitespace-nowrap"
+                className="btn-secondary whitespace-nowrap rounded-l-none"
               >
                 Add
               </button>
@@ -1015,19 +1083,42 @@ export const JobForm = () => {
                 </label>
               </div>
               <div className="relative max-w-[400px] space-y-2">
-                <input
-                  type="text"
-                  className="input-field w-full"
-                  placeholder="Type or select university major..."
-                  value={majorInput}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setMajorInput(value);
-                    setShowMajorSuggestions(true);
-                  }}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
+                <div className="relative flex gap-0">
+                  <input
+                    type="text"
+                    className="input-field max-w-[200px] rounded-r-none"
+                    placeholder="Type or select university major..."
+                    value={majorInput}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setMajorInput(value);
+                      setShowMajorSuggestions(true);
+                    }}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (majorInput.trim() && !formData.demographic_requirements.education_major.includes(majorInput.trim())) {
+                          setFormData({
+                            ...formData,
+                            demographic_requirements: {
+                              ...formData.demographic_requirements,
+                              education_major: [...formData.demographic_requirements.education_major, majorInput.trim()],
+                            },
+                          });
+                          setMajorInput('');
+                          setShowMajorSuggestions(false);
+                        }
+                      }
+                    }}
+                    onFocus={() => setShowMajorSuggestions(true)}
+                    onBlur={() => {
+                      // Delay to allow click on suggestion
+                      setTimeout(() => setShowMajorSuggestions(false), 200);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
                       if (majorInput.trim() && !formData.demographic_requirements.education_major.includes(majorInput.trim())) {
                         setFormData({
                           ...formData,
@@ -1039,16 +1130,13 @@ export const JobForm = () => {
                         setMajorInput('');
                         setShowMajorSuggestions(false);
                       }
-                    }
-                  }}
-                  onFocus={() => setShowMajorSuggestions(true)}
-                  onBlur={() => {
-                    // Delay to allow click on suggestion
-                    setTimeout(() => setShowMajorSuggestions(false), 200);
-                  }}
-                />
-                {showMajorSuggestions && (
-                  <div className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+                    }}
+                    className="btn-secondary whitespace-nowrap rounded-l-none"
+                  >
+                    Add
+                  </button>
+                  {showMajorSuggestions && (
+                    <div className="absolute z-50 top-full mt-1 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg">
                     {universityMajors
                       .filter((major) =>
                         major.toLowerCase().includes(majorInput.toLowerCase()) &&
@@ -1086,7 +1174,8 @@ export const JobForm = () => {
                       </div>
                     )}
                   </div>
-                )}
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-2 mt-3">
                   {formData.demographic_requirements.education_major.map((major) => (
                     <span
@@ -1183,6 +1272,107 @@ export const JobForm = () => {
                         </label>
                       );
                     })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-4">
+                <label className="block text-sm font-medium text-gray-700">Target Companies</label>
+              </div>
+              <label className="inline-flex items-center text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  className="mr-3 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  checked={formData.demographic_requirements.target_companies_enabled}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      demographic_requirements: {
+                        ...formData.demographic_requirements,
+                        target_companies_enabled: e.target.checked,
+                        target_companies: e.target.checked
+                          ? formData.demographic_requirements.target_companies
+                          : [],
+                      },
+                    })
+                  }
+                />
+                Enable target companies
+              </label>
+
+              {formData.demographic_requirements.target_companies_enabled && (
+                <div className="relative max-w-[400px] space-y-2">
+                  <div className="relative flex gap-0">
+                    <input
+                      type="text"
+                      className="input-field max-w-[200px] rounded-r-none"
+                      placeholder="Type company name..."
+                      value={companyInput}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setCompanyInput(value);
+                      }}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (companyInput.trim() && !formData.demographic_requirements.target_companies.includes(companyInput.trim())) {
+                            setFormData({
+                              ...formData,
+                              demographic_requirements: {
+                                ...formData.demographic_requirements,
+                                target_companies: [...formData.demographic_requirements.target_companies, companyInput.trim()],
+                              },
+                            });
+                            setCompanyInput('');
+                          }
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (companyInput.trim() && !formData.demographic_requirements.target_companies.includes(companyInput.trim())) {
+                          setFormData({
+                            ...formData,
+                            demographic_requirements: {
+                              ...formData.demographic_requirements,
+                              target_companies: [...formData.demographic_requirements.target_companies, companyInput.trim()],
+                            },
+                          });
+                          setCompanyInput('');
+                        }
+                      }}
+                      className="btn-secondary whitespace-nowrap rounded-l-none"
+                    >
+                      Add
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {formData.demographic_requirements.target_companies.map((company) => (
+                      <span
+                        key={company}
+                        className="inline-flex items-center px-3 py-1 bg-primary text-white rounded-full text-sm"
+                      >
+                        {company}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData({
+                              ...formData,
+                              demographic_requirements: {
+                                ...formData.demographic_requirements,
+                                target_companies: formData.demographic_requirements.target_companies.filter((c) => c !== company),
+                              },
+                            });
+                          }}
+                          className="ml-2 hover:text-gray-300"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
                   </div>
                 </div>
               )}

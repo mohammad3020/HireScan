@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { mockJobs } from './jobsData';
+import { useCandidatesStore } from '../store/candidates';
 import {
   Search,
   RefreshCw,
@@ -11,6 +12,8 @@ import {
   StickyNote,
   Sparkles,
   Star,
+  Tag,
+  ChevronDown,
 } from 'lucide-react';
 
 type CandidateStatus = 'qualified' | 'in_process' | 'new';
@@ -31,6 +34,7 @@ type Candidate = {
   notes: string;
   aiSummary: string;
   isFavorite: boolean;
+  category: CandidateCategory;
 };
 
 export const mockCandidates: Candidate[] = [
@@ -50,6 +54,7 @@ export const mockCandidates: Candidate[] = [
     notes: 'Great cultural fit. Strong leadership qualities.',
     aiSummary: 'High match: exceeds role requirements with strong frontend expertise.',
     isFavorite: true,
+    category: 'none',
   },
   {
     id: 2,
@@ -67,6 +72,7 @@ export const mockCandidates: Candidate[] = [
     notes: 'Needs deeper knowledge in DevOps practices.',
     aiSummary: 'Good match: strong technical base, minor gaps in ops.',
     isFavorite: false,
+    category: 'none',
   },
   {
     id: 3,
@@ -84,6 +90,7 @@ export const mockCandidates: Candidate[] = [
     notes: 'Portfolio is impressive. Schedule system design interview.',
     aiSummary: 'Excellent design thinking, quick learner.',
     isFavorite: true,
+    category: 'none',
   },
   {
     id: 4,
@@ -101,6 +108,7 @@ export const mockCandidates: Candidate[] = [
     notes: 'Needs mentoring plan. Has strong backend fundamentals.',
     aiSummary: 'Solid backend engineer with growth potential.',
     isFavorite: false,
+    category: 'none',
   },
   {
     id: 5,
@@ -118,6 +126,7 @@ export const mockCandidates: Candidate[] = [
     notes: 'Junior but motivated. Consider for internship track.',
     aiSummary: 'Average match: junior candidate, high enthusiasm.',
     isFavorite: false,
+    category: 'none',
   },
   {
     id: 6,
@@ -135,6 +144,7 @@ export const mockCandidates: Candidate[] = [
     notes: 'Ask for more testing examples.',
     aiSummary: 'Good testing knowledge, needs broader architecture exposure.',
     isFavorite: false,
+    category: 'none',
   },
 ];
 
@@ -146,7 +156,8 @@ const jobOptions = mockJobs.map(job => ({
 
 type SortKey = 'name' | 'score' | 'experienceYears' | 'skills';
 type SortKeyExtended = SortKey | 'experienceScore' | 'educationScore' | 'index';
-type ActiveBucket = 'all' | 'shortlisted' | 'favorite';
+type CandidateCategory = 'none' | 'interview_scheduled' | 'interviewed' | 'offer_sent' | 'hired';
+type ActiveBucket = 'all' | 'shortlisted' | 'favorite' | 'interview_scheduled' | 'interviewed' | 'offer_sent' | 'hired';
 
 const scoreClasses = (value: number) => {
   if (value >= 90) return 'border-blue-300 bg-blue-50 text-blue-700';
@@ -179,14 +190,14 @@ export const Review = () => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [openNotesId, setOpenNotesId] = useState<number | null>(null);
   const [openAiId, setOpenAiId] = useState<number | null>(null);
-  const [favorites, setFavorites] = useState<Record<number, boolean>>(
-    () =>
-      mockCandidates.reduce<Record<number, boolean>>((acc, candidate) => {
-        acc[candidate.id] = candidate.isFavorite;
-        return acc;
-      }, {})
-  );
+  const [openCategoryId, setOpenCategoryId] = useState<number | null>(null);
+  const { favorites, categories, setFavorite, setCategory, initializeFromCandidates } = useCandidatesStore();
   const [activeBucket, setActiveBucket] = useState<ActiveBucket>('all');
+
+  // Initialize store from candidates
+  useEffect(() => {
+    initializeFromCandidates(mockCandidates.map(c => ({ id: c.id, isFavorite: c.isFavorite, category: c.category })));
+  }, [initializeFromCandidates]);
 
   // Update selectedJob when query parameter changes
   useEffect(() => {
@@ -202,6 +213,7 @@ export const Review = () => {
     const handleGlobalClick = () => {
       setOpenNotesId(null);
       setOpenAiId(null);
+      setOpenCategoryId(null);
     };
     document.addEventListener('click', handleGlobalClick);
     return () => document.removeEventListener('click', handleGlobalClick);
@@ -223,6 +235,26 @@ export const Review = () => {
   const favoriteCount = useMemo(
     () => jobCandidates.filter((candidate) => favorites[candidate.id]).length,
     [jobCandidates, favorites]
+  );
+
+  const interviewScheduledCount = useMemo(
+    () => jobCandidates.filter((candidate) => categories[candidate.id] === 'interview_scheduled').length,
+    [jobCandidates, categories]
+  );
+
+  const interviewedCount = useMemo(
+    () => jobCandidates.filter((candidate) => categories[candidate.id] === 'interviewed').length,
+    [jobCandidates, categories]
+  );
+
+  const offerSentCount = useMemo(
+    () => jobCandidates.filter((candidate) => categories[candidate.id] === 'offer_sent').length,
+    [jobCandidates, categories]
+  );
+
+  const hiredCount = useMemo(
+    () => jobCandidates.filter((candidate) => categories[candidate.id] === 'hired').length,
+    [jobCandidates, categories]
   );
 
   const avgScore = useMemo(() => {
@@ -260,10 +292,18 @@ export const Review = () => {
         return searchedCandidates.filter((candidate) => candidate.status === 'qualified');
       case 'favorite':
         return searchedCandidates.filter((candidate) => favorites[candidate.id]);
+      case 'interview_scheduled':
+        return searchedCandidates.filter((candidate) => categories[candidate.id] === 'interview_scheduled');
+      case 'interviewed':
+        return searchedCandidates.filter((candidate) => categories[candidate.id] === 'interviewed');
+      case 'offer_sent':
+        return searchedCandidates.filter((candidate) => categories[candidate.id] === 'offer_sent');
+      case 'hired':
+        return searchedCandidates.filter((candidate) => categories[candidate.id] === 'hired');
       default:
         return searchedCandidates;
     }
-  }, [searchedCandidates, activeBucket, favorites]);
+  }, [searchedCandidates, activeBucket, favorites, categories]);
 
   const sortedCandidates = useMemo(() => {
     const dir = sortDirection === 'asc' ? 1 : -1;
@@ -329,7 +369,7 @@ export const Review = () => {
           <div className="flex items-center gap-3"></div>
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-4">
+        <div className="mt-6 grid gap-4 md:grid-cols-4 lg:grid-cols-7">
           <div
             onClick={() => setActiveBucket('all')}
             className={`cursor-pointer rounded-2xl border border-gray-200 bg-white p-4 transition ${
@@ -357,9 +397,41 @@ export const Review = () => {
             <p className="text-xs font-medium uppercase text-gray-500">Favorite</p>
             <p className="mt-2 text-2xl font-semibold text-blue-700">{favoriteCount}</p>
           </div>
-          <div className="rounded-2xl border border-gray-200 bg-white p-4">
-            <p className="text-xs font-medium uppercase text-gray-500">Avg. Score</p>
-            <p className="mt-2 text-2xl font-semibold text-gray-900">{avgScore}</p>
+          <div
+            onClick={() => setActiveBucket('interview_scheduled')}
+            className={`cursor-pointer rounded-2xl border border-purple-200 bg-purple-50 p-4 transition ${
+              activeBucket === 'interview_scheduled' ? 'ring-2 ring-purple-300' : ''
+            }`}
+          >
+            <p className="text-xs font-medium uppercase text-gray-500">Interview Scheduled</p>
+            <p className="mt-2 text-2xl font-semibold text-purple-700">{interviewScheduledCount}</p>
+          </div>
+          <div
+            onClick={() => setActiveBucket('interviewed')}
+            className={`cursor-pointer rounded-2xl border border-indigo-200 bg-indigo-50 p-4 transition ${
+              activeBucket === 'interviewed' ? 'ring-2 ring-indigo-300' : ''
+            }`}
+          >
+            <p className="text-xs font-medium uppercase text-gray-500">Interviewed</p>
+            <p className="mt-2 text-2xl font-semibold text-indigo-700">{interviewedCount}</p>
+          </div>
+          <div
+            onClick={() => setActiveBucket('offer_sent')}
+            className={`cursor-pointer rounded-2xl border border-orange-200 bg-orange-50 p-4 transition ${
+              activeBucket === 'offer_sent' ? 'ring-2 ring-orange-300' : ''
+            }`}
+          >
+            <p className="text-xs font-medium uppercase text-gray-500">Offer Sent</p>
+            <p className="mt-2 text-2xl font-semibold text-orange-700">{offerSentCount}</p>
+          </div>
+          <div
+            onClick={() => setActiveBucket('hired')}
+            className={`cursor-pointer rounded-2xl border border-emerald-200 bg-emerald-50 p-4 transition ${
+              activeBucket === 'hired' ? 'ring-2 ring-emerald-300' : ''
+            }`}
+          >
+            <p className="text-xs font-medium uppercase text-gray-500">Hired</p>
+            <p className="mt-2 text-2xl font-semibold text-emerald-700">{hiredCount}</p>
           </div>
         </div>
       </div>
@@ -401,12 +473,13 @@ export const Review = () => {
                 </th>
                 <th className="px-4 py-4 text-center" />
                 <th className="px-3 py-4 text-center" />
+                <th className="px-3 py-4 text-center">Category</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
               {sortedCandidates.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-sm text-gray-500">
+                  <td colSpan={8} className="px-6 py-12 text-center text-sm text-gray-500">
                     No candidates found for this job.
                   </td>
                 </tr>
@@ -419,10 +492,7 @@ export const Review = () => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setFavorites((prev) => ({
-                              ...prev,
-                              [candidate.id]: !prev[candidate.id],
-                            }));
+                            setFavorite(candidate.id, !favorites[candidate.id]);
                           }}
                           className={`rounded-full border p-1 transition ${favorites[candidate.id]
                             ? 'border-yellow-300 bg-yellow-100 text-yellow-500 hover:bg-yellow-200'
@@ -516,6 +586,83 @@ export const Review = () => {
                               AI Review
                             </div>
                             <p className="text-sm leading-5">{candidate.aiSummary}</p>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-3 py-4 text-center">
+                      <div className="relative flex justify-center">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenCategoryId((prev) => {
+                              const next = prev === candidate.id ? null : candidate.id;
+                              if (next !== null) {
+                                setOpenNotesId(null);
+                                setOpenAiId(null);
+                              }
+                              return next;
+                            });
+                          }}
+                          className={`inline-flex h-9 items-center gap-1 rounded-lg border px-3 text-xs font-medium transition ${
+                            categories[candidate.id] === 'interview_scheduled'
+                              ? 'border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100'
+                              : categories[candidate.id] === 'interviewed'
+                              ? 'border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                              : categories[candidate.id] === 'offer_sent'
+                              ? 'border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100'
+                              : categories[candidate.id] === 'hired'
+                              ? 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                              : 'border-gray-300 bg-gray-50 text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          <Tag className="h-3.5 w-3.5" />
+                          <span className="capitalize">
+                            {categories[candidate.id] === 'interview_scheduled'
+                              ? 'Interview Scheduled'
+                              : categories[candidate.id] === 'interviewed'
+                              ? 'Interviewed'
+                              : categories[candidate.id] === 'offer_sent'
+                              ? 'Offer Sent'
+                              : categories[candidate.id] === 'hired'
+                              ? 'Hired'
+                              : 'None'}
+                          </span>
+                          <ChevronDown className="h-3 w-3" />
+                        </button>
+                        {openCategoryId === candidate.id && (
+                          <div
+                            onClick={(e) => e.stopPropagation()}
+                            className="absolute right-0 bottom-full z-20 mb-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg"
+                          >
+                            <div className="py-1">
+                              {(['none', 'interview_scheduled', 'interviewed', 'offer_sent', 'hired'] as CandidateCategory[]).map((category) => (
+                                <button
+                                  key={category}
+                                  onClick={() => {
+                                    setCategory(candidate.id, category);
+                                    setOpenCategoryId(null);
+                                  }}
+                                  className={`w-full px-4 py-2 text-left text-xs transition hover:bg-gray-50 ${
+                                    categories[candidate.id] === category
+                                      ? 'bg-gray-50 font-medium text-gray-900'
+                                      : 'text-gray-700'
+                                  }`}
+                                >
+                                  <span className="capitalize">
+                                    {category === 'interview_scheduled'
+                                      ? 'Interview Scheduled'
+                                      : category === 'interviewed'
+                                      ? 'Interviewed'
+                                      : category === 'offer_sent'
+                                      ? 'Offer Sent'
+                                      : category === 'hired'
+                                      ? 'Hired'
+                                      : 'None'}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
                           </div>
                         )}
                       </div>
