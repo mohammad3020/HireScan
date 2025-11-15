@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 
 type CandidateStatus = 'qualified' | 'in_process' | 'new';
+type CandidateCategory = 'shortlisted' | 'rejected' | 'interview_scheduled' | 'interviewed' | 'offer_sent' | 'hired';
 
 type Candidate = {
   id: number;
@@ -67,10 +68,13 @@ const generateCandidatesForJob = (
   for (let i = 0; i < 20; i++) {
     const seed = jobId * 1000 + i;
     const name = names[i];
+    if (!name) continue; // Skip if name is missing
     const email = `${name.toLowerCase().replace(/\s+/g, '.')}@example.com`;
     const experienceYears = jobRequirements.experienceMinYears + Math.floor(seededRandom(seed) * 5) - 2;
-    const ageRange = (jobRequirements.ageRange.max || 40) - (jobRequirements.ageRange.min || 25);
-    const age = (jobRequirements.ageRange.min || 25) + Math.floor(seededRandom(seed + 1) * ageRange);
+    const minAge = jobRequirements.ageRange.min || 25;
+    const maxAge = jobRequirements.ageRange.max || 40;
+    const ageRange = maxAge - minAge;
+    const age = minAge + Math.floor(seededRandom(seed + 1) * ageRange);
     
     // Determine if auto-rejected based on filters
     let auto_rejected = false;
@@ -530,7 +534,6 @@ const jobOptions = mockJobs.map(job => ({
 
 type SortKey = 'name' | 'score' | 'experienceYears' | 'skills';
 type SortKeyExtended = SortKey | 'experienceScore' | 'educationScore' | 'index' | 'category';
-type CandidateCategory = 'shortlisted' | 'rejected' | 'interview_scheduled' | 'interviewed' | 'offer_sent' | 'hired';
 type ActiveBucket = 'all' | 'shortlisted' | 'favorite' | 'interview_scheduled' | 'interviewed' | 'offer_sent' | 'hired';
 
 const scoreClasses = (value: number) => {
@@ -570,12 +573,19 @@ export const Review = () => {
 
   // Initialize store from candidates
   useEffect(() => {
-    initializeFromCandidates(mockCandidates.map(c => {
-      // If not auto_rejected, automatically set to shortlisted
-      const initialCategory = c.auto_rejected ? 'rejected' : (c.category || 'shortlisted');
-      return { id: c.id, isFavorite: c.isFavorite, category: initialCategory };
-    }));
-  }, [initializeFromCandidates]);
+    // Only initialize for candidates of the selected job to avoid unnecessary updates
+    if (!selectedJob || !mockCandidates || mockCandidates.length === 0) {
+      return;
+    }
+    const jobCandidates = mockCandidates.filter(c => c.jobId === selectedJob);
+    if (jobCandidates.length > 0) {
+      initializeFromCandidates(jobCandidates.map(c => {
+        // If not auto_rejected, automatically set to shortlisted
+        const initialCategory = c.auto_rejected ? 'rejected' : (c.category || 'shortlisted');
+        return { id: c.id, isFavorite: c.isFavorite, category: initialCategory };
+      }));
+    }
+  }, [initializeFromCandidates, selectedJob]);
 
   // Update selectedJob when query parameter changes
   useEffect(() => {
@@ -599,19 +609,35 @@ export const Review = () => {
 
   const job = jobOptions.find((option) => option.id === selectedJob);
   const jobCandidates = useMemo(
-    () => mockCandidates.filter((candidate) => candidate.jobId === selectedJob),
-    [selectedJob]
+    () => {
+      if (!selectedJob) {
+        return [];
+      }
+      const filtered = mockCandidates.filter((candidate) => candidate.jobId === selectedJob);
+      return filtered;
+    },
+    [selectedJob, mockCandidates]
   );
 
   const totalResumes = jobCandidates.length;
 
   const shortListedCount = useMemo(
-    () => jobCandidates.filter((candidate) => categories[candidate.id] === 'shortlisted').length,
+    () => {
+      return jobCandidates.filter((candidate) => {
+        const cat = categories[candidate.id] || (candidate.auto_rejected ? 'rejected' : 'shortlisted');
+        return cat === 'shortlisted';
+      }).length;
+    },
     [jobCandidates, categories]
   );
 
   const rejectedCount = useMemo(
-    () => jobCandidates.filter((candidate) => categories[candidate.id] === 'rejected').length,
+    () => {
+      return jobCandidates.filter((candidate) => {
+        const cat = categories[candidate.id] || (candidate.auto_rejected ? 'rejected' : 'shortlisted');
+        return cat === 'rejected';
+      }).length;
+    },
     [jobCandidates, categories]
   );
 
@@ -672,17 +698,32 @@ export const Review = () => {
   const bucketFilteredCandidates = useMemo(() => {
     switch (activeBucket) {
       case 'shortlisted':
-        return searchedCandidates.filter((candidate) => categories[candidate.id] === 'shortlisted');
+        return searchedCandidates.filter((candidate) => {
+          const cat = categories[candidate.id] || (candidate.auto_rejected ? 'rejected' : 'shortlisted');
+          return cat === 'shortlisted';
+        });
       case 'favorite':
         return searchedCandidates.filter((candidate) => favorites[candidate.id]);
       case 'interview_scheduled':
-        return searchedCandidates.filter((candidate) => categories[candidate.id] === 'interview_scheduled');
+        return searchedCandidates.filter((candidate) => {
+          const cat = categories[candidate.id] || (candidate.auto_rejected ? 'rejected' : 'shortlisted');
+          return cat === 'interview_scheduled';
+        });
       case 'interviewed':
-        return searchedCandidates.filter((candidate) => categories[candidate.id] === 'interviewed');
+        return searchedCandidates.filter((candidate) => {
+          const cat = categories[candidate.id] || (candidate.auto_rejected ? 'rejected' : 'shortlisted');
+          return cat === 'interviewed';
+        });
       case 'offer_sent':
-        return searchedCandidates.filter((candidate) => categories[candidate.id] === 'offer_sent');
+        return searchedCandidates.filter((candidate) => {
+          const cat = categories[candidate.id] || (candidate.auto_rejected ? 'rejected' : 'shortlisted');
+          return cat === 'offer_sent';
+        });
       case 'hired':
-        return searchedCandidates.filter((candidate) => categories[candidate.id] === 'hired');
+        return searchedCandidates.filter((candidate) => {
+          const cat = categories[candidate.id] || (candidate.auto_rejected ? 'rejected' : 'shortlisted');
+          return cat === 'hired';
+        });
       default:
         return searchedCandidates;
     }
@@ -698,8 +739,8 @@ export const Review = () => {
         return (a.skills.length - b.skills.length) * dir;
       }
       if (sortKey === 'category') {
-        const categoryA = categories[a.id] || 'shortlisted';
-        const categoryB = categories[b.id] || 'shortlisted';
+        const categoryA = categories[a.id] || (a.auto_rejected ? 'rejected' : 'shortlisted');
+        const categoryB = categories[b.id] || (b.auto_rejected ? 'rejected' : 'shortlisted');
         const categoryOrder: Record<CandidateCategory, number> = {
           'shortlisted': 1,
           'interview_scheduled': 2,

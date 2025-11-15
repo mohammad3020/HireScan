@@ -71,12 +71,14 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
   const [activeBucket, setActiveBucket] = useState<ActiveBucket>('all');
 
   useEffect(() => {
-    initializeFromCandidates(mockCandidates.map(c => {
+    // Only initialize for candidates of this job
+    const jobCandidates = mockCandidates.filter(c => c.jobId === jobId);
+    initializeFromCandidates(jobCandidates.map(c => {
       // If not auto_rejected, automatically set to shortlisted
       const initialCategory = c.auto_rejected ? 'rejected' : (c.category || 'shortlisted');
       return { id: c.id, isFavorite: c.isFavorite, category: initialCategory };
     }));
-  }, [initializeFromCandidates]);
+  }, [initializeFromCandidates, jobId]);
 
   useEffect(() => {
     const handleGlobalClick = () => {
@@ -89,8 +91,13 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
   }, []);
 
   const jobCandidates = useMemo(
-    () => mockCandidates.filter((candidate) => candidate.jobId === jobId),
-    [jobId]
+    () => {
+      if (!jobId) {
+        return [];
+      }
+      return mockCandidates.filter((candidate) => candidate.jobId === jobId);
+    },
+    [jobId, mockCandidates]
   );
 
   const totalResumes = jobCandidates.length;
@@ -156,17 +163,32 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
   const bucketFilteredCandidates = useMemo(() => {
     switch (activeBucket) {
       case 'shortlisted':
-        return searchedCandidates.filter((candidate) => categories[candidate.id] === 'shortlisted');
+        return searchedCandidates.filter((candidate) => {
+          const cat = categories[candidate.id] || (candidate.auto_rejected ? 'rejected' : 'shortlisted');
+          return cat === 'shortlisted';
+        });
       case 'favorite':
         return searchedCandidates.filter((candidate) => favorites[candidate.id]);
       case 'interview_scheduled':
-        return searchedCandidates.filter((candidate) => categories[candidate.id] === 'interview_scheduled');
+        return searchedCandidates.filter((candidate) => {
+          const cat = categories[candidate.id] || (candidate.auto_rejected ? 'rejected' : 'shortlisted');
+          return cat === 'interview_scheduled';
+        });
       case 'interviewed':
-        return searchedCandidates.filter((candidate) => categories[candidate.id] === 'interviewed');
+        return searchedCandidates.filter((candidate) => {
+          const cat = categories[candidate.id] || (candidate.auto_rejected ? 'rejected' : 'shortlisted');
+          return cat === 'interviewed';
+        });
       case 'offer_sent':
-        return searchedCandidates.filter((candidate) => categories[candidate.id] === 'offer_sent');
+        return searchedCandidates.filter((candidate) => {
+          const cat = categories[candidate.id] || (candidate.auto_rejected ? 'rejected' : 'shortlisted');
+          return cat === 'offer_sent';
+        });
       case 'hired':
-        return searchedCandidates.filter((candidate) => categories[candidate.id] === 'hired');
+        return searchedCandidates.filter((candidate) => {
+          const cat = categories[candidate.id] || (candidate.auto_rejected ? 'rejected' : 'shortlisted');
+          return cat === 'hired';
+        });
       default:
         return searchedCandidates;
     }
@@ -182,8 +204,8 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
         return (a.skills.length - b.skills.length) * dir;
       }
       if (sortKey === 'category') {
-        const categoryA = categories[a.id] || 'shortlisted';
-        const categoryB = categories[b.id] || 'shortlisted';
+        const categoryA = categories[a.id] || (a.auto_rejected ? 'rejected' : 'shortlisted');
+        const categoryB = categories[b.id] || (b.auto_rejected ? 'rejected' : 'shortlisted');
         const categoryOrder: Record<CandidateCategory, number> = {
           'shortlisted': 1,
           'interview_scheduled': 2,
