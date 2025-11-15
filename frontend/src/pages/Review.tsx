@@ -34,6 +34,7 @@ type Candidate = {
   notes: string;
   aiSummary: string;
   isFavorite: boolean;
+  auto_rejected: boolean;
   category: CandidateCategory;
 };
 
@@ -54,7 +55,8 @@ export const mockCandidates: Candidate[] = [
     notes: 'Great cultural fit. Strong leadership qualities.',
     aiSummary: 'High match: exceeds role requirements with strong frontend expertise.',
     isFavorite: true,
-    category: 'none',
+    auto_rejected: false,
+    category: 'shortlisted',
   },
   {
     id: 2,
@@ -72,7 +74,8 @@ export const mockCandidates: Candidate[] = [
     notes: 'Needs deeper knowledge in DevOps practices.',
     aiSummary: 'Good match: strong technical base, minor gaps in ops.',
     isFavorite: false,
-    category: 'none',
+    auto_rejected: false,
+    category: 'shortlisted',
   },
   {
     id: 3,
@@ -90,7 +93,8 @@ export const mockCandidates: Candidate[] = [
     notes: 'Portfolio is impressive. Schedule system design interview.',
     aiSummary: 'Excellent design thinking, quick learner.',
     isFavorite: true,
-    category: 'none',
+    auto_rejected: false,
+    category: 'shortlisted',
   },
   {
     id: 4,
@@ -108,7 +112,8 @@ export const mockCandidates: Candidate[] = [
     notes: 'Needs mentoring plan. Has strong backend fundamentals.',
     aiSummary: 'Solid backend engineer with growth potential.',
     isFavorite: false,
-    category: 'none',
+    auto_rejected: false,
+    category: 'shortlisted',
   },
   {
     id: 5,
@@ -126,7 +131,8 @@ export const mockCandidates: Candidate[] = [
     notes: 'Junior but motivated. Consider for internship track.',
     aiSummary: 'Average match: junior candidate, high enthusiasm.',
     isFavorite: false,
-    category: 'none',
+    auto_rejected: false,
+    category: 'shortlisted',
   },
   {
     id: 6,
@@ -144,7 +150,8 @@ export const mockCandidates: Candidate[] = [
     notes: 'Ask for more testing examples.',
     aiSummary: 'Good testing knowledge, needs broader architecture exposure.',
     isFavorite: false,
-    category: 'none',
+    auto_rejected: false,
+    category: 'shortlisted',
   },
 ];
 
@@ -155,8 +162,8 @@ const jobOptions = mockJobs.map(job => ({
 }));
 
 type SortKey = 'name' | 'score' | 'experienceYears' | 'skills';
-type SortKeyExtended = SortKey | 'experienceScore' | 'educationScore' | 'index';
-type CandidateCategory = 'none' | 'interview_scheduled' | 'interviewed' | 'offer_sent' | 'hired';
+type SortKeyExtended = SortKey | 'experienceScore' | 'educationScore' | 'index' | 'category';
+type CandidateCategory = 'shortlisted' | 'rejected' | 'interview_scheduled' | 'interviewed' | 'offer_sent' | 'hired';
 type ActiveBucket = 'all' | 'shortlisted' | 'favorite' | 'interview_scheduled' | 'interviewed' | 'offer_sent' | 'hired';
 
 const scoreClasses = (value: number) => {
@@ -196,7 +203,11 @@ export const Review = () => {
 
   // Initialize store from candidates
   useEffect(() => {
-    initializeFromCandidates(mockCandidates.map(c => ({ id: c.id, isFavorite: c.isFavorite, category: c.category })));
+    initializeFromCandidates(mockCandidates.map(c => {
+      // If not auto_rejected, automatically set to shortlisted
+      const initialCategory = c.auto_rejected ? 'rejected' : (c.category || 'shortlisted');
+      return { id: c.id, isFavorite: c.isFavorite, category: initialCategory };
+    }));
   }, [initializeFromCandidates]);
 
   // Update selectedJob when query parameter changes
@@ -228,8 +239,13 @@ export const Review = () => {
   const totalResumes = jobCandidates.length;
 
   const shortListedCount = useMemo(
-    () => jobCandidates.filter((candidate) => candidate.status === 'qualified').length,
-    [jobCandidates]
+    () => jobCandidates.filter((candidate) => categories[candidate.id] === 'shortlisted').length,
+    [jobCandidates, categories]
+  );
+
+  const rejectedCount = useMemo(
+    () => jobCandidates.filter((candidate) => categories[candidate.id] === 'rejected').length,
+    [jobCandidates, categories]
   );
 
   const favoriteCount = useMemo(
@@ -289,7 +305,7 @@ export const Review = () => {
   const bucketFilteredCandidates = useMemo(() => {
     switch (activeBucket) {
       case 'shortlisted':
-        return searchedCandidates.filter((candidate) => candidate.status === 'qualified');
+        return searchedCandidates.filter((candidate) => categories[candidate.id] === 'shortlisted');
       case 'favorite':
         return searchedCandidates.filter((candidate) => favorites[candidate.id]);
       case 'interview_scheduled':
@@ -314,9 +330,22 @@ export const Review = () => {
       if (sortKey === 'skills') {
         return (a.skills.length - b.skills.length) * dir;
       }
+      if (sortKey === 'category') {
+        const categoryA = categories[a.id] || 'shortlisted';
+        const categoryB = categories[b.id] || 'shortlisted';
+        const categoryOrder: Record<CandidateCategory, number> = {
+          'shortlisted': 1,
+          'interview_scheduled': 2,
+          'interviewed': 3,
+          'offer_sent': 4,
+          'hired': 5,
+          'rejected': 6,
+        };
+        return (categoryOrder[categoryA] - categoryOrder[categoryB]) * dir;
+      }
       return ((a as any)[sortKey] - (b as any)[sortKey]) * dir;
     });
-  }, [bucketFilteredCandidates, sortKey, sortDirection]);
+  }, [bucketFilteredCandidates, sortKey, sortDirection, categories]);
 
   const SortableHeader = ({
     label,
@@ -473,7 +502,9 @@ export const Review = () => {
                 </th>
                 <th className="px-4 py-4 text-center" />
                 <th className="px-3 py-4 text-center" />
-                <th className="px-3 py-4 text-center">Category</th>
+                <th className="px-3 py-4 text-center">
+                  <SortableHeader label="State" columnKey="category" />
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
@@ -595,6 +626,8 @@ export const Review = () => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
+                            // Don't allow changing category for rejected candidates
+                            if (categories[candidate.id] === 'rejected') return;
                             setOpenCategoryId((prev) => {
                               const next = prev === candidate.id ? null : candidate.id;
                               if (next !== null) {
@@ -604,8 +637,17 @@ export const Review = () => {
                               return next;
                             });
                           }}
+                          disabled={categories[candidate.id] === 'rejected'}
                           className={`inline-flex h-9 items-center gap-1 rounded-lg border px-3 text-xs font-medium transition ${
-                            categories[candidate.id] === 'interview_scheduled'
+                            categories[candidate.id] === 'rejected'
+                              ? 'cursor-not-allowed opacity-75'
+                              : ''
+                          } ${
+                            categories[candidate.id] === 'shortlisted'
+                              ? 'border-green-300 bg-green-50 text-green-700 hover:bg-green-100'
+                              : categories[candidate.id] === 'rejected'
+                              ? 'border-red-300 bg-red-50 text-red-700 hover:bg-red-100'
+                              : categories[candidate.id] === 'interview_scheduled'
                               ? 'border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100'
                               : categories[candidate.id] === 'interviewed'
                               ? 'border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
@@ -618,7 +660,11 @@ export const Review = () => {
                         >
                           <Tag className="h-3.5 w-3.5" />
                           <span className="capitalize">
-                            {categories[candidate.id] === 'interview_scheduled'
+                            {categories[candidate.id] === 'shortlisted'
+                              ? 'Short Listed'
+                              : categories[candidate.id] === 'rejected'
+                              ? 'Rejected'
+                              : categories[candidate.id] === 'interview_scheduled'
                               ? 'Interview Scheduled'
                               : categories[candidate.id] === 'interviewed'
                               ? 'Interviewed'
@@ -626,7 +672,7 @@ export const Review = () => {
                               ? 'Offer Sent'
                               : categories[candidate.id] === 'hired'
                               ? 'Hired'
-                              : 'None'}
+                              : 'Short Listed'}
                           </span>
                           <ChevronDown className="h-3 w-3" />
                         </button>
@@ -636,7 +682,7 @@ export const Review = () => {
                             className="absolute right-0 bottom-full z-20 mb-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg"
                           >
                             <div className="py-1">
-                              {(['none', 'interview_scheduled', 'interviewed', 'offer_sent', 'hired'] as CandidateCategory[]).map((category) => (
+                              {(['shortlisted', 'interview_scheduled', 'interviewed', 'offer_sent', 'hired'] as CandidateCategory[]).map((category) => (
                                 <button
                                   key={category}
                                   onClick={() => {
@@ -649,8 +695,22 @@ export const Review = () => {
                                       : 'text-gray-700'
                                   }`}
                                 >
-                                  <span className="capitalize">
-                                    {category === 'interview_scheduled'
+                                  <span className={`capitalize ${
+                                    category === 'shortlisted'
+                                      ? 'text-green-700'
+                                      : category === 'interview_scheduled'
+                                      ? 'text-purple-700'
+                                      : category === 'interviewed'
+                                      ? 'text-indigo-700'
+                                      : category === 'offer_sent'
+                                      ? 'text-orange-700'
+                                      : category === 'hired'
+                                      ? 'text-emerald-700'
+                                      : ''
+                                  }`}>
+                                    {category === 'shortlisted'
+                                      ? 'Short Listed'
+                                      : category === 'interview_scheduled'
                                       ? 'Interview Scheduled'
                                       : category === 'interviewed'
                                       ? 'Interviewed'
@@ -658,7 +718,7 @@ export const Review = () => {
                                       ? 'Offer Sent'
                                       : category === 'hired'
                                       ? 'Hired'
-                                      : 'None'}
+                                      : ''}
                                   </span>
                                 </button>
                               ))}

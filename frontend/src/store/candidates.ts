@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-type CandidateCategory = 'none' | 'interview_scheduled' | 'interviewed' | 'offer_sent' | 'hired';
+type CandidateCategory = 'shortlisted' | 'rejected' | 'interview_scheduled' | 'interviewed' | 'offer_sent' | 'hired';
 
 interface CandidatesState {
   favorites: Record<number, boolean>;
@@ -44,7 +44,8 @@ export const useCandidatesStore = create<CandidatesState>()(
               newFavorites[candidate.id] = candidate.isFavorite;
             }
             if (!(candidate.id in newCategories)) {
-              newCategories[candidate.id] = candidate.category;
+              // Ensure every candidate has a category - default to shortlisted if not provided
+              newCategories[candidate.id] = candidate.category || 'shortlisted';
             }
           });
           
