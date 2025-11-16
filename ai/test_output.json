@@ -1,195 +1,113 @@
 {
   "personal_info": {
-    "full_name": "مرضیه زمانی",
+    "full_name": "Marzieh Zamani",
     "phone": "09122517303",
     "email": "ms.maniz.amani@gmail.com",
-    "address": "تهران - اتوبان بابایی، شهرک حکیمیه",
-    "date_of_birth": "18 خرداد سال 1364",
-    "marital_status": "متاهل",
-    "military_service": null,
+    "date_of_birth": "1364-03-18",
+    "marital_status": "Married",
+    "location": "Tehran - Babayi Highway, Hakimieh",
     "links": {
-      "linkedin": "https://www.linkedin.com/in/mani-zamani/",
-      "github": null,
-      "portfolio": null,
-      "website": null,
-      "other": []
+      "linkedin": "https://www.linkedin.com/in/mani-zamani/"
     }
   },
   "education": [
     {
-      "degree": "کارشناسی ارشد",
-      "field": "مدیریت بازرگانی",
-      "institution": "دانشگاه تهران",
-      "location": "تهران",
-      "start_date": "1395",
-      "end_date": "1395",
-      "gpa": null,
-      "honors": null,
-      "thesis": null,
-      "relevant_courses": [
-        "مدیریت منابع انسانی",
-        "مدیریت مالی",
-        "مدیریت استراتژیک",
-        "رفتار سازمانی"
-      ]
+      "degree": "Masters",
+      "field": "Business Administration",
+      "institution": "University of Tehran",
+      "institution_category": "Top Iranian Universities",
+      "graduation_year": 1395
     },
     {
-      "degree": "کارشناسی",
-      "field": "مهندسی کامپیوتر",
-      "institution": "دانشگاه آزاد اسلامی",
-      "location": null,
-      "start_date": "1392",
-      "end_date": "1392",
-      "gpa": null,
-      "honors": null,
-      "thesis": null,
-      "relevant_courses": []
+      "degree": "Bachelors",
+      "field": "Computer Engineering",
+      "institution": "Islamic Azad University",
+      "institution_category": "Azad Universities",
+      "graduation_year": 1392
     }
   ],
   "experience": [
     {
-      "job_title": "مدیر آموزش و توسعه منابع انسانی",
-      "company": "هلدینگ آواکتان",
-      "company_type": "هلدینگ (Jeanswest, Banimode, DigiWash, Balcafe)",
-      "location": "تهران",
-      "employment_type": null,
-      "start_date": "خرداد 1402",
-      "end_date": "تیر 1404",
-      "duration": null,
-      "is_currently_employed": true,
-      "reasoning": "با توجه به تاریخ پایان که در آینده است (تیر 1404)، فرد در حال حاضر مشغول به کار است",
+      "job_title": "Learning & Development Manager",
+      "company": "Avakatan Holding (Jeanswest, Banimode, DigiWash, Balcafe)",
+      "location": "Tehran",
+      "start_date": "1402-03",
+      "end_date": "1404-04",
+      "duration_months": 13,
       "responsibilities": [
-        "نیاز سنجی آموزشی بر اساس شغل",
-        "طراحی برنامه آموزشی در خدمت مسیر پیشرفت شغلی",
-        "طراحی و اجرای برنامه های آموزشی",
-        "بررسی میزان اثربخشی دوره های آموزشی",
-        "همکاری با مدیران برای بهبود مهارت ها",
-        "توسعه استراتژی های یادگیری و رشد سازمانی",
-        "پیاده سازی سیستم آنبوردینگ",
-        "برنامه ریزی و پیاده سازی آموزش های سازمانی در راستای فرهنگ سازمانی و برندینگ آموزش",
-        "تهیه محتوای آموزشی استاندارد بر اساس انواع الگوهای یادگیری",
-        "پیاده سازی سیستم مدیریت آموزش و LMS"
+        "Training needs assessment based on job requirements",
+        "Design of training programs aligned with career development",
+        "Implementation of training programs",
+        "Training effectiveness evaluation",
+        "Implementation of onboarding system",
+        "LMS implementation",
+        "Development of organizational learning strategies"
       ]
     },
     {
-      "job_title": "مدیر پروژه آموزش",
-      "company": "موسسه محک",
-      "company_type": null,
-      "location": "تهران",
-      "employment_type": null,
-      "start_date": "تیر 1396",
-      "end_date": "بهمن 1398",
-      "duration": null,
+      "job_title": "Learning & Development Project Manager",
+      "company": "MAHAK",
+      "location": "Tehran",
+      "start_date": "1396-04",
+      "end_date": "1398-11",
+      "duration_months": 31,
       "responsibilities": [
-        "تهیه سند استراتژی توسعه منابع انسانی",
-        "تهیه اسناد شرح شغل برای مشاغل ستادی",
-        "نیازسنجی، برنامه ریزی و اجرای دوره های آموزشی",
-        "پیاده سازی سیستم مدیریت آموزش و LMS"
+        "Developing HR development strategy document",
+        "Job description documentation",
+        "Training needs assessment and implementation",
+        "LMS implementation"
+      ]
+    },
+    {
+      "job_title": "Learning & Development Manager",
+      "company": "Saman Insurance",
+      "location": "Tehran",
+      "start_date": "1391-12",
+      "end_date": "1395-03",
+      "duration_months": 39,
+      "responsibilities": [
+        "Planning and implementing training programs",
+        "E-learning content development",
+        "E-learning support"
+      ]
+    },
+    {
+      "job_title": "HR Specialist",
+      "company": "Raya Zeytoon",
+      "location": "Tehran",
+      "start_date": "1388-11",
+      "end_date": "1391-06",
+      "duration_months": 33,
+      "responsibilities": [
+        "Planning and implementing training programs",
+        "E-learning content development",
+        "E-learning support"
       ]
     }
   ],
   "skills": {
     "technical": [
-      {
-        "category": "مدیریت آموزش",
-        "items": [
-          {
-            "name": "طراحی و پیاده سازی سند آموزش سازمانی",
-            "level": null
-          },
-          {
-            "name": "پیاده سازی استاندارد ISO 10015",
-            "level": "تسلط کامل"
-          },
-          {
-            "name": "پیاده سازی نرم افزارهای مدیریت آموزش",
-            "level": null
-          }
-        ]
-      },
-      {
-        "category": "نرم افزار",
-        "items": [
-          {
-            "name": "فتوشاپ",
-            "level": null
-          }
-        ]
-      }
+      "Organizational training documentation",
+      "ISO 10015 implementation",
+      "LMS implementation",
+      "Training needs analysis",
+      "Project management",
+      "Photoshop"
     ],
     "soft": [
-      "کار تیمی",
-      "تاب آوری",
-      "رفتار سازمانی",
-      "مدیریت پروژه"
-    ],
-    "skills_mentioned_in_job_title": [
-      "مدیریت آموزش",
-      "توسعه منابع انسانی",
-      "مدیریت پروژه"
+      "Teamwork",
+      "Organizational behavior",
+      "Resilience"
     ]
   },
   "languages": [
-    {
-      "language": "فارسی",
-      "proficiency": null,
-      "skills": null,
-      "certificates": []
-    },
-    {
-      "language": "English",
-      "proficiency": null,
-      "skills": null,
-      "certificates": []
-    },
-    {
-      "language": "ترکی آذربایجانی",
-      "proficiency": null,
-      "skills": null,
-      "certificates": []
-    }
+    "Persian",
+    "English",
+    "Azerbaijani Turkish"
   ],
-  "courses": [
-    {
-      "name": "رهبری و مهارتهای رفتاری و ارتباطی",
-      "provider": null,
-      "instructor": null,
-      "completion_date": null,
-      "duration": null,
-      "certificate_id": null,
-      "verification_link": null
-    },
-    {
-      "name": "مدلهای ارزیابی اثربخشی آموزش",
-      "provider": null,
-      "instructor": null,
-      "completion_date": null,
-      "duration": null,
-      "certificate_id": null,
-      "verification_link": null
-    },
-    {
-      "name": "آموزش الکترونیکی (E-Learning)",
-      "provider": null,
-      "instructor": null,
-      "completion_date": null,
-      "duration": null,
-      "certificate_id": null,
-      "verification_link": null
-    }
-  ],
-  "other_sections": {
-    "professional_summary": "من با بیش از ۱۲ سال تجربه در حوزه توسعه منابع انسانی، همیشه تلاش کرده ام آموزش را فراتر از انتقال دانش ببینم؛ ابزاری برای رشد واقعی آدم ها و تقویت فرهنگ سازمانی. برایم مهم است برنامه های آموزشی نه تنها پاسخگوی نیازهای مهارتی باشند، بلکه با ارزش های برند و هویت سازمان هم راستا باشند. به روز نگه داشتن محتوا، طراحی مسیرهای یادگیری متناسب، و برگزاری رویدادهای فرهنگی، بخشی از تلاشم برای ساختن محیطی یادگیرنده و الهام بخش است. هدفم این است که آدم ها در کارشان رشد کنند و این رشد، درخشش سازمان را بیشتر کند.",
-    "references": [
-      "آقای هادی رهبری از هلدینگ آواکتان"
-    ]
-  },
-  "extraction_notes": {
-    "ambiguous_items": [],
-    "missing_sections": [],
-    "quality_issues": [],
-    "special_notes": [
-      "رزومه دارای ساختار منظم و خوانا است"
-    ]
-  }
+  "certifications": [
+    "Leadership and behavioral skills",
+    "Training effectiveness evaluation models",
+    "E-Learning"
+  ]
 }

@@ -4,6 +4,7 @@ Processing services for resume parsing and ranking (synchronous)
 import os
 import sys
 import re
+import json
 from pathlib import Path
 from django.conf import settings
 from core.openrouter import OpenRouterClient
@@ -128,6 +129,20 @@ def parse_resume_service(resume_instance):
             logger.info("AI service parsing completed")
         except Exception as e:
             error_str = str(e)
+            # Log the full error for debugging
+            logger.error(f"AI service error details: {error_str}", exc_info=True)
+            
+            # Extract the actual error message, avoiding double-wrapping
+            if "AI service returned error" in error_str:
+                # Extract the actual error message after the prefix
+                actual_error = error_str.replace("AI service returned error: ", "").replace("AI service returned error response: ", "")
+                logger.error(f"AI service returned error: {actual_error}")
+                # Don't fallback, just raise with the actual error
+                raise ValueError(f"Resume parsing failed: {actual_error}")
+            elif "OpenRouter API error" in error_str:
+                # This is an API-level error, don't fallback
+                logger.error(f"OpenRouter API error: {error_str}")
+                raise ValueError(f"Resume parsing failed: {error_str}")
             logger.warning(f"AI service failed: {error_str}, falling back to old method")
             # Fallback to old method if AI service fails (old method requires text input)
             try:
@@ -135,8 +150,15 @@ def parse_resume_service(resume_instance):
                 resume_text = ""
                 try:
                     resume_text = extract_text_from_file(file_path)
+                    # Validate extracted text
+                    if not resume_text or len(resume_text.strip()) < 50:
+                        raise ValueError("Text extraction returned empty or too short text")
+                    logger.info(f"Extracted {len(resume_text)} characters for fallback method")
                 except Exception as extract_error:
-                    logger.warning(f"Text extraction failed for fallback: {str(extract_error)}")
+                    error_msg = str(extract_error)
+                    logger.error(f"Text extraction failed for fallback: {error_msg}")
+                    # Don't proceed if text extraction failed
+                    raise ValueError(f"Failed to extract text from resume: {error_msg}")
                 
                 client = OpenRouterClient()
                 prompt_template = load_prompt_template('parse_resume')
@@ -145,8 +167,13 @@ def parse_resume_service(resume_instance):
                 # If both methods fail, raise with clear error message
                 fallback_error_str = str(fallback_error)
                 logger.error(f"Fallback parsing also failed: {fallback_error_str}")
+                # Avoid double-wrapping error messages
                 if "Resume parsing failed" in fallback_error_str:
                     raise ValueError(fallback_error_str)
+                # Extract actual error if it's wrapped
+                if "AI service returned error" in fallback_error_str:
+                    actual_error = fallback_error_str.replace("AI service returned error: ", "").replace("AI service returned error response: ", "")
+                    raise ValueError(f"Resume parsing failed: {actual_error}")
                 raise ValueError(f"Resume parsing failed: {fallback_error_str}")
     else:
         # Fallback to old method
@@ -183,9 +210,22 @@ def parse_resume_service(resume_instance):
     logger.info(f"Parsed data keys: {list(parsed_data.keys())}")
     
     # Check for error indicators in response (as per prompt format)
-    if parsed_data.get('error'):
-        error_message = parsed_data.get('message', parsed_data.get('error', 'Unknown error during parsing'))
-        logger.error(f"Parsing returned error: {error_message}")
+    error_value = parsed_data.get('error')
+    if error_value:
+        # Handle different error formats
+        if isinstance(error_value, dict):
+            error_message = error_value.get('message', error_value.get('error', str(error_value)))
+        elif isinstance(error_value, str):
+            error_message = error_value
+        elif isinstance(error_value, bool) and error_value:
+            # If error is just True, try to get message from elsewhere
+            error_message = parsed_data.get('message', 'Unknown error during parsing')
+        else:
+            error_message = str(error_value)
+        
+        # Log full parsed_data for debugging
+        logger.error(f"Parsing returned error. Full parsed_data: {json.dumps(parsed_data, indent=2, default=str)}")
+        logger.error(f"Extracted error message: {error_message}")
         raise ValueError(f"Resume parsing failed: {error_message}")
     
     # Check if parsed_data is empty or only contains metadata
@@ -266,11 +306,19 @@ def parse_resume_service(resume_instance):
     
     # Update candidate information from parsed data
     candidate = resume_instance.candidate
-    if parsed_resume.full_name and not candidate.name:
+    # Update name if we have a parsed name and candidate name is empty or still a placeholder
+    is_placeholder_name = (candidate.name and 
+                          candidate.name.startswith('Candidate ') and 
+                          candidate.name.replace('Candidate ', '').strip().isdigit())
+    if parsed_resume.full_name and (not candidate.name or is_placeholder_name):
+        old_name = candidate.name
         candidate.name = parsed_resume.full_name
+        logger.info(f"Updated candidate {candidate.id} name from '{old_name}' to '{parsed_resume.full_name}'")
     # Fix: use parsed_resume.email (already set above) instead of parsed_resume.parsed_data
-    if parsed_resume.email and (not candidate.email or candidate.email.startswith('temp_') or candidate.email.endswith('@temp.com')):
+    if parsed_resume.email and (not candidate.email or candidate.email.startswith('temp_') or candidate.email.endswith('@temp.com') or candidate.email.endswith('@example.com')):
+        old_email = candidate.email
         candidate.email = parsed_resume.email
+        logger.info(f"Updated candidate {candidate.id} email from '{old_email}' to '{parsed_resume.email}'")
     if parsed_resume.phone and not candidate.phone:
         candidate.phone = parsed_resume.phone
     if parsed_resume.linkedin_url and not candidate.linkedin_url:

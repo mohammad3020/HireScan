@@ -90,17 +90,37 @@ class OpenRouterClient:
         Returns:
             Parsed resume data as dictionary
         """
-        # If resume_text is empty or too short, return error JSON (old method can't read files directly)
-        if not resume_text or len(resume_text.strip()) < 50:
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # Validate resume_text - check if it's actually text or an error message
+        if not resume_text:
             return {
                 "error": True,
                 "message": "نمی‌توانم متن رزومه را از فایل استخراج کنم. احتمالاً فایل PDF شامل متن قابل استخراج نیست (مثلاً فایل اسکن شده) یا فایل آسیب دیده است. لطفاً یک فایل PDF با متن قابل کپی استفاده کنید یا از روش دیگری برای ارسال رزومه استفاده کنید."
             }
         
+        # Check if resume_text looks like an error message (not actual resume text)
+        resume_text_stripped = resume_text.strip()
+        if (len(resume_text_stripped) < 50 or 
+            resume_text_stripped.lower() in ['error', '"error"', "'error'", ' "error"', "' \"error\"'"] or
+            resume_text_stripped.startswith('error') or
+            'error' in resume_text_stripped.lower() and len(resume_text_stripped) < 100):
+            return {
+                "error": True,
+                "message": f"نمی‌توانم متن رزومه را از فایل استخراج کنم. خطا: {resume_text_stripped}"
+            }
+        
         # Format the prompt with resume text
+        # Use safe formatting to avoid KeyError if resume_text contains braces
         # Check if prompt has {resume_text} placeholder, otherwise append text
         if "{resume_text}" in prompt_template:
-            full_prompt = prompt_template.format(resume_text=resume_text)
+            try:
+                # Use string replacement instead of format() to avoid KeyError with braces
+                full_prompt = prompt_template.replace("{resume_text}", resume_text)
+            except Exception as e:
+                # If replacement fails, just append the text
+                full_prompt = f"{prompt_template}\n\nResume text:\n{resume_text}"
         else:
             # Append resume text to prompt if no placeholder found
             full_prompt = f"{prompt_template}\n\nResume text:\n{resume_text}"
@@ -153,9 +173,6 @@ class OpenRouterClient:
         )
         
         # Extract the content from the response
-        import logging
-        logger = logging.getLogger(__name__)
-        
         # Check if response has choices
         if not response.get("choices") or len(response.get("choices", [])) == 0:
             logger.error(f"OpenRouter response has no choices. Full response: {json.dumps(response, indent=2)}")

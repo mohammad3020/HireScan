@@ -9,6 +9,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import Candidate, Resume, ParsedResume, Note, TimelineEvent
@@ -48,12 +49,26 @@ class CandidateViewSet(viewsets.ModelViewSet):
             return CandidateListSerializer
         return CandidateSerializer
     
-    @action(detail=True, methods=['get'])
-    def detail(self, request, pk=None):
+    def retrieve(self, request, *args, **kwargs):
         """Get full candidate detail with all related data"""
-        candidate = self.get_object()
-        serializer = CandidateSerializer(candidate)
-        return Response(serializer.data)
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        try:
+            instance = self.get_object()
+            serializer = self.get_serializer(instance)
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error(f"Error serializing candidate {kwargs.get('pk')}: {str(e)}", exc_info=True)
+            return Response(
+                {'error': f'Error loading candidate: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=True, methods=['get'], url_path='detail')
+    def detail_action(self, request, pk=None):
+        """Alias for retrieve - kept for backward compatibility"""
+        return self.retrieve(request, pk=pk)
     
     @action(detail=True, methods=['post'])
     def add_note(self, request, pk=None):
@@ -104,6 +119,7 @@ class CVUploadView(APIView):
     API endpoint to upload CV files for a job and process them with AI
     Uses background processing via process_batch_service
     """
+    authentication_classes = [JWTAuthentication]  # Only JWT auth, exempts from CSRF
     permission_classes = [IsAuthenticated]
     
     def post(self, request):

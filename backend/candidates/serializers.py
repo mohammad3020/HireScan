@@ -147,8 +147,22 @@ class ParsedResumeSerializer(serializers.ModelSerializer):
 
 class ResumeSerializer(serializers.ModelSerializer):
     """Resume serializer"""
-    parsed_data = ParsedResumeSerializer(read_only=True)
-    candidate_name = serializers.CharField(source='candidate.name', read_only=True)
+    parsed_data = serializers.SerializerMethodField()
+    candidate_name = serializers.SerializerMethodField()
+    
+    def get_candidate_name(self, obj):
+        """Safely get candidate name"""
+        return obj.candidate.name if obj.candidate else None
+    
+    def get_parsed_data(self, obj):
+        """Safely get parsed resume data"""
+        try:
+            # Check if parsed_data relationship exists
+            if hasattr(obj, 'parsed_data') and obj.parsed_data is not None:
+                return ParsedResumeSerializer(obj.parsed_data).data
+            return None
+        except Exception:
+            return None
     
     class Meta:
         model = Resume
@@ -176,8 +190,12 @@ class TimelineEventSerializer(serializers.ModelSerializer):
 
 class JobScoreSerializer(serializers.ModelSerializer):
     """Job score serializer"""
-    job_title = serializers.CharField(source='job.title', read_only=True)
+    job_title = serializers.SerializerMethodField()
     candidate_name = serializers.CharField(source='candidate.name', read_only=True)
+    
+    def get_job_title(self, obj):
+        """Safely get job title"""
+        return obj.job.title if obj.job else None
     
     class Meta:
         model = JobScore

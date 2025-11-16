@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useCandidatesStore } from '../store/candidates';
 import {
@@ -71,6 +71,7 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
   const [openCategoryId, setOpenCategoryId] = useState<number | null>(null);
   const { favorites, categories, setFavorite, setCategory, initializeFromCandidates } = useCandidatesStore();
   const [activeBucket, setActiveBucket] = useState<ActiveBucket>('all');
+  const initializedRef = useRef<number | null>(null);
 
   // Fetch candidates from API
   const { data: reviewData, isLoading, error } = useReviewDashboard(jobId, { enabled: !!jobId });
@@ -82,9 +83,10 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
     return reviewData.all_candidates.map((candidate) => {
       const candidateDetails = candidate.candidate_details || {};
       const skills = candidate.skills || [];
+      const candidateId = candidate.candidate || candidate.id;
       
       return {
-        id: candidate.candidate || candidate.id,
+        id: candidateId,
         jobId: jobId,
         name: candidateDetails.name || candidate.candidate_name || 'Unknown',
         email: candidateDetails.email || '',
@@ -98,22 +100,37 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
         skills: skills,
         notes: (candidate as any).notes || '',
         aiSummary: (candidate as any).ai_summary || (candidate as any).ai_review || '',
-        isFavorite: favorites[candidate.candidate || candidate.id] || false,
+        isFavorite: favorites[candidateId] || false,
         auto_rejected: candidate.auto_rejected || false,
-        category: (categories[candidate.candidate || candidate.id] || (candidate.auto_rejected ? 'rejected' : 'shortlisted')) as CandidateCategory,
+        category: (categories[candidateId] || (candidate.auto_rejected ? 'rejected' : 'shortlisted')) as CandidateCategory,
       };
     });
   }, [reviewData, jobId, favorites, categories]);
 
+  // Initialize store only once when reviewData first loads for this jobId
+  // Use ref to prevent re-initialization when favorites/categories change
   useEffect(() => {
-    // Initialize store with candidates from API
-    if (jobCandidates.length > 0) {
-      initializeFromCandidates(jobCandidates.map(c => {
-        const initialCategory = c.auto_rejected ? 'rejected' : (c.category || 'shortlisted');
-        return { id: c.id, isFavorite: c.isFavorite, category: initialCategory };
-      }));
+    if (reviewData?.all_candidates && initializedRef.current !== jobId) {
+      const candidatesToInit = reviewData.all_candidates.map((candidate) => {
+        const candidateId = candidate.candidate || candidate.id;
+        const initialCategory = candidate.auto_rejected ? 'rejected' : 'shortlisted';
+        // Only initialize if not already in store, otherwise preserve existing values
+        // Read current values from store at initialization time
+        return { 
+          id: candidateId, 
+          isFavorite: favorites[candidateId] ?? false, 
+          category: (categories[candidateId] || initialCategory) as CandidateCategory 
+        };
+      });
+      
+      initializeFromCandidates(candidatesToInit);
+      initializedRef.current = jobId;
     }
-  }, [initializeFromCandidates, jobCandidates]);
+    // Reset ref when jobId changes
+    if (initializedRef.current !== null && initializedRef.current !== jobId) {
+      initializedRef.current = null;
+    }
+  }, [reviewData, jobId, initializeFromCandidates]); // Only depend on reviewData and jobId to prevent loops
 
   useEffect(() => {
     const handleGlobalClick = () => {
@@ -406,8 +423,15 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
             <tbody className="divide-y divide-gray-100 bg-white">
               {sortedCandidates.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-sm text-gray-500">
-                    No candidates found for this job.
+                  <td colSpan={8} className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center space-y-2">
+                      <p className="text-sm font-medium text-gray-700">No candidates found for this job</p>
+                      <p className="text-xs text-gray-500">
+                        {reviewData?.kpis?.total_candidates === 0 
+                          ? "Upload CVs using the 'Upload Resumes' tab to see candidates here."
+                          : "Try adjusting your search or filter criteria."}
+                      </p>
+                    </div>
                   </td>
                 </tr>
               ) : (

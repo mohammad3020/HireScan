@@ -151,7 +151,8 @@ AUTH_USER_MODEL = 'core.User'
 # REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',  # For browsable API with Django admin
+        'rest_framework_simplejwt.authentication.JWTAuthentication',  # For API clients
     ),
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -172,6 +173,9 @@ SIMPLE_JWT = {
 # CORS Settings
 CORS_ALLOWED_ORIGINS = os.getenv('DJANGO_CORS_ORIGINS', 'http://localhost:5173').split(',')
 CORS_ALLOW_CREDENTIALS = True
+
+# CSRF Settings - Required for cross-origin requests
+CSRF_TRUSTED_ORIGINS = os.getenv('DJANGO_CSRF_TRUSTED_ORIGINS', 'http://localhost:5173').split(',')
 
 # OpenRouter Settings
 OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY', '')

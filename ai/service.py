@@ -349,8 +349,13 @@ def process_file_with_prompt(
                 # Check if the normalized content is EXACTLY "error" (not starts with, to avoid false positives)
                 if content_normalized == 'error':
                     print(f"DEBUG: Detected error string in response: {repr(content)}")
-                    print(f"DEBUG: Full response for debugging: {json.dumps(result, indent=2)}")
-                    raise ValueError(f"AI service returned error response: {content}")
+                    print(f"DEBUG: Full response for debugging: {json.dumps(result, indent=2, default=str)}")
+                    # Check if there's error info in the response structure
+                    error_info = result.get('error', {})
+                    if error_info:
+                        error_msg = error_info.get('message', error_info.get('type', str(error_info)))
+                        raise ValueError(f"AI service returned error: {error_msg}")
+                    raise ValueError(f"AI service returned error response. OpenRouter response: {json.dumps(result, indent=2, default=str)}")
             
             # Check if content starts with error indicators
             content_lower = content_stripped.lower()
