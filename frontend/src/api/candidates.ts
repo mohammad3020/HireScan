@@ -30,20 +30,141 @@ export interface ParsedResume {
   raw_text: string;
   parsed_data: Record<string, any>;
   parsed_at: string;
+  updated_at?: string;
+  // Personal info
+  full_name?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  date_of_birth?: string;
+  marital_status?: string;
+  military_service?: string;
+  // Links
+  linkedin_url?: string;
+  github_url?: string;
+  portfolio_url?: string;
+  website_url?: string;
+  // Summary (from parse_resume sample.md)
+  summary?: string;
+  // AI Review and Salary (from AI parsing JSON response)
+  ai_review?: string;
+  expected_salary?: string;
+  // Related objects
+  educations?: Education[];
   experiences?: Experience[];
+  technical_skills?: TechnicalSkill[];
+  soft_skills?: SoftSkill[];
+  projects?: Project[];
+  awards?: Award[];
+  languages?: Language[];
+  courses?: Course[];
+  publications?: Publication[];
+  // Legacy
   skills?: Skill[];
+}
+
+export interface Education {
+  id: number;
+  degree: string;
+  field: string;
+  institution: string;
+  location?: string;
+  start_date?: string;
+  end_date?: string;
+  gpa?: string;
+  honors?: string;
+  thesis?: string;
+  relevant_courses?: string[];
+  order?: number;
 }
 
 export interface Experience {
   id: number;
+  job_title?: string;
   company: string;
-  role: string;
+  company_type?: string;
+  location?: string;
+  employment_type?: string;
   start_date: string | null;
   end_date: string | null;
-  is_current: boolean;
-  description: string;
+  duration?: string;
+  is_currently_employed?: boolean;
+  reasoning?: string;
+  responsibilities?: string[];
+  order?: number;
+  // Legacy fields
+  role?: string;
+  is_current?: boolean;
+  description?: string;
 }
 
+export interface TechnicalSkill {
+  id: number;
+  category: string;
+  name: string;
+  level?: string;
+}
+
+export interface SoftSkill {
+  id: number;
+  name: string;
+}
+
+export interface Project {
+  id: number;
+  name: string;
+  role?: string;
+  date?: string;
+  technologies?: string[];
+  description?: string;
+  link?: string;
+  order?: number;
+}
+
+export interface Award {
+  id: number;
+  title: string;
+  issuer?: string;
+  rank?: string;
+  date?: string;
+  description?: string;
+  order?: number;
+}
+
+export interface Language {
+  id: number;
+  language: string;
+  proficiency?: string;
+  skills?: Record<string, any>;
+  certificates?: any[];
+}
+
+export interface Course {
+  id: number;
+  name: string;
+  provider?: string;
+  instructor?: string;
+  completion_date?: string;
+  duration?: string;
+  certificate_id?: string;
+  verification_link?: string;
+  order?: number;
+}
+
+export interface Publication {
+  id: number;
+  title: string;
+  authors?: string[];
+  venue?: string;
+  year?: string;
+  volume_pages?: string;
+  doi?: string;
+  link?: string;
+  citations?: string;
+  order?: number;
+}
+
+// Legacy interface
 export interface Skill {
   id: number;
   name: string;
@@ -77,6 +198,8 @@ export interface JobScore {
   job: number;
   job_title?: string;
   score: number;
+  experience_score?: number | null; // From scoring response
+  education_score?: number | null; // From scoring response
   rank: number | null;
   auto_rejected: boolean;
   rejection_reason: string;
@@ -117,6 +240,50 @@ export const useAddNote = () => {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['candidates', variables.candidateId] });
+      queryClient.invalidateQueries({ queryKey: ['candidates'] });
+    },
+  });
+};
+
+// CRUD Operations for Candidate
+export const useUpdateCandidate = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: Partial<Candidate> }) => {
+      const response = await apiClient.patch<Candidate>(`/candidates/candidates/${id}/`, data);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['candidates', data.id] });
+      queryClient.invalidateQueries({ queryKey: ['candidates'] });
+    },
+  });
+};
+
+export const useDeleteCandidate = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: number) => {
+      await apiClient.delete(`/candidates/candidates/${id}/`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['candidates'] });
+    },
+  });
+};
+
+export const useCreateCandidate = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: Partial<Candidate>) => {
+      const response = await apiClient.post<Candidate>('/candidates/candidates/', data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['candidates'] });
     },
   });
 };

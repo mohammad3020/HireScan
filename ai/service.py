@@ -198,26 +198,39 @@ def process_file_with_prompt(
         # Extract text and send as text content
         try:
             file_text = _extract_text_from_file(file_path)
-            # Format prompt with extracted text (if prompt has {resume_text} placeholder)
-            if "{resume_text}" in prompt_template:
-                full_prompt = prompt_template.format(resume_text=file_text)
+            # Check if extracted text is empty or too short (might be scanned PDF or corrupted)
+            # If text is less than 50 characters, fallback to file upload so AI can analyze the file directly
+            # This allows AI to read scanned PDFs or corrupted files
+            if not file_text or len(file_text.strip()) < 50:
+                print(f"⚠️  Warning: Extracted text is empty or too short ({len(file_text.strip() if file_text else '')} chars), trying file upload instead for AI analysis...")
+                extract_text = False
             else:
-                # Append text to prompt
-                full_prompt = f"{prompt_template}\n\nResume text:\n{file_text}"
-            
-            messages = [
-                {
-                    "role": "system",
-                    "content": "You are an expert AI assistant. Process the provided resume text according to the instructions and return valid JSON when requested."
-                },
-                {
-                    "role": "user",
-                    "content": full_prompt
-                }
-            ]
+                # Format prompt with extracted text (if prompt has {resume_text} placeholder)
+                if "{resume_text}" in prompt_template:
+                    full_prompt = prompt_template.format(resume_text=file_text)
+                else:
+                    # Append text to prompt
+                    full_prompt = f"{prompt_template}\n\nResume text:\n{file_text}"
+                
+                # Check prompt length and warn if too long
+                prompt_length = len(full_prompt)
+                print(f"DEBUG: Full prompt length: {prompt_length} characters")
+                if prompt_length > 200000:  # ~200k chars = ~50k tokens
+                    print(f"DEBUG: WARNING - Prompt is very long ({prompt_length} chars). This might cause issues.")
+                
+                messages = [
+                    {
+                        "role": "system",
+                        "content": "You are an expert AI assistant specialized in parsing resumes. Extract all information from the resume text and return ONLY valid JSON. Do not include any explanatory text, only the JSON object."
+                    },
+                    {
+                        "role": "user",
+                        "content": full_prompt
+                    }
+                ]
         except (ImportError, ValueError) as e:
-            # If text extraction fails, fall back to file upload
-            print(f"⚠️  Warning: Text extraction failed ({e}), trying file upload instead...")
+            # If text extraction fails, fall back to file upload so AI can try to read it
+            print(f"⚠️  Warning: Text extraction failed ({e}), trying file upload instead for AI analysis...")
             extract_text = False
     
     if not extract_text:
@@ -288,22 +301,130 @@ def process_file_with_prompt(
         
         result = response.json()
         
+        # Check if response has choices
+        if not result.get("choices") or len(result.get("choices", [])) == 0:
+            print(f"DEBUG: OpenRouter response has no choices. Full response: {json.dumps(result, indent=2)}")
+            raise ValueError("AI service returned response with no choices")
+        
+        choice = result.get("choices", [{}])[0]
+        
+        # Check for finish_reason
+        finish_reason = choice.get("finish_reason")
+        if finish_reason:
+            print(f"DEBUG: OpenRouter finish_reason: {finish_reason}")
+            if finish_reason == "length":
+                print("DEBUG: WARNING - Response was truncated due to max_tokens limit. Consider increasing max_tokens.")
+            elif finish_reason == "content_filter":
+                print("DEBUG: ERROR - Response was filtered by content filter")
+                raise ValueError("AI service response was filtered by content filter")
+            elif finish_reason == "error":
+                print(f"DEBUG: ERROR - OpenRouter returned error finish_reason. Full response: {json.dumps(result, indent=2)}")
+                raise ValueError("AI service returned error finish_reason")
+        
         # Extract content from response
-        content = result.get("choices", [{}])[0].get("message", {}).get("content", "{}")
+        content = choice.get("message", {}).get("content", "{}")
+        
+        # Log full response structure for debugging
+        print(f"DEBUG: Full OpenRouter response structure: {list(result.keys())}")
+        print(f"DEBUG: Choices count: {len(result.get('choices', []))}")
+        if result.get('choices'):
+            print(f"DEBUG: First choice keys: {list(result['choices'][0].keys())}")
+            print(f"DEBUG: Message keys: {list(result['choices'][0].get('message', {}).keys())}")
         
         # Try to parse as JSON if it's a string
         if isinstance(content, str):
+            # Log the raw content for debugging (first 1000 chars and last 500 chars)
+            content_len = len(content)
+            print(f"DEBUG: Raw AI response content length: {content_len} characters")
+            print(f"DEBUG: First 1000 chars: {content[:1000]}")
+            if content_len > 1000:
+                print(f"DEBUG: Last 500 chars: {content[-500:]}")
+            
+            # Check if content looks like an error message (more robust check)
+            # Only check short strings that might be just "error" (avoid false positives with valid JSON)
+            content_stripped = content.strip()
+            if len(content_stripped) < 50:  # Only check short strings
+                # Remove all quotes, whitespace, and brackets to normalize
+                content_normalized = re.sub(r'[\'"\s\{\}\[\]]', '', content_stripped.lower())
+                # Check if the normalized content is EXACTLY "error" (not starts with, to avoid false positives)
+                if content_normalized == 'error':
+                    print(f"DEBUG: Detected error string in response: {repr(content)}")
+                    print(f"DEBUG: Full response for debugging: {json.dumps(result, indent=2)}")
+                    raise ValueError(f"AI service returned error response: {content}")
+            
+            # Check if content starts with error indicators
+            content_lower = content_stripped.lower()
+            if content_lower.startswith('error') or content_lower.startswith('"error"') or content_lower.startswith("'error'"):
+                print(f"DEBUG: Content starts with error indicator: {content[:200]}")
+                print(f"DEBUG: Full response for debugging: {json.dumps(result, indent=2)}")
+            
             try:
-                return json.loads(content)
-            except json.JSONDecodeError:
+                parsed = json.loads(content)
+                # Validate that parsed data is a dict (not just a string or other type)
+                if not isinstance(parsed, dict):
+                    print(f"DEBUG: Parsed content is not a dict: {type(parsed)}, content: {content[:200]}")
+                    raise ValueError(f"AI service returned non-dict response: {type(parsed)}. Content: {content[:200]}")
+                # Check if parsed data contains error field
+                if parsed.get('error'):
+                    error_msg = parsed.get('message', parsed.get('error', 'Unknown error'))
+                    print(f"DEBUG: Parsed data contains error field: {error_msg}")
+                    print(f"DEBUG: Full parsed error data: {json.dumps(parsed, indent=2)}")
+                    raise ValueError(f"AI service returned error: {error_msg}")
+                # Validate that it has expected resume structure
+                if not any(key in parsed for key in ['personal_info', 'education', 'experience', 'skills']):
+                    print(f"DEBUG: Warning - Parsed JSON doesn't have expected resume structure. Keys: {list(parsed.keys())}")
+                    # Don't fail, might still be valid
+                print(f"DEBUG: Successfully parsed JSON response with keys: {list(parsed.keys())}")
+                return parsed
+            except json.JSONDecodeError as e:
+                print(f"DEBUG: JSON decode error: {str(e)}, attempting to extract from markdown blocks")
                 # Try to extract JSON from markdown code blocks if present
                 json_match = re.search(r'```(?:json)?\s*(\{.*?\}|\[.*?\])\s*```', content, re.DOTALL)
                 if json_match:
-                    return json.loads(json_match.group(1))
-                # If no JSON found, return the raw content wrapped in a dict
-                return {"content": content, "raw_response": result}
+                    try:
+                        extracted_json = json_match.group(1)
+                        print(f"DEBUG: Extracted JSON from markdown block (first 200 chars): {extracted_json[:200]}")
+                        parsed = json.loads(extracted_json)
+                        if not isinstance(parsed, dict):
+                            raise ValueError(f"Extracted JSON is not a dict: {type(parsed)}")
+                        if parsed.get('error'):
+                            error_msg = parsed.get('message', parsed.get('error', 'Unknown error'))
+                            raise ValueError(f"AI service returned error: {error_msg}")
+                        return parsed
+                    except json.JSONDecodeError as inner_e:
+                        print(f"DEBUG: Failed to parse extracted JSON: {str(inner_e)}")
+                        pass
+                
+                # If response_format was json_object, this is a critical error
+                # Check payload for response_format
+                response_format = payload.get('response_format', {})
+                if response_format.get('type') == 'json_object':
+                    print(f"DEBUG: Expected json_object format but got invalid JSON. Content: {content[:500]}")
+                    raise ValueError(
+                        f"Failed to parse JSON response (expected json_object format). "
+                        f"Content preview: {content[:500]}"
+                    )
+                
+                # For non-json_object responses, return error dict
+                print(f"DEBUG: Failed to parse JSON from AI response. Content preview: {content[:500]}")
+                raise ValueError(
+                    f"Failed to parse JSON from AI response. "
+                    f"Content preview: {content[:500]}. "
+                    f"Error: {str(e)}"
+                )
         
-        return result
+        # If content is not a string, it should already be parsed
+        if isinstance(content, dict):
+            if content.get('error'):
+                error_msg = content.get('message', content.get('error', 'Unknown error'))
+                raise ValueError(f"AI service returned error: {error_msg}")
+            return content
+        
+        # Fallback: return result as-is if it's already a dict
+        if isinstance(result, dict):
+            return result
+        
+        raise ValueError(f"Unexpected response format from AI service: {type(result)}")
         
     except requests.exceptions.RequestException as e:
         raise Exception(f"OpenRouter API error: {str(e)}")

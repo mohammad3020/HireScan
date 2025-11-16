@@ -89,4 +89,4 @@ class JobAdmin(admin.ModelAdmin):
         """Set created_by to current user if creating a new job"""
         if not change:  # If creating a new object
             obj.created_by = request.user
-        super().save_model(request, obj, form, change)
+        super(JobAdmin, self).save_model(request, obj, form, change)

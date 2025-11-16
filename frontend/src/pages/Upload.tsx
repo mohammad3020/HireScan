@@ -146,30 +146,26 @@ export const Upload = () => {
         jobId: jobId,
       });
 
-      // Update files with results
+      // Update files to show they're being processed
       setFiles((prev) => {
-        // Mark first N files as completed (where N = successful count)
-        for (let i = 0; i < result.successful && i < prev.length; i++) {
-          (prev[i] as any).status = 'completed';
-        }
-        // Mark remaining files as failed (if any)
-        for (let i = result.successful; i < prev.length; i++) {
-          (prev[i] as any).status = 'failed';
-        }
+        prev.forEach((file) => {
+          (file as any).status = 'processing';
+        });
         return [...prev];
       });
 
       // Show success message
       setUploadSuccess(
-        `Successfully processed ${result.successful} out of ${files.length} files.` +
-        (result.failed > 0 ? ` ${result.failed} files failed.` : '')
+        result.message || `Uploaded ${files.length} files. Processing started.`
       );
 
-      // If batch_id exists, navigate to processing page
+      // Navigate to processing page if batch_id exists
       if (result.batch_id) {
         setTimeout(() => {
           navigate(`/processing/${result.batch_id}`);
-        }, 2000);
+        }, 1500);
+      } else {
+        setUploadError('Batch ID not returned. Please check the upload status.');
       }
     } catch (error: any) {
       console.error('Upload error:', error);

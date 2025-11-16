@@ -9,8 +9,10 @@ import {
   Star,
   Tag,
   ChevronDown,
+  Loader,
+  AlertCircle,
 } from 'lucide-react';
-import { mockCandidates } from './Review';
+import { useReviewDashboard } from '../api/review';
 
 type CandidateStatus = 'qualified' | 'in_process' | 'new';
 
@@ -70,15 +72,48 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
   const { favorites, categories, setFavorite, setCategory, initializeFromCandidates } = useCandidatesStore();
   const [activeBucket, setActiveBucket] = useState<ActiveBucket>('all');
 
+  // Fetch candidates from API
+  const { data: reviewData, isLoading, error } = useReviewDashboard(jobId, { enabled: !!jobId });
+
+  // Transform API data to match component's Candidate type
+  const jobCandidates = useMemo(() => {
+    if (!reviewData?.all_candidates) return [];
+    
+    return reviewData.all_candidates.map((candidate) => {
+      const candidateDetails = candidate.candidate_details || {};
+      const skills = candidate.skills || [];
+      
+      return {
+        id: candidate.candidate || candidate.id,
+        jobId: jobId,
+        name: candidateDetails.name || candidate.candidate_name || 'Unknown',
+        email: candidateDetails.email || '',
+        score: Math.round(candidate.score),
+        experienceScore: candidate.experience_score ? Math.round(candidate.experience_score) : 0,
+        educationScore: candidate.education_score ? Math.round(candidate.education_score) : 0,
+        rank: candidate.rank || 0,
+        status: candidate.auto_rejected ? 'qualified' : 'new' as CandidateStatus,
+        experienceYears: 0, // Not available in API response
+        skillset: candidate.skillset || skills.join(', '),
+        skills: skills,
+        notes: (candidate as any).notes || '',
+        aiSummary: (candidate as any).ai_summary || (candidate as any).ai_review || '',
+        isFavorite: favorites[candidate.candidate || candidate.id] || false,
+        auto_rejected: candidate.auto_rejected || false,
+        category: (categories[candidate.candidate || candidate.id] || (candidate.auto_rejected ? 'rejected' : 'shortlisted')) as CandidateCategory,
+      };
+    });
+  }, [reviewData, jobId, favorites, categories]);
+
   useEffect(() => {
-    // Only initialize for candidates of this job
-    const jobCandidates = mockCandidates.filter(c => c.jobId === jobId);
-    initializeFromCandidates(jobCandidates.map(c => {
-      // If not auto_rejected, automatically set to shortlisted
-      const initialCategory = c.auto_rejected ? 'rejected' : (c.category || 'shortlisted');
-      return { id: c.id, isFavorite: c.isFavorite, category: initialCategory };
-    }));
-  }, [initializeFromCandidates, jobId]);
+    // Initialize store with candidates from API
+    if (jobCandidates.length > 0) {
+      initializeFromCandidates(jobCandidates.map(c => {
+        const initialCategory = c.auto_rejected ? 'rejected' : (c.category || 'shortlisted');
+        return { id: c.id, isFavorite: c.isFavorite, category: initialCategory };
+      }));
+    }
+  }, [initializeFromCandidates, jobCandidates]);
 
   useEffect(() => {
     const handleGlobalClick = () => {
@@ -89,16 +124,6 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
     document.addEventListener('click', handleGlobalClick);
     return () => document.removeEventListener('click', handleGlobalClick);
   }, []);
-
-  const jobCandidates = useMemo(
-    () => {
-      if (!jobId) {
-        return [];
-      }
-      return mockCandidates.filter((candidate) => candidate.jobId === jobId);
-    },
-    [jobId, mockCandidates]
-  );
 
   const totalResumes = jobCandidates.length;
 
@@ -240,6 +265,32 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
       />
     </button>
   );
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="card p-6 bg-red-50 border border-red-200">
+        <div className="flex items-center space-x-2">
+          <AlertCircle className="h-5 w-5 text-red-600" />
+          <div>
+            <p className="text-sm font-medium text-red-800">Error loading candidates</p>
+            <p className="text-xs text-red-600 mt-1">
+              {error instanceof Error ? error.message : 'Failed to load candidates'}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Mail, Phone, Linkedin, Calendar, Sparkles, Wallet } from 'lucide-react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Mail, Phone, Linkedin, Calendar, Sparkles, Wallet, Loader, AlertCircle } from 'lucide-react';
+import { useCandidate, useAddNote } from '../api/candidates';
 
 // Mock data
 const mockCandidate = {
@@ -144,30 +145,90 @@ const ScoreBadge = ({ value }: { value: number }) => (
 );
 
 export const CandidateDetail = () => {
-  useParams(); // id available but not used in mock
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const candidateId = id ? Number(id) : 0;
+  
   const [newNote, setNewNote] = useState('');
-  const candidate = mockCandidate;
+  const { data: candidate, isLoading, error } = useCandidate(candidateId);
+  const addNote = useAddNote();
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !candidate) {
+    return (
+      <div className="space-y-6">
+        <div className="card p-6 bg-red-50 border border-red-200">
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="h-5 w-5 text-red-600" />
+            <div>
+              <p className="text-sm font-medium text-red-800">Error loading candidate</p>
+              <p className="text-xs text-red-600 mt-1">
+                {error instanceof Error ? error.message : 'Candidate not found'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate('/review')}
+            className="mt-4 btn-outline"
+          >
+            Back to Review
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const resume = candidate.resumes?.[0];
   const parsedResume = resume?.parsed_data;
-  const educationEntries =
-    (parsedResume?.education as any[]) ??
-    ((parsedResume as any)?.parsed_data?.education as any[]) ??
-    [];
+  const educationEntries = parsedResume?.educations || [];
+  const experienceEntries = parsedResume?.experiences || [];
+  const technicalSkills = parsedResume?.technical_skills || [];
+  const softSkills = parsedResume?.soft_skills || [];
+  const projects = parsedResume?.projects || [];
+  const awards = parsedResume?.awards || [];
+  const languages = parsedResume?.languages || [];
+  const courses = parsedResume?.courses || [];
+  const publications = parsedResume?.publications || [];
+
   const formatDate = (value?: string | null) => {
     if (!value) return null;
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return null;
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-    });
+    // Handle date strings that might not be valid Date objects
+    try {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        // If not a valid date, return the string as is
+        return value;
+      }
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+      });
+    } catch {
+      return value;
+    }
   };
 
-  const handleAddNote = () => {
-    if (newNote.trim()) {
-      // Mock add note
-      console.log('Adding note:', newNote);
-      setNewNote('');
+  const handleAddNote = async () => {
+    if (newNote.trim() && candidateId) {
+      try {
+        await addNote.mutateAsync({
+          candidateId,
+          content: newNote.trim(),
+        });
+        setNewNote('');
+      } catch (error) {
+        console.error('Failed to add note:', error);
+        alert('Failed to add note. Please try again.');
+      }
     }
   };
 
@@ -190,6 +251,31 @@ export const CandidateDetail = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
+          {/* AI Review & Expected Salary */}
+          {(parsedResume?.ai_review || parsedResume?.expected_salary) && (
+            <div className="card p-6">
+              <div className="flex items-center space-x-2 mb-4">
+                <Sparkles className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold text-gray-900">AI Analysis</h2>
+              </div>
+              {parsedResume.ai_review && (
+                <div className="mb-4">
+                  <p className="text-sm font-medium text-gray-700 mb-2">AI Review</p>
+                  <p className="text-sm text-gray-600 bg-blue-50 p-4 rounded-lg">{parsedResume.ai_review}</p>
+                </div>
+              )}
+              {parsedResume.expected_salary && (
+                <div className="flex items-center space-x-2">
+                  <Wallet className="h-4 w-4 text-gray-400" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Expected Salary</p>
+                    <p className="text-sm text-gray-600">{parsedResume.expected_salary}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Contact Information */}
           <div className="card p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h2>
@@ -258,31 +344,38 @@ export const CandidateDetail = () => {
           )}
 
           {/* Experience */}
-          {candidate.resumes[0]?.parsed_data?.experiences && (
+          {experienceEntries.length > 0 && (
             <div className="card p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Work Experience</h2>
               <div className="space-y-6">
-                {candidate.resumes[0].parsed_data.experiences.map((exp: any) => (
+                {experienceEntries.map((exp: any) => (
                   <div key={exp.id} className="border-l-4 border-secondary pl-4">
                     <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">{exp.role}</h3>
-                        <p className="text-sm font-medium text-gray-600">{exp.company}</p>
-                        <p className="text-sm text-gray-500 mt-1">
-                          {new Date(exp.start_date).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                          })}{' '}
-                          -{' '}
-                          {exp.is_current
-                            ? 'Present'
-                            : new Date(exp.end_date).toLocaleDateString('en-US', {
-                                year: 'numeric',
-                                month: 'short',
-                              })}
-                        </p>
-                        {exp.description && (
-                          <p className="text-sm text-gray-600 mt-2">{exp.description}</p>
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold text-gray-900">{exp.job_title || exp.role || 'Unknown Position'}</h3>
+                        <p className="text-sm font-medium text-gray-600">{exp.company || 'Unknown Company'}</p>
+                        {(exp.start_date || exp.end_date) && (
+                          <p className="text-sm text-gray-500 mt-1">
+                            {formatDate(exp.start_date) || '—'}{' '}
+                            -{' '}
+                            {exp.is_currently_employed || exp.is_current
+                              ? 'Present'
+                              : formatDate(exp.end_date) || 'Present'}
+                            {exp.duration && ` (${exp.duration})`}
+                          </p>
+                        )}
+                        {exp.location && (
+                          <p className="text-sm text-gray-500">{exp.location}</p>
+                        )}
+                        {exp.reasoning && (
+                          <p className="text-sm text-gray-600 mt-2">{exp.reasoning}</p>
+                        )}
+                        {exp.responsibilities && exp.responsibilities.length > 0 && (
+                          <ul className="list-disc list-inside text-sm text-gray-600 mt-2 space-y-1">
+                            {exp.responsibilities.map((resp: string, idx: number) => (
+                              <li key={idx}>{resp}</li>
+                            ))}
+                          </ul>
                         )}
                       </div>
                     </div>
@@ -293,181 +386,253 @@ export const CandidateDetail = () => {
           )}
 
           {/* Skills */}
-          {candidate.resumes[0]?.parsed_data?.skills && (
+          {(technicalSkills.length > 0 || softSkills.length > 0) && (
             <div className="card p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Skills</h2>
-              <div className="flex flex-wrap gap-2">
-                {candidate.resumes[0].parsed_data.skills.map((skill: any) => (
-                  <span
-                    key={skill.id}
-                    className="px-3 py-1 bg-primary text-white rounded-full text-sm font-medium"
-                  >
-                    {skill.name}
-                    {skill.proficiency && (
-                      <span className="ml-2 text-xs opacity-75">({skill.proficiency})</span>
+              {technicalSkills.length > 0 && (
+                <div className="mb-4">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Technical Skills</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {technicalSkills.map((skill: any) => (
+                      <span
+                        key={skill.id}
+                        className="px-3 py-1 bg-primary text-white rounded-full text-sm font-medium"
+                      >
+                        {skill.name}
+                        {skill.level && (
+                          <span className="ml-2 text-xs opacity-75">({skill.level})</span>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {softSkills.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Soft Skills</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {softSkills.map((skill: any) => (
+                      <span
+                        key={skill.id}
+                        className="px-3 py-1 bg-secondary text-gray-900 rounded-full text-sm font-medium"
+                      >
+                        {skill.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Projects */}
+          {projects.length > 0 && (
+            <div className="card p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Projects</h2>
+              <div className="space-y-4">
+                {projects.map((project: any) => (
+                  <div key={project.id} className="border-l-4 border-secondary pl-4">
+                    <h3 className="text-lg font-semibold text-gray-900">{project.name}</h3>
+                    {project.role && <p className="text-sm text-gray-600">Role: {project.role}</p>}
+                    {project.date && <p className="text-sm text-gray-500">{project.date}</p>}
+                    {project.description && <p className="text-sm text-gray-600 mt-2">{project.description}</p>}
+                    {project.link && (
+                      <a href={project.link} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline mt-1 block">
+                        View Project
+                      </a>
                     )}
-                  </span>
+                  </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Other Highlights */}
-          {candidate.resumes[0]?.parsed_data?.additional_info && (
+          {/* Awards */}
+          {awards.length > 0 && (
             <div className="card p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Other Highlights</h2>
-              <div className="space-y-4">
-                {candidate.resumes[0].parsed_data.additional_info.achievements?.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-800 mb-2">Achievements</h3>
-                    <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-                      {candidate.resumes[0].parsed_data.additional_info.achievements.map((item: string, i: number) => (
-                        <li key={`achievement-${i}`}>{item}</li>
-                      ))}
-                    </ul>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Awards & Honors</h2>
+              <div className="space-y-3">
+                {awards.map((award: any) => (
+                  <div key={award.id} className="flex items-start space-x-3">
+                    <div className="flex-1">
+                      <h3 className="text-sm font-semibold text-gray-900">{award.title}</h3>
+                      {award.issuer && <p className="text-xs text-gray-600">{award.issuer}</p>}
+                      {award.rank && <p className="text-xs text-gray-500">{award.rank}</p>}
+                      {award.date && <p className="text-xs text-gray-500">{award.date}</p>}
+                    </div>
                   </div>
-                )}
-                {candidate.resumes[0].parsed_data.additional_info.articles?.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-800 mb-2">Articles & Publications</h3>
-                    <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-                      {candidate.resumes[0].parsed_data.additional_info.articles.map((item: string, i: number) => (
-                        <li key={`article-${i}`}>{item}</li>
-                      ))}
-                    </ul>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Languages */}
+          {languages.length > 0 && (
+            <div className="card p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Languages</h2>
+              <div className="space-y-2">
+                {languages.map((lang: any) => (
+                  <div key={lang.id} className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-900">{lang.language}</span>
+                    {lang.proficiency && (
+                      <span className="text-xs text-gray-600">{lang.proficiency}</span>
+                    )}
                   </div>
-                )}
+                ))}
               </div>
             </div>
           )}
 
           {/* Timeline */}
-          <div className="card p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Timeline</h2>
-            <div className="space-y-4">
-              {candidate.timeline_events.map((event) => (
-                <div key={event.id} className="flex items-start space-x-4">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <Calendar className="h-4 w-4 text-primary" />
+          {candidate.timeline_events && candidate.timeline_events.length > 0 && (
+            <div className="card p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Timeline</h2>
+              <div className="space-y-4">
+                {candidate.timeline_events.map((event: any) => (
+                  <div key={event.id} className="flex items-start space-x-4">
+                    <div className="p-2 bg-primary/10 rounded-lg">
+                      <Calendar className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900">{event.description}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {new Date(event.created_at).toLocaleString()}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">{event.description}</p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {new Date(event.created_at).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Basic Information */}
-          <div className="card p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h2>
-            <dl className="space-y-2 text-sm text-gray-700">
-              <div className="flex justify-between">
-                <dt className="font-medium text-gray-600">Age</dt>
-                <dd>{candidate.basic_information.age}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="font-medium text-gray-600">Location</dt>
-                <dd>{candidate.basic_information.location}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="font-medium text-gray-600">Gender</dt>
-                <dd>{candidate.basic_information.gender}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="font-medium text-gray-600">Military Status</dt>
-                <dd>{candidate.basic_information.military_status}</dd>
-              </div>
-            </dl>
-          </div>
+          {parsedResume && (
+            <div className="card p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h2>
+              <dl className="space-y-2 text-sm text-gray-700">
+                {parsedResume.date_of_birth && (
+                  <div className="flex justify-between">
+                    <dt className="font-medium text-gray-600">Date of Birth</dt>
+                    <dd>{parsedResume.date_of_birth}</dd>
+                  </div>
+                )}
+                {parsedResume.address && (
+                  <div className="flex justify-between">
+                    <dt className="font-medium text-gray-600">Address</dt>
+                    <dd className="text-right max-w-xs">{parsedResume.address}</dd>
+                  </div>
+                )}
+                {parsedResume.marital_status && (
+                  <div className="flex justify-between">
+                    <dt className="font-medium text-gray-600">Marital Status</dt>
+                    <dd>{parsedResume.marital_status}</dd>
+                  </div>
+                )}
+                {parsedResume.military_service && (
+                  <div className="flex justify-between">
+                    <dt className="font-medium text-gray-600">Military Status</dt>
+                    <dd>{parsedResume.military_service}</dd>
+                  </div>
+                )}
+              </dl>
+            </div>
+          )}
 
           {/* Job Scores */}
-          <div className="card p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Job Scores</h2>
-            <div className="space-y-4">
-              {candidate.job_scores.map((score) => (
-                <div key={score.id} className="p-4 bg-gray-50 rounded-lg space-y-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-gray-900">{score.job_title}</p>
-                    {score.rank && (
-                      <span className="px-2 py-1 text-xs font-medium bg-secondary text-primary rounded-full">
-                        Rank #{score.rank}
-                      </span>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-3 gap-3 text-center">
-                    <div className="space-y-2">
-                      <p className="text-xs uppercase text-gray-500">Overall</p>
+          {candidate.job_scores && candidate.job_scores.length > 0 && (
+            <div className="card p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Job Scores</h2>
+              <div className="space-y-4">
+                {candidate.job_scores.map((score: any) => (
+                  <div key={score.id} className="p-4 bg-gray-50 rounded-lg space-y-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-gray-900">{score.job_title || 'Unknown Job'}</p>
+                      {score.rank && (
+                        <span className="px-2 py-1 text-xs font-medium bg-secondary text-primary rounded-full">
+                          Rank #{score.rank}
+                        </span>
+                      )}
+                      {score.auto_rejected && (
+                        <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-700 rounded-full">
+                          Auto-Rejected
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs uppercase text-gray-500 mb-2">Overall Score</p>
                       <ScoreBadge value={score.score} />
                     </div>
-                    <div className="space-y-2">
-                      <p className="text-xs uppercase text-gray-500">Experience</p>
-                      <ScoreBadge value={score.experience_score} />
-                    </div>
-                    <div className="space-y-2">
-                      <p className="text-xs uppercase text-gray-500">Education</p>
-                      <ScoreBadge value={score.education_score} />
-                    </div>
+                    {(score.experience_score !== null && score.experience_score !== undefined) || 
+                     (score.education_score !== null && score.education_score !== undefined) ? (
+                      <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-200">
+                        {score.experience_score !== null && score.experience_score !== undefined && (
+                          <div className="text-center">
+                            <p className="text-xs uppercase text-gray-500 mb-1">Experience</p>
+                            <ScoreBadge value={score.experience_score} />
+                          </div>
+                        )}
+                        {score.education_score !== null && score.education_score !== undefined && (
+                          <div className="text-center">
+                            <p className="text-xs uppercase text-gray-500 mb-1">Education</p>
+                            <ScoreBadge value={score.education_score} />
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+                    {score.rejection_reason && (
+                      <div className="pt-2 border-t border-gray-200">
+                        <p className="text-xs font-medium text-red-700 mb-1">Rejection Reason:</p>
+                        <p className="text-xs text-gray-600">{score.rejection_reason}</p>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-
-          {/* AI Review */}
-          <div className="card p-6">
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="h-5 w-5 text-purple-500" />
-              <h2 className="text-lg font-semibold text-gray-900">AI Review</h2>
-            </div>
-            <p className="text-sm leading-6 text-gray-700">{candidate.ai_review}</p>
-          </div>
-
-          {/* Salary Expectation */}
-          <div className="card p-6">
-            <div className="flex items-center gap-2 mb-3">
-              <Wallet className="h-5 w-5 text-emerald-500" />
-              <h2 className="text-lg font-semibold text-gray-900">Expected Salary</h2>
-            </div>
-            <p className="text-sm font-medium text-gray-800">{candidate.expected_salary}</p>
-          </div>
+          )}
 
           {/* Notes */}
           <div className="card p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Notes</h2>
 
-            <div className="space-y-4 mb-4">
-              {candidate.notes.map((note) => (
-                <div key={note.id} className="p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-start justify-between mb-2">
-                    <p className="text-sm font-medium text-gray-900">{note.user_email}</p>
-                    <p className="text-xs text-gray-500">
-                      {new Date(note.created_at).toLocaleDateString()}
-                    </p>
+            {candidate.notes && candidate.notes.length > 0 && (
+              <div className="space-y-4 mb-4">
+                {candidate.notes.map((note: any) => (
+                  <div key={note.id} className="p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-start justify-between mb-2">
+                      <p className="text-sm font-medium text-gray-900">{note.user_email || 'Unknown User'}</p>
+                      <p className="text-xs text-gray-500">
+                        {new Date(note.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <p className="text-sm text-gray-700">{note.content}</p>
                   </div>
-                  <p className="text-sm text-gray-700">{note.content}</p>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
 
             <div className="flex items-center gap-2">
               <input
                 value={newNote}
                 onChange={(e) => setNewNote(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleAddNote();
+                  }
+                }}
                 placeholder="Add a note..."
                 className="input-field flex-1"
+                disabled={addNote.isPending}
               />
               <button
                 onClick={handleAddNote}
-                className="px-3 py-2 text-sm btn-primary"
+                disabled={addNote.isPending || !newNote.trim()}
+                className="px-3 py-2 text-sm btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Add
+                {addNote.isPending ? <Loader className="h-4 w-4 animate-spin" /> : 'Add'}
               </button>
             </div>
           </div>

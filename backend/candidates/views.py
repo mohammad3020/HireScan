@@ -22,7 +22,19 @@ from processing.models import BatchUpload, FileItem
 class CandidateViewSet(viewsets.ModelViewSet):
     """Candidate viewset"""
     queryset = Candidate.objects.prefetch_related(
-        'resumes', 'notes', 'timeline_events', 'job_scores'
+        'resumes__parsed_data',
+        'resumes__parsed_data__educations',
+        'resumes__parsed_data__experiences',
+        'resumes__parsed_data__technical_skills',
+        'resumes__parsed_data__soft_skills',
+        'resumes__parsed_data__projects',
+        'resumes__parsed_data__awards',
+        'resumes__parsed_data__languages',
+        'resumes__parsed_data__courses',
+        'resumes__parsed_data__publications',
+        'notes', 
+        'timeline_events', 
+        'job_scores__job'
     ).all()
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['email']
@@ -90,7 +102,7 @@ class ResumeViewSet(viewsets.ModelViewSet):
 class CVUploadView(APIView):
     """
     API endpoint to upload CV files for a job and process them with AI
-    Uses threading for concurrent processing
+    Uses background processing via process_batch_service
     """
     permission_classes = [IsAuthenticated]
     
@@ -127,138 +139,66 @@ class CVUploadView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
         
-        # Create batch for tracking (optional, for job association)
-        batch = None
+        # Get job if job_id is provided
+        job = None
         if job_id:
             try:
                 from jobs.models import Job
                 job = Job.objects.get(id=job_id)
-                batch = BatchUpload.objects.create(
-                    user=request.user,
-                    status='processing',
-                    total_files=len(files)
+            except Job.DoesNotExist:
+                return Response(
+                    {'error': f'Job with id {job_id} not found'},
+                    status=status.HTTP_404_NOT_FOUND
                 )
-            except Exception:
-                pass  # Continue without batch if job not found
         
-        # Store files and create candidates/resumes
-        resumes_to_process = []
+        # Always create batch for tracking (required for processing page)
+        batch = BatchUpload.objects.create(
+            user=request.user,
+            job=job,
+            status='pending',
+            total_files=len(files),
+            processed_files=0
+        )
+        
+        # Create file items for all files
         file_items = []
-        
         for file in files:
-            # Create a temporary candidate (will be updated after parsing)
-            candidate = Candidate.objects.create(
-                email=f"temp_{file.name}_{threading.get_ident()}@temp.com",
-                name=f"Temp Candidate {file.name}"
+            file_item = FileItem.objects.create(
+                batch=batch,
+                file=file,
+                status='pending'
             )
-            
-            # Create resume
-            resume = Resume.objects.create(
-                candidate=candidate,
-                file=file
-            )
-            resumes_to_process.append(resume)
-            
-            # Create file item if batch exists
-            if batch:
-                file_item = FileItem.objects.create(
-                    batch=batch,
-                    file=file,
-                    status='pending',
-                    candidate=candidate
-                )
-                file_items.append(file_item)
+            file_items.append(file_item)
         
-        # Process resumes concurrently using threading
-        # Use ThreadPoolExecutor with max 3 workers to respect rate limits
-        results = []
-        errors = []
+        # Update batch total_files to match actual count
+        batch.total_files = len(file_items)
+        batch.save()
         
-        def process_single_resume(resume):
-            """Process a single resume with AI"""
+        # Process batch in background thread using process_batch_service
+        def process_in_thread():
+            import logging
+            logger = logging.getLogger(__name__)
             try:
-                # Import here to avoid circular imports
-                from processing.services import parse_resume_service
-                
-                # Small delay to respect rate limits (20 requests/minute = ~3 seconds between requests)
-                # Since we have max 3 workers, this helps spread out the requests
-                time.sleep(0.5)  # 500ms delay per request
-                
-                # Process the resume
-                parsed_resume = parse_resume_service(resume)
-                
-                # Update file item status if batch exists
-                if batch:
-                    file_item = FileItem.objects.filter(
-                        batch=batch,
-                        candidate=resume.candidate
-                    ).first()
-                    if file_item:
-                        file_item.status = 'completed'
-                        file_item.save()
-                
-                return {
-                    'resume_id': resume.id,
-                    'candidate_id': resume.candidate.id,
-                    'status': 'success',
-                    'parsed_resume_id': parsed_resume.id
-                }
+                from processing.services import process_batch_service
+                logger.info(f"Starting background processing for batch {batch.id}")
+                process_batch_service(batch.id)
+                logger.info(f"Completed background processing for batch {batch.id}")
             except Exception as e:
-                # Update file item status if batch exists
-                if batch:
-                    file_item = FileItem.objects.filter(
-                        batch=batch,
-                        candidate=resume.candidate
-                    ).first()
-                    if file_item:
-                        file_item.status = 'failed'
-                        file_item.error_message = str(e)
-                        file_item.save()
-                
-                return {
-                    'resume_id': resume.id,
-                    'candidate_id': resume.candidate.id,
-                    'status': 'error',
-                    'error': str(e)
-                }
-        
-        # Process with threading (max 3 concurrent to respect rate limits)
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            # Submit all tasks
-            future_to_resume = {
-                executor.submit(process_single_resume, resume): resume 
-                for resume in resumes_to_process
-            }
-            
-            # Collect results as they complete
-            for future in as_completed(future_to_resume):
-                result = future.result()
-                if result['status'] == 'success':
-                    results.append(result)
-                else:
-                    errors.append(result)
-        
-        # Update batch status
-        if batch:
-            batch.processed_files = len(results)
-            if len(errors) == 0:
-                batch.status = 'completed'
-            elif len(results) > 0:
-                batch.status = 'completed'  # Partial success
-            else:
+                logger.error(f"Failed to process batch {batch.id}: {str(e)}", exc_info=True)
                 batch.status = 'failed'
-            batch.save()
+                batch.error_message = str(e)
+                batch.save()
         
-        # Return response
+        thread = threading.Thread(target=process_in_thread)
+        thread.daemon = True
+        thread.start()
+        
+        # Return response immediately with batch_id
         response_data = {
-            'message': f'Processed {len(results)} out of {len(files)} files',
-            'successful': len(results),
-            'failed': len(errors),
-            'results': results,
-            'errors': errors
+            'message': f'Uploaded {len(files)} files. Processing started.',
+            'successful': 0,  # Will be updated as processing completes
+            'failed': 0,  # Will be updated as processing completes
+            'batch_id': batch.id
         }
         
-        if batch:
-            response_data['batch_id'] = batch.id
-        
-        return Response(response_data, status=status.HTTP_200_OK)
+        return Response(response_data, status=status.HTTP_202_ACCEPTED)

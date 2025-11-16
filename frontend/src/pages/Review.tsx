@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { mockJobs } from './jobsData';
+import { useJobs } from '../api/jobs';
+import { useReviewDashboard, useRefreshRanking } from '../api/review';
 import { useCandidatesStore } from '../store/candidates';
 import {
   Search,
@@ -14,6 +15,8 @@ import {
   Star,
   Tag,
   ChevronDown,
+  Loader,
+  AlertCircle,
 } from 'lucide-react';
 
 type CandidateStatus = 'qualified' | 'in_process' | 'new';
@@ -526,11 +529,29 @@ export const mockCandidates: Candidate[] = [
   ),
 ];
 
-// Generate job options from mockJobs
-const jobOptions = mockJobs.map(job => ({
-  id: job.id,
-  title: job.title,
-}));
+// Type for API candidate data
+type APICandidate = {
+  id: number;
+  candidate: number;
+  candidate_name: string;
+  job: number;
+  job_title: string;
+  score: number;
+  rank: number | null;
+  auto_rejected: boolean;
+  rejection_reason: string;
+  scored_at: string;
+  updated_at: string;
+  candidate_details?: {
+    name: string;
+    email: string;
+    phone: string;
+    linkedin_url: string;
+    github_url: string;
+  };
+  skills?: string[];
+  skillset?: string;
+};
 
 type SortKey = 'name' | 'score' | 'experienceYears' | 'skills';
 type SortKeyExtended = SortKey | 'experienceScore' | 'educationScore' | 'index' | 'category';
@@ -558,10 +579,26 @@ export const Review = () => {
   const [searchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Get jobs from API
+  const { data: jobsData, isLoading: jobsLoading } = useJobs();
+  const jobOptions = useMemo(() => {
+    if (!jobsData?.results) return [];
+    return jobsData.results.map(job => ({
+      id: job.id,
+      title: job.title,
+    }));
+  }, [jobsData]);
+  
   // Get jobId from query parameter, or default to first job
   const jobIdFromQuery = searchParams.get('jobId');
-  const initialJobId = jobIdFromQuery ? Number(jobIdFromQuery) : (jobOptions[0]?.id ?? 1);
-  const [selectedJob, setSelectedJob] = useState(initialJobId);
+  const initialJobId = jobIdFromQuery ? Number(jobIdFromQuery) : (jobOptions[0]?.id ?? undefined);
+  const [selectedJob, setSelectedJob] = useState<number | undefined>(initialJobId);
+  
+  // Get review dashboard data - only fetch when selectedJob is available
+  const { data: reviewData, isLoading: reviewLoading, error: reviewError, refetch } = useReviewDashboard(selectedJob || 0, {
+    enabled: !!selectedJob,
+  });
+  const refreshRanking = useRefreshRanking();
   
   const [sortKey, setSortKey] = useState<SortKeyExtended>('score');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -571,31 +608,40 @@ export const Review = () => {
   const { favorites, categories, setFavorite, setCategory, initializeFromCandidates } = useCandidatesStore();
   const [activeBucket, setActiveBucket] = useState<ActiveBucket>('all');
 
-  // Initialize store from candidates
-  useEffect(() => {
-    // Only initialize for candidates of the selected job to avoid unnecessary updates
-    if (!selectedJob || !mockCandidates || mockCandidates.length === 0) {
-      return;
-    }
-    const jobCandidates = mockCandidates.filter(c => c.jobId === selectedJob);
-    if (jobCandidates.length > 0) {
-      initializeFromCandidates(jobCandidates.map(c => {
-        // If not auto_rejected, automatically set to shortlisted
-        const initialCategory = c.auto_rejected ? 'rejected' : (c.category || 'shortlisted');
-        return { id: c.id, isFavorite: c.isFavorite, category: initialCategory };
-      }));
-    }
-  }, [initializeFromCandidates, selectedJob]);
-
   // Update selectedJob when query parameter changes
   useEffect(() => {
     if (jobIdFromQuery) {
       const jobId = Number(jobIdFromQuery);
-      if (!isNaN(jobId) && jobOptions.some(job => job.id === jobId)) {
+      if (!isNaN(jobId)) {
         setSelectedJob(jobId);
       }
+    } else if (jobOptions.length > 0 && !selectedJob) {
+      setSelectedJob(jobOptions[0].id);
     }
-  }, [jobIdFromQuery]);
+  }, [jobIdFromQuery, jobOptions, selectedJob]);
+
+  // Initialize store from API candidates
+  useEffect(() => {
+    if (!reviewData?.all_candidates || reviewData.all_candidates.length === 0) {
+      return;
+    }
+    const apiCandidates = reviewData.all_candidates;
+    initializeFromCandidates(apiCandidates.map((c: APICandidate) => {
+      const initialCategory = c.auto_rejected ? 'rejected' : 'shortlisted';
+      return { id: c.candidate, isFavorite: false, category: initialCategory };
+    }));
+  }, [reviewData, initializeFromCandidates]);
+
+  // Handle refresh ranking
+  const handleRefreshRanking = async () => {
+    if (!selectedJob) return;
+    try {
+      await refreshRanking.mutateAsync(selectedJob);
+      refetch();
+    } catch (error) {
+      console.error('Failed to refresh ranking:', error);
+    }
+  };
 
   useEffect(() => {
     const handleGlobalClick = () => {
@@ -607,19 +653,32 @@ export const Review = () => {
     return () => document.removeEventListener('click', handleGlobalClick);
   }, []);
 
-  const job = jobOptions.find((option) => option.id === selectedJob);
-  const jobCandidates = useMemo(
-    () => {
-      if (!selectedJob) {
-        return [];
-      }
-      const filtered = mockCandidates.filter((candidate) => candidate.jobId === selectedJob);
-      return filtered;
-    },
-    [selectedJob, mockCandidates]
-  );
+  // Transform API candidates to match component structure
+  const jobCandidates = useMemo(() => {
+    if (!reviewData?.all_candidates) return [];
+    
+    return reviewData.all_candidates.map((c: APICandidate) => ({
+      id: c.candidate,
+      jobId: c.job,
+      name: c.candidate_details?.name || c.candidate_name || 'Unknown',
+      email: c.candidate_details?.email || '',
+      score: Math.round(c.score),
+      experienceScore: Math.round(c.score * 0.6), // Estimate from total score
+      educationScore: Math.round(c.score * 0.4), // Estimate from total score
+      rank: c.rank || 0,
+      status: (c.auto_rejected ? 'new' : (c.score >= 80 ? 'qualified' : c.score >= 70 ? 'in_process' : 'new')) as CandidateStatus,
+      experienceYears: 0, // Not available from API
+      skillset: c.skillset || '',
+      skills: c.skills || [],
+      notes: c.rejection_reason || '',
+      aiSummary: c.auto_rejected ? 'Auto-rejected based on criteria.' : `Match score: ${Math.round(c.score)}. ${c.score >= 80 ? 'Strong candidate' : c.score >= 70 ? 'Good candidate' : 'Average candidate'}.`,
+      isFavorite: favorites[c.candidate] || false,
+      auto_rejected: c.auto_rejected,
+      category: (c.auto_rejected ? 'rejected' : 'shortlisted') as CandidateCategory,
+    }));
+  }, [reviewData, favorites]);
 
-  const totalResumes = jobCandidates.length;
+  const totalResumes = reviewData?.kpis?.total_candidates || 0;
 
   const shortListedCount = useMemo(
     () => {
@@ -667,10 +726,8 @@ export const Review = () => {
   );
 
   const avgScore = useMemo(() => {
-    if (jobCandidates.length === 0) return 0;
-    const sum = jobCandidates.reduce((acc, c) => acc + c.score, 0);
-    return Math.round((sum / jobCandidates.length) * 10) / 10;
-  }, [jobCandidates]);
+    return reviewData?.kpis?.average_score || 0;
+  }, [reviewData]);
 
   const handleSort = (key: SortKeyExtended) => {
     if (sortKey === key) {
@@ -776,6 +833,47 @@ export const Review = () => {
     </button>
   );
 
+  // Loading state
+  if (jobsLoading || (selectedJob && reviewLoading)) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Error state
+  if (reviewError) {
+    return (
+      <div className="space-y-6">
+        <div className="card p-6 bg-red-50 border border-red-200">
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="h-5 w-5 text-red-600" />
+            <div>
+              <p className="text-sm font-medium text-red-800">Error loading review data</p>
+              <p className="text-xs text-red-600 mt-1">
+                {reviewError instanceof Error ? reviewError.message : 'Unknown error'}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!selectedJob || jobOptions.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Review Candidates Dashboard</h1>
+          <p className="mt-1 text-gray-600">
+            No jobs available. Please create a job first.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -795,6 +893,7 @@ export const Review = () => {
               value={selectedJob}
               onChange={(e) => setSelectedJob(Number(e.target.value))}
               className="input-field h-12 w-full md:w-96 text-base font-medium text-gray-800"
+              disabled={jobsLoading}
             >
               {jobOptions.map((option) => (
                 <option key={option.id} value={option.id}>
@@ -940,7 +1039,7 @@ export const Review = () => {
                           <Star className={`h-3.5 w-3.5 ${favorites[candidate.id] ? 'fill-current' : ''}`} />
                         </button>
                         <Link to={`/candidates/${candidate.id}`} className="hover:text-primary">
-                          {candidate.name}
+                          {candidate.name || 'Unknown'}
                         </Link>
                       </div>
                     </td>
@@ -1145,8 +1244,16 @@ export const Review = () => {
 
       {/* Footer actions */}
       <div className="flex items-center justify-end gap-3">
-        <button className="btn-outline flex items-center gap-2">
-          <RefreshCw className="h-4 w-4" />
+        <button 
+          onClick={handleRefreshRanking}
+          disabled={refreshRanking.isPending || !selectedJob}
+          className="btn-outline flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {refreshRanking.isPending ? (
+            <Loader className="h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4" />
+          )}
           Refresh Ranking
         </button>
         <button className="btn-primary flex items-center gap-2">

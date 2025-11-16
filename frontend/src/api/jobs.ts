@@ -84,9 +84,23 @@ export const useJobs = (params?: { department?: number; search?: string }) => {
   return useQuery({
     queryKey: ['jobs', params],
     queryFn: async () => {
-      const response = await apiClient.get<JobListResponse>('/jobs/jobs/', { params });
-      return response.data;
+      try {
+        const response = await apiClient.get<JobListResponse>('/jobs/jobs/', { params });
+        return response.data;
+      } catch (error) {
+        console.error('[useJobs] Error fetching jobs:', error);
+        throw error;
+      }
     },
+    retry: (failureCount, error: any) => {
+      // Don't retry on 4xx errors (client errors)
+      if (error?.response?.status >= 400 && error?.response?.status < 500) {
+        return false;
+      }
+      // Retry up to 2 times for network/server errors
+      return failureCount < 2;
+    },
+    retryDelay: 1000,
   });
 };
 
@@ -147,18 +161,32 @@ export const useDepartments = () => {
   return useQuery({
     queryKey: ['departments'],
     queryFn: async () => {
-      const response = await apiClient.get<DepartmentListResponse | Department[]>('/jobs/departments/');
-      const data = response.data;
-      // Handle both paginated response and direct array
-      if (Array.isArray(data)) {
-        return data;
+      try {
+        const response = await apiClient.get<DepartmentListResponse | Department[]>('/jobs/departments/');
+        const data = response.data;
+        // Handle both paginated response and direct array
+        if (Array.isArray(data)) {
+          return data;
+        }
+        // If it's a paginated response, return the results array
+        if (data && typeof data === 'object' && 'results' in data) {
+          return (data as DepartmentListResponse).results;
+        }
+        return [];
+      } catch (error) {
+        console.error('[useDepartments] Error fetching departments:', error);
+        throw error;
       }
-      // If it's a paginated response, return the results array
-      if (data && typeof data === 'object' && 'results' in data) {
-        return (data as DepartmentListResponse).results;
-      }
-      return [];
     },
+    retry: (failureCount, error: any) => {
+      // Don't retry on 4xx errors (client errors)
+      if (error?.response?.status >= 400 && error?.response?.status < 500) {
+        return false;
+      }
+      // Retry up to 2 times for network/server errors
+      return failureCount < 2;
+    },
+    retryDelay: 1000,
   });
 };
 

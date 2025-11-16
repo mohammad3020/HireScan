@@ -119,7 +119,7 @@ class ReviewDashboardView(APIView):
             )
         
         # Get candidates with scores for this job
-        job_scores = JobScore.objects.filter(job=job).select_related('candidate')
+        job_scores = JobScore.objects.filter(job=job).select_related('candidate', 'job')
         
         # KPIs
         total_candidates = job_scores.count()
@@ -128,17 +128,68 @@ class ReviewDashboardView(APIView):
             avg_score=Avg('score')
         )['avg_score'] or 0
         
-        # Top candidates
+        # Top candidates (non-rejected, ordered by score)
         top_candidates = job_scores.filter(
             auto_rejected=False
-        ).order_by('-score')[:10]
+        ).order_by('-score', 'rank')[:20]
         
         # Auto-rejected candidates
         rejected_candidates = job_scores.filter(
             auto_rejected=True
         ).order_by('-score')
         
-        from candidates.serializers import JobScoreSerializer
+        # All candidates for the frontend (non-rejected first, then rejected)
+        all_candidates = job_scores.order_by('auto_rejected', '-score', 'rank')
+        
+        from candidates.serializers import JobScoreSerializer, CandidateSerializer
+        
+        # Serialize all candidates with full candidate details
+        all_candidates_data = []
+        for job_score in all_candidates:
+            candidate_data = JobScoreSerializer(job_score).data
+            # Add candidate details if needed
+            candidate_details = CandidateSerializer(job_score.candidate).data
+            candidate_data['candidate_details'] = {
+                'name': candidate_details['name'],
+                'email': candidate_details['email'],
+                'phone': candidate_details['phone'],
+                'linkedin_url': candidate_details.get('linkedin_url', ''),
+                'github_url': candidate_details.get('github_url', ''),
+            }
+            # Get skills from parsed resume
+            try:
+                resume = candidate_details.get('resumes', [{}])[0] if candidate_details.get('resumes') else {}
+                parsed_data = resume.get('parsed_data', {}) if resume else {}
+                technical_skills = parsed_data.get('technical_skills', []) if parsed_data else []
+                skills = [s.get('name', '') for s in technical_skills]
+                candidate_data['skills'] = skills
+                candidate_data['skillset'] = ', '.join(skills[:5]) if skills else ''
+                # Add AI review from parsed resume
+                candidate_data['ai_review'] = parsed_data.get('ai_review', '')
+                candidate_data['ai_summary'] = parsed_data.get('ai_review', '')  # Alias for frontend compatibility
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Error extracting skills/AI review for candidate {job_score.candidate.id}: {str(e)}")
+                candidate_data['skills'] = []
+                candidate_data['skillset'] = ''
+                candidate_data['ai_review'] = ''
+                candidate_data['ai_summary'] = ''
+            
+            # Get notes for this candidate
+            try:
+                notes = job_score.candidate.notes.all()
+                if notes.exists():
+                    candidate_data['notes'] = ' | '.join([note.content for note in notes])
+                else:
+                    candidate_data['notes'] = ''
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Error extracting notes for candidate {job_score.candidate.id}: {str(e)}")
+                candidate_data['notes'] = ''
+            
+            all_candidates_data.append(candidate_data)
         
         return Response({
             'job': {
@@ -152,6 +203,7 @@ class ReviewDashboardView(APIView):
             },
             'top_candidates': JobScoreSerializer(top_candidates, many=True).data,
             'rejected_candidates': JobScoreSerializer(rejected_candidates, many=True).data,
+            'all_candidates': all_candidates_data,
         })
 
 

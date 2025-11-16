@@ -1,0 +1,142 @@
+{
+  "passed": [
+    {
+      "test": "Backend Connection",
+      "message": "Backend is reachable at http://localhost:8000/api",
+      "timestamp": "2025-11-15 20:56:22"
+    },
+    {
+      "test": "Sign Up",
+      "message": "User created successfully. Email: test_user_1763227582@smoketest.com",
+      "timestamp": "2025-11-15 20:56:23"
+    },
+    {
+      "test": "Sign Up - User Data Verification",
+      "message": "User data correctly returned from backend",
+      "timestamp": "2025-11-15 20:56:23"
+    },
+    {
+      "test": "Create Job",
+      "message": "Job created successfully with ID: 4",
+      "timestamp": "2025-11-15 20:56:25"
+    },
+    {
+      "test": "Create Job - Field Verification (title)",
+      "message": "title correctly stored: Senior Software Engineer - Smoke Test",
+      "timestamp": "2025-11-15 20:56:25"
+    },
+    {
+      "test": "Create Job - Field Verification (description)",
+      "message": "description correctly stored: We are looking for an experienced software engineer with strong backend skills. Must have 5+ years of experience in Python, Django, and REST APIs.",
+      "timestamp": "2025-11-15 20:56:25"
+    },
+    {
+      "test": "Create Job - Field Verification (location)",
+      "message": "location correctly stored: Tehran, Remote",
+      "timestamp": "2025-11-15 20:56:25"
+    },
+    {
+      "test": "Create Job - Field Verification (experience_min_years)",
+      "message": "experience_min_years correctly stored: 5",
+      "timestamp": "2025-11-15 20:56:25"
+    },
+    {
+      "test": "Create Job - Created By Verification",
+      "message": "Job correctly associated with user",
+      "timestamp": "2025-11-15 20:56:25"
+    },
+    {
+      "test": "Display to Super User - API Response Structure",
+      "message": "All required keys present: job, kpis, all_candidates",
+      "timestamp": "2025-11-15 20:56:34"
+    },
+    {
+      "test": "Display to Super User - KPIs",
+      "message": "KPIs: 0 total candidates, average score: 0.00",
+      "timestamp": "2025-11-15 20:56:34"
+    },
+    {
+      "test": "Display to Super User - Candidates List",
+      "message": "No candidates yet available (may still be processing)",
+      "timestamp": "2025-11-15 20:56:34"
+    },
+    {
+      "test": "CRUD - CREATE",
+      "message": "CREATE operations verified: User, Job, Candidates created successfully",
+      "timestamp": "2025-11-15 20:56:36"
+    },
+    {
+      "test": "CRUD - READ (Job)",
+      "message": "Job READ operation successful",
+      "timestamp": "2025-11-15 20:56:36"
+    },
+    {
+      "test": "CRUD - UPDATE (Job)",
+      "message": "Job UPDATE operation successful",
+      "timestamp": "2025-11-15 20:56:36"
+    },
+    {
+      "test": "API Endpoint - Sign Up",
+      "message": "Correct endpoint: auth/register/",
+      "timestamp": "2025-11-15 20:56:38"
+    },
+    {
+      "test": "API Endpoint - Login (token)",
+      "message": "Correct endpoint: auth/token/",
+      "timestamp": "2025-11-15 20:56:38"
+    },
+    {
+      "test": "API Endpoint - Job List",
+      "message": "Correct endpoint: jobs/jobs/",
+      "timestamp": "2025-11-15 20:56:38"
+    },
+    {
+      "test": "API Endpoint - Job Create",
+      "message": "Correct endpoint: jobs/jobs/new/",
+      "timestamp": "2025-11-15 20:56:38"
+    },
+    {
+      "test": "API Endpoint - Job Detail",
+      "message": "Correct endpoint: jobs/jobs/4/",
+      "timestamp": "2025-11-15 20:56:38"
+    },
+    {
+      "test": "API Endpoint - Upload CV",
+      "message": "Correct endpoint: candidates/upload-cv/",
+      "timestamp": "2025-11-15 20:56:38"
+    },
+    {
+      "test": "API Endpoint - Candidates List",
+      "message": "Correct endpoint: candidates/candidates/",
+      "timestamp": "2025-11-15 20:56:38"
+    },
+    {
+      "test": "API Endpoint - Candidate Detail",
+      "message": "Endpoint not applicable in current test context",
+      "timestamp": "2025-11-15 20:56:38"
+    },
+    {
+      "test": "API Endpoint - Review Dashboard",
+      "message": "Correct endpoint: review/review/?jobId=4",
+      "timestamp": "2025-11-15 20:56:38"
+    }
+  ],
+  "failed": [
+    {
+      "test": "Upload Resumes",
+      "message": "No resumes were successfully uploaded. Errors: [{'resume_id': 9, 'candidate_id': 9, 'status': 'error', 'error': 'OPENROUTER_API_KEY is not set in environment variables'}, {'resume_id': 10, 'candidate_id': 10, 'status': 'error', 'error': 'OPENROUTER_API_KEY is not set in environment variables'}, {'resume_id': 8, 'candidate_id': 8, 'status': 'error', 'error': 'OPENROUTER_API_KEY is not set in environment variables'}]",
+      "timestamp": "2025-11-15 20:56:28"
+    },
+    {
+      "test": "OpenRouter Integration",
+      "message": "No candidate IDs available. Resumes must be uploaded first.",
+      "timestamp": "2025-11-15 20:56:30"
+    },
+    {
+      "test": "Candidates Storage",
+      "message": "No candidate IDs available.",
+      "timestamp": "2025-11-15 20:56:32"
+    }
+  ],
+  "warnings": []
+}

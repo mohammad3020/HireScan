@@ -52,10 +52,13 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         """Create a new user"""
         validated_data.pop('password2')
+        # Get first_name and last_name, defaulting to empty string if not provided
+        first_name = validated_data.pop('first_name', '') or ''
+        last_name = validated_data.pop('last_name', '') or ''
         user = User.objects.create_user(
             email=validated_data['email'],
             password=validated_data['password'],
-            first_name=validated_data.get('first_name', ''),
-            last_name=validated_data.get('last_name', ''),
+            first_name=first_name,
+            last_name=last_name,
         )
         return user

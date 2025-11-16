@@ -22,6 +22,9 @@ class OpenRouterClient:
     
     def _make_request(self, model: str, messages: List[Dict[str, str]], **kwargs) -> Dict[str, Any]:
         """Make a request to OpenRouter API"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
         url = f"{self.base_url}/chat/completions"
         
         headers = {
@@ -37,11 +40,43 @@ class OpenRouterClient:
             **kwargs
         }
         
+        # Log request details (without sensitive data)
+        logger.info(f"OpenRouter API request - Model: {model}, Messages count: {len(messages)}")
+        if messages:
+            for idx, msg in enumerate(messages):
+                msg_content = msg.get('content', '')
+                if isinstance(msg_content, str):
+                    msg_len = len(msg_content)
+                elif isinstance(msg_content, list):
+                    # Handle multimodal content
+                    msg_len = sum(len(str(item.get('text', ''))) for item in msg_content if isinstance(item, dict))
+                else:
+                    msg_len = len(str(msg_content))
+                logger.info(f"Message {idx} ({msg.get('role', 'unknown')}) length: {msg_len} characters")
+                if idx == 0 and msg_len > 10000:
+                    logger.debug(f"First message preview (first 500 chars): {str(msg_content)[:500]}")
+        
         try:
             response = requests.post(url, headers=headers, json=payload, timeout=60)
             response.raise_for_status()
-            return response.json()
+            result = response.json()
+            
+            # Log response details
+            logger.info(f"OpenRouter API response - Status: {response.status_code}")
+            if result.get('choices'):
+                content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+                logger.info(f"Response content length: {len(str(content))} characters")
+                logger.debug(f"Response content preview: {str(content)[:500]}")
+            
+            return result
         except requests.exceptions.RequestException as e:
+            logger.error(f"OpenRouter API request failed: {str(e)}")
+            if hasattr(e, 'response') and e.response is not None:
+                try:
+                    error_detail = e.response.json()
+                    logger.error(f"Error response: {json.dumps(error_detail, indent=2)}")
+                except:
+                    logger.error(f"Error response text: {e.response.text[:500]}")
             raise Exception(f"OpenRouter API error: {str(e)}")
     
     def parse_resume(self, resume_text: str, prompt_template: str) -> Dict[str, Any]:
@@ -55,13 +90,31 @@ class OpenRouterClient:
         Returns:
             Parsed resume data as dictionary
         """
+        # If resume_text is empty or too short, return error JSON (old method can't read files directly)
+        if not resume_text or len(resume_text.strip()) < 50:
+            return {
+                "error": True,
+                "message": "نمی‌توانم متن رزومه را از فایل استخراج کنم. احتمالاً فایل PDF شامل متن قابل استخراج نیست (مثلاً فایل اسکن شده) یا فایل آسیب دیده است. لطفاً یک فایل PDF با متن قابل کپی استفاده کنید یا از روش دیگری برای ارسال رزومه استفاده کنید."
+            }
+        
         # Format the prompt with resume text
-        full_prompt = prompt_template.format(resume_text=resume_text)
+        # Check if prompt has {resume_text} placeholder, otherwise append text
+        if "{resume_text}" in prompt_template:
+            full_prompt = prompt_template.format(resume_text=resume_text)
+        else:
+            # Append resume text to prompt if no placeholder found
+            full_prompt = f"{prompt_template}\n\nResume text:\n{resume_text}"
+        
+        # Check prompt length
+        prompt_length = len(full_prompt)
+        logger.info(f"Full prompt length: {prompt_length} characters")
+        if prompt_length > 200000:  # ~200k chars = ~50k tokens
+            logger.warning(f"Prompt is very long ({prompt_length} chars). This might cause issues.")
         
         messages = [
             {
                 "role": "system",
-                "content": "You are an expert at parsing resumes and extracting structured information. Always return valid JSON."
+                "content": "You are an expert AI assistant specialized in parsing resumes. Extract all information from the resume text and return ONLY valid JSON. Do not include any explanatory text, only the JSON object."
             },
             {
                 "role": "user",
@@ -69,24 +122,135 @@ class OpenRouterClient:
             }
         ]
         
+        # Calculate max_tokens based on prompt length (already calculated above)
+        # Estimate tokens: ~3 chars per token (conservative for mixed Persian/English)
+        estimated_input_tokens = int(prompt_length / 3)
+        # For JSON response, we need significant tokens (resume data can be large)
+        # Minimum 16000, but scale with input
+        estimated_max_tokens = max(16000, int(estimated_input_tokens * 0.5) + 4000)
+        # Cap at reasonable maximum (most models support up to 32k-128k output)
+        estimated_max_tokens = min(estimated_max_tokens, 32000)
+        logger.info(f"Calculated max_tokens: {estimated_max_tokens} for prompt length: {prompt_length} chars (~{estimated_input_tokens} input tokens)")
+        
+        # Check if model supports json_object format
+        supports_json = "json" in self.parse_model.lower() or "gpt-4" in self.parse_model.lower() or "claude" in self.parse_model.lower()
+        
+        request_kwargs = {
+            "temperature": 0.3,  # Lower temperature for more consistent JSON
+            "max_tokens": estimated_max_tokens,
+        }
+        
+        if supports_json:
+            request_kwargs["response_format"] = {"type": "json_object"}
+            logger.info("Using json_object response format")
+        else:
+            logger.info("Model may not support json_object format, using default")
+        
         response = self._make_request(
             model=self.parse_model,
             messages=messages,
-            response_format={"type": "json_object"} if "json" in self.parse_model.lower() else None
+            **request_kwargs
         )
         
         # Extract the content from the response
-        content = response.get("choices", [{}])[0].get("message", {}).get("content", "{}")
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # Check if response has choices
+        if not response.get("choices") or len(response.get("choices", [])) == 0:
+            logger.error(f"OpenRouter response has no choices. Full response: {json.dumps(response, indent=2)}")
+            raise ValueError("Resume parsing failed: OpenRouter API returned response with no choices")
+        
+        choice = response.get("choices", [{}])[0]
+        
+        # Check for finish_reason
+        finish_reason = choice.get("finish_reason")
+        if finish_reason:
+            logger.info(f"OpenRouter finish_reason: {finish_reason}")
+            if finish_reason == "length":
+                logger.warning("Response was truncated due to max_tokens limit. Consider increasing max_tokens.")
+            elif finish_reason == "content_filter":
+                logger.error("Response was filtered by content filter")
+                raise ValueError("Resume parsing failed: Response was filtered by content filter")
+            elif finish_reason == "error":
+                logger.error(f"OpenRouter returned error finish_reason. Full response: {json.dumps(response, indent=2)}")
+                raise ValueError("Resume parsing failed: OpenRouter API returned error finish_reason")
+        
+        content = choice.get("message", {}).get("content", "{}")
+        
+        # Log response for debugging
+        logger.info(f"OpenRouter parse_resume response - Content type: {type(content)}, Length: {len(str(content))}")
+        logger.debug(f"Content preview: {str(content)[:1000]}")
+        
+        # Check for simple error strings BEFORE trying to parse JSON
+        if isinstance(content, str):
+            content_stripped = content.strip()
+            if len(content_stripped) < 50:
+                import re
+                content_normalized = re.sub(r'[\'"\s\{\}\[\]]', '', content_stripped.lower())
+                if content_normalized == 'error':
+                    logger.error(f"OpenRouter returned error string: {repr(content)}")
+                    logger.error(f"Full response: {json.dumps(response, indent=2)}")
+                    raise ValueError(f"Resume parsing failed: OpenRouter API returned error response: {content}")
+            
+            # Check if content starts with error
+            if content_stripped.lower().startswith('error') or content_stripped.startswith('"error"') or content_stripped.startswith("'error'"):
+                logger.error(f"Content starts with error: {content[:200]}")
+                logger.error(f"Full response: {json.dumps(response, indent=2)}")
+                # Don't raise here, might be valid JSON with error field
         
         try:
-            return json.loads(content)
-        except json.JSONDecodeError:
+            parsed = json.loads(content)
+            # Check if parsed data contains error field
+            if isinstance(parsed, dict):
+                if parsed.get('error'):
+                    error_msg = parsed.get('message', parsed.get('error', 'Unknown error'))
+                    logger.error(f"Parsed JSON contains error field: {error_msg}")
+                    logger.error(f"Full parsed data: {json.dumps(parsed, indent=2)}")
+                    raise ValueError(f"Resume parsing failed: {error_msg}")
+                # Check if it's a valid resume structure (should have at least personal_info or education or experience)
+                if not any(key in parsed for key in ['personal_info', 'education', 'experience', 'skills']):
+                    logger.warning(f"Parsed JSON doesn't have expected resume structure. Keys: {list(parsed.keys())}")
+                    # Don't fail here, might still be valid
+                return parsed
+            else:
+                logger.error(f"Parsed content is not a dict: {type(parsed)}")
+                raise ValueError(f"Resume parsing failed: Expected dict, got {type(parsed)}")
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON decode error: {str(e)}")
+            logger.error(f"Content that failed to parse: {content[:1000]}")
+            
             # Try to extract JSON from markdown code blocks if present
             import re
             json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', content, re.DOTALL)
             if json_match:
-                return json.loads(json_match.group(1))
-            raise ValueError(f"Failed to parse JSON from OpenRouter response: {content}")
+                try:
+                    extracted = json.loads(json_match.group(1))
+                    logger.info("Successfully extracted JSON from markdown code block")
+                    if isinstance(extracted, dict) and extracted.get('error'):
+                        error_msg = extracted.get('message', extracted.get('error', 'Unknown error'))
+                        raise ValueError(f"Resume parsing failed: {error_msg}")
+                    return extracted
+                except json.JSONDecodeError as inner_e:
+                    logger.error(f"Failed to parse extracted JSON: {str(inner_e)}")
+                    pass
+            
+            # Try to find JSON object in content (more flexible regex)
+            json_obj_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', content, re.DOTALL)
+            if json_obj_match:
+                try:
+                    extracted = json.loads(json_obj_match.group(0))
+                    logger.info("Successfully extracted JSON using flexible regex")
+                    if isinstance(extracted, dict) and extracted.get('error'):
+                        error_msg = extracted.get('message', extracted.get('error', 'Unknown error'))
+                        raise ValueError(f"Resume parsing failed: {error_msg}")
+                    return extracted
+                except json.JSONDecodeError:
+                    pass
+            
+            # If we get here, we couldn't parse the JSON
+            logger.error(f"Could not parse JSON from response. Content preview: {content[:1000]}")
+            raise ValueError(f"Resume parsing failed: Failed to parse JSON from OpenRouter response. Error: {str(e)}. Content preview: {content[:500]}")
     
     def rank_candidates(self, job_description: str, candidates_data: List[Dict[str, Any]], prompt_template: str) -> List[Dict[str, Any]]:
         """

@@ -40,6 +40,7 @@ export const SignUp = () => {
       await signup(email, password, password2, firstName, lastName);
       navigate('/');
     } catch (err: any) {
+      console.error('Signup error:', err);
       if (err.response?.data) {
         const errorData = err.response.data;
         if (typeof errorData === 'string') {
@@ -48,13 +49,19 @@ export const SignUp = () => {
           setError(Array.isArray(errorData.email) ? errorData.email[0] : errorData.email);
         } else if (errorData.password) {
           setError(Array.isArray(errorData.password) ? errorData.password[0] : errorData.password);
+        } else if (errorData.password2) {
+          setError(Array.isArray(errorData.password2) ? errorData.password2[0] : errorData.password2);
         } else if (errorData.non_field_errors) {
           setError(Array.isArray(errorData.non_field_errors) ? errorData.non_field_errors[0] : errorData.non_field_errors);
         } else {
-          setError('Registration failed. Please try again.');
+          // Show first error message found
+          const firstError = Object.values(errorData)[0];
+          setError(Array.isArray(firstError) ? firstError[0] : String(firstError));
         }
+      } else if (err.message) {
+        setError(err.message);
       } else {
-        setError('Registration failed. Please try again.');
+        setError('Registration failed. Please check your connection and try again.');
       }
     } finally {
       setLoading(false);

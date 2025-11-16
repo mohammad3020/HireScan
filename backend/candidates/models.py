@@ -7,6 +7,16 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 
+def default_dict():
+    """Helper function for JSONField default dict"""
+    return {}
+
+
+def default_list():
+    """Helper function for JSONField default list"""
+    return []
+
+
 class Candidate(models.Model):
     """Candidate model"""
     email = models.EmailField(unique=True)
@@ -41,7 +51,7 @@ class ParsedResume(models.Model):
     """Parsed resume data model - stores all parsed CV information"""
     resume = models.OneToOneField(Resume, on_delete=models.CASCADE, related_name='parsed_data')
     raw_text = models.TextField(blank=True, help_text="Extracted raw text from CV file")
-    parsed_data = models.JSONField(default=dict, help_text="Complete structured data from AI parsing (backup)")
+    parsed_data = models.JSONField(default=default_dict, help_text="Complete structured data from AI parsing (backup)")
     parsed_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -59,12 +69,16 @@ class ParsedResume(models.Model):
     github_url = models.URLField(blank=True)
     portfolio_url = models.URLField(blank=True)
     website_url = models.URLField(blank=True)
-    other_links = models.JSONField(default=list, blank=True, help_text="List of other links")
+    other_links = models.JSONField(default=default_list, blank=True, help_text="List of other links")
     
     # Complex nested data stored as JSON
-    interests = models.JSONField(default=dict, blank=True, help_text="Professional, personal, volunteer interests and memberships")
-    other_sections = models.JSONField(default=dict, blank=True, help_text="Professional summary, career objectives, references, custom sections")
-    extraction_notes = models.JSONField(default=dict, blank=True, help_text="Ambiguous items, missing sections, quality issues, special notes")
+    interests = models.JSONField(default=default_dict, blank=True, help_text="Professional, personal, volunteer interests and memberships")
+    other_sections = models.JSONField(default=default_dict, blank=True, help_text="Professional summary, career objectives, references, custom sections")
+    extraction_notes = models.JSONField(default=default_dict, blank=True, help_text="Ambiguous items, missing sections, quality issues, special notes")
+    
+    # AI Review and Salary (from AI parsing JSON response)
+    ai_review = models.TextField(blank=True, help_text="AI summary and review of candidate's qualifications")
+    expected_salary = models.CharField(max_length=200, blank=True, help_text="Expected salary from resume (e.g., '45 Million Toman / Month')")
     
     class Meta:
         ordering = ['-parsed_at']
@@ -85,7 +99,7 @@ class Education(models.Model):
     gpa = models.CharField(max_length=50, blank=True, null=True, help_text="معدل و مقیاس")
     honors = models.CharField(max_length=200, blank=True, null=True, help_text="رتبه/افتخارات")
     thesis = models.CharField(max_length=500, blank=True, null=True, help_text="عنوان پایان‌نامه")
-    relevant_courses = models.JSONField(default=list, blank=True, help_text="دروس مرتبط")
+    relevant_courses = models.JSONField(default=default_list, blank=True, help_text="دروس مرتبط")
     order = models.IntegerField(default=0, help_text="Order for sorting")
     
     class Meta:
@@ -108,7 +122,7 @@ class Experience(models.Model):
     duration = models.CharField(max_length=50, blank=True, null=True, help_text="مدت زمان محاسبه شده")
     is_currently_employed = models.BooleanField(default=False, help_text="آیا در حال حاضر مشغول به کار است")
     reasoning = models.TextField(blank=True, help_text="توضیح کوتاه به فارسی")
-    responsibilities = models.JSONField(default=list, blank=True, help_text="شرح وظایف و دستاوردها")
+    responsibilities = models.JSONField(default=default_list, blank=True, help_text="شرح وظایف و دستاوردها")
     order = models.IntegerField(default=0, help_text="Order for sorting")
     # Legacy fields for backward compatibility
     role = models.CharField(max_length=200, blank=True, help_text="Legacy: role field")
@@ -169,7 +183,7 @@ class Project(models.Model):
     name = models.CharField(max_length=200, help_text="نام پروژه")
     role = models.CharField(max_length=200, blank=True, help_text="نقش")
     date = models.CharField(max_length=100, blank=True, help_text="تاریخ/مدت زمان")
-    technologies = models.JSONField(default=list, blank=True, help_text="تکنولوژی‌های استفاده شده")
+    technologies = models.JSONField(default=default_list, blank=True, help_text="تکنولوژی‌های استفاده شده")
     description = models.TextField(blank=True, help_text="توضیحات کامل")
     link = models.URLField(blank=True, null=True, help_text="لینک پروژه")
     order = models.IntegerField(default=0, help_text="Order for sorting")
@@ -203,8 +217,8 @@ class Language(models.Model):
     parsed_resume = models.ForeignKey(ParsedResume, on_delete=models.CASCADE, related_name='languages')
     language = models.CharField(max_length=100, help_text="نام زبان")
     proficiency = models.CharField(max_length=50, blank=True, null=True, help_text="سطح تسلط کلی")
-    skills = models.JSONField(default=dict, blank=True, null=True, help_text="سطح گفتاری، نوشتاری، شنیداری، خواندن")
-    certificates = models.JSONField(default=list, blank=True, help_text="گواهینامه‌های زبان")
+    skills = models.JSONField(default=default_dict, blank=True, null=True, help_text="سطح گفتاری، نوشتاری، شنیداری، خواندن")
+    certificates = models.JSONField(default=default_list, blank=True, help_text="گواهینامه‌های زبان")
     
     class Meta:
         ordering = ['language']
@@ -237,7 +251,7 @@ class Publication(models.Model):
     """Publication model"""
     parsed_resume = models.ForeignKey(ParsedResume, on_delete=models.CASCADE, related_name='publications')
     title = models.CharField(max_length=500, help_text="عنوان مقاله")
-    authors = models.JSONField(default=list, blank=True, help_text="نویسندگان")
+    authors = models.JSONField(default=default_list, blank=True, help_text="نویسندگان")
     venue = models.CharField(max_length=200, blank=True, null=True, help_text="نام ژورنال/کنفرانس")
     year = models.CharField(max_length=10, blank=True, null=True, help_text="سال انتشار")
     volume_pages = models.CharField(max_length=100, blank=True, null=True, help_text="شماره مجلد/صفحات")
@@ -283,7 +297,7 @@ class TimelineEvent(models.Model):
     candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='timeline_events')
     event_type = models.CharField(max_length=20, choices=EVENT_TYPES)
     description = models.TextField()
-    metadata = models.JSONField(default=dict, blank=True)
+    metadata = models.JSONField(default=default_dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
@@ -297,7 +311,9 @@ class JobScore(models.Model):
     """Job score model - scores a candidate for a specific job"""
     candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='job_scores')
     job = models.ForeignKey('jobs.Job', on_delete=models.CASCADE, related_name='candidate_scores')
-    score = models.FloatField(help_text="Score out of 100")
+    score = models.FloatField(help_text="Overall score out of 100 (from scoring response)")
+    experience_score = models.FloatField(null=True, blank=True, help_text="Experience score out of 100 (from scoring response)")
+    education_score = models.FloatField(null=True, blank=True, help_text="Education score out of 100 (from scoring response)")
     rank = models.IntegerField(null=True, blank=True, help_text="Rank among all candidates for this job")
     auto_rejected = models.BooleanField(default=False)
     rejection_reason = models.TextField(blank=True)

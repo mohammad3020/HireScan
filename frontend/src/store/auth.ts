@@ -14,7 +14,7 @@ interface AuthState {
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      isAuthenticated: !!localStorage.getItem('access_token'),
+      isAuthenticated: typeof window !== 'undefined' ? !!localStorage.getItem('access_token') : false,
       user: null,
       login: async (email: string, password: string) => {
         // Call the API to login with email
@@ -23,8 +23,10 @@ export const useAuthStore = create<AuthState>()(
           password,
         });
         const { access, refresh } = response.data;
-        localStorage.setItem('access_token', access);
-        localStorage.setItem('refresh_token', refresh);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('access_token', access);
+          localStorage.setItem('refresh_token', refresh);
+        }
         set({
           isAuthenticated: true,
           user: { email },
@@ -32,16 +34,24 @@ export const useAuthStore = create<AuthState>()(
       },
       signup: async (email: string, password: string, password2: string, firstName?: string, lastName?: string) => {
         // Call the API to register
-        const response = await apiClient.post('/auth/register/', {
+        const payload: any = {
           email,
           password,
           password2,
-          first_name: firstName || '',
-          last_name: lastName || '',
-        });
+        };
+        // Only include first_name and last_name if they have values
+        if (firstName && firstName.trim()) {
+          payload.first_name = firstName.trim();
+        }
+        if (lastName && lastName.trim()) {
+          payload.last_name = lastName.trim();
+        }
+        const response = await apiClient.post('/auth/register/', payload);
         const { access, refresh, user } = response.data;
-        localStorage.setItem('access_token', access);
-        localStorage.setItem('refresh_token', refresh);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('access_token', access);
+          localStorage.setItem('refresh_token', refresh);
+        }
         set({
           isAuthenticated: true,
           user: {
@@ -56,11 +66,13 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: false,
           user: null,
         });
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+        }
       },
       checkAuth: () => {
-        const token = localStorage.getItem('access_token');
+        const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
         set({
           isAuthenticated: !!token,
         });

@@ -14,9 +14,20 @@ export interface ReviewDashboard {
   };
   top_candidates: JobScore[];
   rejected_candidates: JobScore[];
+  all_candidates?: Array<JobScore & {
+    candidate_details?: {
+      name: string;
+      email: string;
+      phone: string;
+      linkedin_url: string;
+      github_url: string;
+    };
+    skills?: string[];
+    skillset?: string;
+  }>;
 }
 
-export const useReviewDashboard = (jobId: number) => {
+export const useReviewDashboard = (jobId: number, options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: ['review', jobId],
     queryFn: async () => {
@@ -25,7 +36,7 @@ export const useReviewDashboard = (jobId: number) => {
       });
       return response.data;
     },
-    enabled: !!jobId,
+    enabled: options?.enabled !== undefined ? options.enabled : !!jobId,
   });
 };
 

@@ -17,9 +17,11 @@ class BatchUpload(models.Model):
     ]
     
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    job = models.ForeignKey('jobs.Job', on_delete=models.SET_NULL, null=True, blank=True, related_name='batch_uploads', help_text="Job this batch is associated with")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     total_files = models.IntegerField(default=0)
     processed_files = models.IntegerField(default=0)
+    error_message = models.TextField(blank=True, help_text="Error message if batch processing failed")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

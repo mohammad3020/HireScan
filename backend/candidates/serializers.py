@@ -114,6 +114,13 @@ class ParsedResumeSerializer(serializers.ModelSerializer):
     languages = LanguageSerializer(many=True, read_only=True)
     courses = CourseSerializer(many=True, read_only=True)
     publications = PublicationSerializer(many=True, read_only=True)
+    summary = serializers.SerializerMethodField()
+    
+    def get_summary(self, obj):
+        """Extract summary from other_sections"""
+        if obj.other_sections and isinstance(obj.other_sections, dict):
+            return obj.other_sections.get('summary', '')
+        return ''
     
     class Meta:
         model = ParsedResume
@@ -126,6 +133,10 @@ class ParsedResumeSerializer(serializers.ModelSerializer):
             'linkedin_url', 'github_url', 'portfolio_url', 'website_url', 'other_links',
             # Complex data
             'interests', 'other_sections', 'extraction_notes',
+            # Summary (from parse_resume sample.md)
+            'summary',
+            # AI Review and Salary (from AI parsing JSON response)
+            'ai_review', 'expected_salary',
             # Related objects
             'educations', 'experiences', 'technical_skills', 'soft_skills',
             'skills_mentioned_in_job_title', 'projects', 'awards',
@@ -172,8 +183,8 @@ class JobScoreSerializer(serializers.ModelSerializer):
         model = JobScore
         fields = [
             'id', 'candidate', 'candidate_name', 'job', 'job_title',
-            'score', 'rank', 'auto_rejected', 'rejection_reason',
-            'scored_at', 'updated_at'
+            'score', 'experience_score', 'education_score', 'rank',
+            'auto_rejected', 'rejection_reason', 'scored_at', 'updated_at'
         ]
         read_only_fields = ['id', 'scored_at', 'updated_at']
 

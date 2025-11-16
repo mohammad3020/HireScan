@@ -1,151 +1,244 @@
-# Smoke Test - CV Upload & Processing
+# Smoke Test برای HireScan ATS
 
-## Prerequisites
-1. Backend server is running (`python manage.py runserver`)
-2. Frontend server is running (`npm run dev`)
-3. User is logged in
-4. At least one job exists in the system
-5. OpenRouter API key is configured
+این smoke test تمام روند کار را از ثبت‌نام تا نمایش کاندیدها بررسی می‌کند.
 
-## Test Steps
+## روند تست شده
 
-### 1. Navigate to Job Detail Page
-- Go to `/jobs/{jobId}?tab=upload` (replace `{jobId}` with an actual job ID)
-- Verify the "Upload Resumes" tab is visible and active
+این تست تمام مراحل زیر را بررسی می‌کند:
 
-### 2. File Selection Test
-- **Drag & Drop Test:**
-  - Drag a PDF file into the upload area
-  - Verify file appears in the "Selected Files" list
-  - Verify file name, size, and "Pending" status are displayed
-  
-- **File Select Button Test:**
-  - Click "Select Files" button
-  - Select one or more PDF/DOC/DOCX files
-  - Verify files appear in the list
-  - Verify file count shows correctly (e.g., "Selected Files (2/100)")
+1. ✅ **Sign Up**: کاربر می‌تواند ثبت‌نام کند
+2. ✅ **Create Job**: کاربر می‌تواند یک job بسازد و job به درستی و کامل در backend ذخیره می‌شود
+3. ✅ **Upload Resumes**: کاربر می‌تواند چندین رزومه را با هم آپلود کند
+4. ✅ **OpenRouter Integration**: رزومه‌ها آپلود می‌شوند و به OpenRouter API ارسال می‌شوند و JSON response در بخش candidates ذخیره می‌شود
+5. ✅ **Display to Super User**: کاندیدها به super user به صورت درست و کامل نمایش داده می‌شوند
+6. ✅ **API Endpoints**: از API های درست در مراحل انتقال اطلاعات بین frontend و backend استفاده شده است
+7. ✅ **CRUD Operations**: تمام عملیات CRUD در جای درست خودش اتفاق می‌افتد
 
-### 3. File Validation Test
-- Try to select an invalid file type (e.g., .txt, .jpg)
-- Verify alert message appears: "Some files were rejected. Only PDF, DOC, DOCX files are allowed."
-- Verify invalid files are not added to the list
+## نحوه اجرا
 
-### 4. File Removal Test
-- Add multiple files
-- Click the "X" button on one file
-- Verify the file is removed from the list
-- Verify file count updates correctly
+### پیش‌نیازها
 
-### 5. Upload & Processing Test
-- Select 1-3 valid CV files (PDF, DOC, or DOCX)
-- Click "Upload & Process" button
-- **Verify:**
-  - Button shows "Uploading & Processing..." with spinner
-  - Button is disabled during upload
-  - All files show "Processing..." status with spinner
-  - No JavaScript errors in browser console
-  - Success message appears: "Successfully processed X out of Y files"
-  - Files show "Completed" status with green checkmark
-  - If batch_id exists, page redirects to `/processing/{batchId}` after 2 seconds
-
-### 6. Error Handling Test
-- Try uploading without selecting files
-- Verify error message appears (should be prevented by button state)
-- If upload fails, verify error message is displayed
-- Verify failed files show "Failed" status with red alert icon
-
-### 7. Backend Verification
-- Check Django admin: `/admin/candidates/candidate/`
-- Verify new Candidate records are created
-- Check `/admin/candidates/resume/`
-- Verify Resume records are created with uploaded files
-- Check `/admin/candidates/parsedresume/`
-- Verify ParsedResume records are created with parsed data
-- Verify all related models are populated:
-  - Education records
-  - Experience records
-  - TechnicalSkill, SoftSkill records
-  - Projects, Awards, Languages, Courses, Publications (if present in CV)
-
-### 8. Database Verification
-```python
-# In Django shell or admin
-from candidates.models import Candidate, Resume, ParsedResume
-
-# Check latest candidates
-candidates = Candidate.objects.all().order_by('-created_at')[:5]
-for c in candidates:
-    print(f"{c.name} - {c.email}")
-    print(f"  Resumes: {c.resumes.count()}")
-    for resume in c.resumes.all():
-        if hasattr(resume, 'parsed_data'):
-            print(f"    - {resume.file.name}: Parsed ✓")
-            print(f"      Education: {resume.parsed_data.educations.count()}")
-            print(f"      Experience: {resume.parsed_data.experiences.count()}")
-            print(f"      Skills: {resume.parsed_data.technical_skills.count()}")
-```
-
-### 9. API Endpoint Test (Optional - using curl)
+1. مطمئن شوید که backend Django در حال اجرا است:
 ```bash
-# Get auth token first
-TOKEN="your_jwt_token_here"
-JOB_ID=1
-
-# Upload a file
-curl -X POST http://localhost:8000/api/candidates/upload-cv/ \
-  -H "Authorization: Bearer $TOKEN" \
-  -F "files=@/path/to/cv.pdf" \
-  -F "job_id=$JOB_ID"
+cd backend
+python manage.py runserver
 ```
 
-### 10. Concurrent Processing Test
-- Upload 5-10 CV files simultaneously
-- Verify all files are processed (may take 1-2 minutes)
-- Verify progress updates correctly
-- Check backend logs to verify threading is working
-- Verify rate limiting is respected (max 3 concurrent requests)
+2. نصب dependencies (در صورت نیاز):
+```bash
+pip install requests
+```
 
-## Expected Results
+3. تنظیمات OpenRouter API (در فایل `.env` یا متغیرهای محیطی):
+```
+OPENROUTER_API_KEY=your_api_key_here
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+OPENROUTER_PARSE_MODEL=your_model_here
+```
 
-✅ All files upload successfully  
-✅ No JavaScript errors in console  
-✅ Files are stored in `media/resumes/` directory  
-✅ Candidates are created in database  
-✅ Resumes are parsed using AI service  
-✅ All parsed data is stored in related models  
-✅ Success/error messages display correctly  
-✅ Status updates work in real-time  
-✅ Navigation to processing page works (if batch_id exists)
+### اجرای تست
 
-## Common Issues & Solutions
+```bash
+python smoke_test.py
+```
 
-### Issue: "No files provided" error
-- **Solution:** Check browser console for errors
-- Verify files are actual File objects (not plain objects)
-- Check FormData is being created correctly
+### اجرا با URL سفارشی
 
-### Issue: "Right-hand side of 'instanceof' is not callable"
-- **Solution:** Fixed by using property checks instead of instanceof
+```bash
+python smoke_test.py --api-url http://localhost:8000/api
+```
 
-### Issue: Files not uploading
-- **Solution:** 
-  - Check authentication token is valid
-  - Verify API endpoint is correct
-  - Check backend logs for errors
-  - Verify OpenRouter API key is set
+## خروجی تست
 
-### Issue: Parsing fails
-- **Solution:**
-  - Check OpenRouter API key and credits
-  - Verify file format is supported
-  - Check backend logs for AI service errors
-  - Verify prompt template exists in `ai/prompts/parse_resume.md`
+تست نتایج زیر را تولید می‌کند:
 
-## Test Data
+1. **Console Output**: نتایج تست‌ها به صورت real-time در کنسول نمایش داده می‌شوند
+2. **JSON Report**: فایل `smoke_test_results.json` با جزئیات کامل نتایج
 
-Use the test CV files from `ai/CV_files/`:
-- `En-CV1.pdf`
-- `Pe-CV2.pdf`
+## بررسی‌های انجام شده
 
-These files are known to work with the parsing service.
+### 1. Sign Up
+- ✅ کاربر می‌تواند ثبت‌نام کند
+- ✅ Token دریافت می‌شود
+- ✅ کاربر در backend ذخیره می‌شود
 
+### 2. Create Job
+- ✅ Job ایجاد می‌شود
+- ✅ تمام فیلدها به درستی ذخیره می‌شوند
+- ✅ Job به کاربر مرتبط می‌شود
+
+### 3. Upload Resumes
+- ✅ چندین رزومه به صورت batch آپلود می‌شوند
+- ✅ Batch ایجاد می‌شود
+- ✅ فایل‌ها به backend ارسال می‌شوند
+
+### 4. OpenRouter Integration
+- ✅ رزومه‌ها به OpenRouter API ارسال می‌شوند
+- ✅ JSON response دریافت می‌شود
+- ✅ داده‌های parse شده در database ذخیره می‌شوند
+
+### 5. Candidates Storage
+- ✅ کاندیدها در بخش candidates ذخیره می‌شوند
+- ✅ رزومه‌ها به کاندیدها مرتبط می‌شوند
+- ✅ Parsed data به درستی ذخیره می‌شود
+
+### 6. Display to Super User
+- ✅ Review Dashboard در دسترس است
+- ✅ کاندیدها با تمام اطلاعات نمایش داده می‌شوند
+- ✅ KPIs به درستی محاسبه می‌شوند
+
+### 7. API Endpoints
+- ✅ از endpoints صحیح استفاده شده:
+  - `/api/auth/register/` برای signup
+  - `/api/jobs/jobs/new/` برای ایجاد job
+  - `/api/candidates/upload-cv/` برای آپلود رزومه
+  - `/api/review/review/?jobId={id}` برای نمایش کاندیدها
+
+### 8. CRUD Operations
+- ✅ **CREATE**: User, Job, Candidates ایجاد می‌شوند
+- ✅ **READ**: Job, Candidates, Review Dashboard خوانده می‌شوند
+- ✅ **UPDATE**: Job به‌روزرسانی می‌شود
+- ✅ **DELETE**: برای smoke test انجام نمی‌شود (تا داده‌ها باقی بمانند)
+
+## نمونه خروجی
+
+```
+============================================================
+  HireScan ATS - Smoke Test
+============================================================
+
+API Base URL: http://localhost:8000/api
+Start Time: 2024-01-15 10:30:00
+
+============================================================
+  Step 1: User Sign Up
+============================================================
+
+✅ PASS: Sign Up - User created successfully. Email: test_user_1234567890@smoketest.com
+✅ PASS: Sign Up - User Data Verification - User data correctly returned from backend
+
+============================================================
+  Step 2: Create Job
+============================================================
+
+✅ PASS: Create Job - Job created successfully with ID: 1
+✅ PASS: Create Job - Field Verification (title) - title correctly stored: Senior Software Engineer - Smoke Test
+✅ PASS: Create Job - Created By Verification - Job correctly associated with user
+
+============================================================
+  Step 3: Upload Multiple Resumes
+============================================================
+
+✅ PASS: Upload Resumes - Successfully uploaded 3 out of 3 resumes
+✅ PASS: Upload Resumes - Batch ID - Batch created with ID: 1
+
+============================================================
+  Step 4: Verify OpenRouter API Integration
+============================================================
+
+✅ PASS: OpenRouter Integration - Candidate 1 - Resume parsed successfully via OpenRouter API
+✅ PASS: OpenRouter Integration - Data Structure (Candidate 1) - Parsed data contains expected fields: personal_info, experiences, education, skills
+
+============================================================
+  Step 5: Verify Candidates Storage in Backend
+============================================================
+
+✅ PASS: Candidates Storage - CRUD Read - All 3 candidates found in candidates list
+✅ PASS: Candidates Storage - Job Association (Candidate 1) - Candidate associated with job 1
+
+============================================================
+  Step 6: Verify Display to Super User (Review Dashboard)
+============================================================
+
+✅ PASS: Display to Super User - API Response Structure - All required keys present: job, kpis, all_candidates
+✅ PASS: Display to Super User - Candidates List - 3 candidates available for display
+✅ PASS: Display to Super User - Candidate Data Completeness - 3 candidates have complete data for display
+
+============================================================
+  Step 7: Verify CRUD Operations
+============================================================
+
+✅ PASS: CRUD - CREATE - CREATE operations verified: User, Job, Candidates created successfully
+✅ PASS: CRUD - READ (Job) - Job READ operation successful
+✅ PASS: CRUD - UPDATE (Job) - Job UPDATE operation successful
+
+============================================================
+  Step 8: Verify Correct API Endpoints
+============================================================
+
+✅ PASS: API Endpoint - Sign Up - Correct endpoint: auth/register/
+✅ PASS: API Endpoint - Job Create - Correct endpoint: jobs/jobs/new/
+✅ PASS: API Endpoint - Upload CV - Correct endpoint: candidates/upload-cv/
+
+============================================================
+  Test Summary
+============================================================
+
+✅ Passed: 25
+❌ Failed: 0
+⚠️  Warnings: 2
+📊 Total: 27
+
+🎉 All critical tests passed!
+
+📄 Detailed results saved to: smoke_test_results.json
+```
+
+## عیب‌یابی
+
+### مشکل: Sign Up failed
+**راه حل:**
+- مطمئن شوید که backend در حال اجرا است
+- بررسی کنید که database به درستی تنظیم شده باشد
+
+### مشکل: Job creation failed
+**راه حل:**
+- بررسی کنید که token معتبر است
+- بررسی کنید که department وجود دارد (یا department_id را null بگذارید)
+
+### مشکل: Resume upload failed
+**راه حل:**
+- بررسی کنید که OpenRouter API key تنظیم شده باشد
+- بررسی کنید که job ID معتبر است
+
+### مشکل: OpenRouter Integration failed
+**راه حل:**
+- بررسی کنید که API key معتبر است
+- بررسی کنید که model صحیح تنظیم شده باشد
+- بررسی لاگ‌های backend برای جزئیات بیشتر
+
+## پاکسازی داده‌های تست
+
+بعد از اجرای تست، می‌توانید داده‌های تستی را پاک کنید:
+
+```bash
+cd backend
+python manage.py shell
+```
+
+```python
+from core.models import User
+from jobs.models import Job
+from candidates.models import Candidate
+
+# حذف کاربران تستی
+User.objects.filter(email__startswith='test_user_').delete()
+
+# حذف job های تستی
+Job.objects.filter(title__contains='Smoke Test').delete()
+
+# حذف کاندیدهای تستی
+Candidate.objects.filter(email__contains='example.com').delete()
+```
+
+## نکات مهم
+
+1. **پردازش Async**: رزومه‌ها ممکن است به صورت async پردازش شوند. تست 10 ثانیه صبر می‌کند اما ممکن است نیاز به زمان بیشتری باشد.
+
+2. **Rate Limiting**: OpenRouter ممکن است rate limit داشته باشد. اگر چندین تست را متوالی اجرا می‌کنید، بین آنها فاصله بگذارید.
+
+3. **Database**: تست داده‌های تستی ایجاد می‌کند. بعد از تست، می‌توانید آنها را پاک کنید.
+
+## جزئیات بیشتر
+
+برای جزئیات بیشتر در مورد نحوه اجرا و عیب‌یابی، به فایل `SMOKE_TEST_GUIDE.md` مراجعه کنید.

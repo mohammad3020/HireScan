@@ -16,7 +16,7 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   }, [checkAuth]);
 
   // Check both store state and localStorage token
-  const token = localStorage.getItem('access_token');
+  const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
   if (!isAuthenticated || !token) {
     return <Navigate to="/login" replace />;
   }

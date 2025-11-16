@@ -7,6 +7,16 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 
+def default_dict():
+    """Helper function for JSONField default dict"""
+    return {}
+
+
+def default_list():
+    """Helper function for JSONField default list"""
+    return []
+
+
 class Department(models.Model):
     """Department model"""
     name = models.CharField(max_length=200)
@@ -66,7 +76,7 @@ class Job(models.Model):
     # Format: [{"name": "Python", "priority": "Critical"}, ...]
     # Priority: "Critical", "Important", "Nice-to-have"
     required_skills = models.JSONField(
-        default=list,
+        default=default_list,
         blank=True,
         help_text="List of required skills with priority: [{'name': 'Python', 'priority': 'Critical'}, ...]"
     )
@@ -154,7 +164,7 @@ class Job(models.Model):
     
     # Demographic Requirements - Education Major
     education_major = models.JSONField(
-        default=list,
+        default=default_list,
         blank=True,
         help_text="List of required education majors"
     )
@@ -173,7 +183,7 @@ class Job(models.Model):
         help_text="Auto reject candidates who don't meet preferred universities requirement"
     )
     preferred_universities = models.JSONField(
-        default=list,
+        default=default_list,
         blank=True,
         help_text="List of preferred universities (e.g., ['top_iranian', 'international', ...])"
     )
@@ -184,7 +194,7 @@ class Job(models.Model):
         help_text="Enable target companies requirement"
     )
     target_companies = models.JSONField(
-        default=list,
+        default=default_list,
         blank=True,
         help_text="List of target companies"
     )
@@ -192,7 +202,7 @@ class Job(models.Model):
     # Legacy auto_reject_rules (kept for backward compatibility)
     # Can be merged into demographic_requirements in the future
     auto_reject_rules = models.JSONField(
-        default=dict,
+        default=default_dict,
         blank=True,
         help_text="Legacy: Rules for auto-rejecting candidates. Use demographic_requirements instead."
     )

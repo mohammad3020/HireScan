@@ -7,10 +7,10 @@ export const Jobs = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDepartment, setFilterDepartment] = useState<string>('all');
   
-  const { data: jobsResponse, isLoading, error } = useJobs(
+  const { data: jobsResponse, isLoading, error, isError } = useJobs(
     filterDepartment !== 'all' ? { search: searchTerm } : { search: searchTerm }
   );
-  const { data: departmentsData } = useDepartments();
+  const { data: departmentsData, isLoading: isLoadingDepartments, isError: isDepartmentsError } = useDepartments();
   const deleteJobMutation = useDeleteJob();
 
   const jobs = jobsResponse?.results || jobsResponse || [];
@@ -40,7 +40,7 @@ export const Jobs = () => {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || isLoadingDepartments) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -56,7 +56,10 @@ export const Jobs = () => {
     );
   }
 
-  if (error) {
+  if (isError || isDepartmentsError || error) {
+    const errorMessage = (error as any)?.userMessage || 
+                        (error instanceof Error ? error.message : '') ||
+                        'Error loading jobs. Please try again.';
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -66,7 +69,13 @@ export const Jobs = () => {
           </div>
         </div>
         <div className="card p-12 text-center">
-          <p className="text-red-600">Error loading jobs. Please try again.</p>
+          <p className="text-red-600 mb-4">{errorMessage}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="btn-primary"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );

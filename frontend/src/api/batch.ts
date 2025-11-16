@@ -42,9 +42,9 @@ export const useBatchUpload = (id: number) => {
     },
     enabled: !!id,
     refetchInterval: (query) => {
-      // Poll every 2 seconds if still processing
+      // Poll every 2 seconds if still pending or processing
       const data = query.state.data;
-      return data?.status === 'processing' ? 2000 : false;
+      return (data?.status === 'processing' || data?.status === 'pending') ? 2000 : false;
     },
   });
 };
