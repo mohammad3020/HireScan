@@ -13,6 +13,7 @@ from threading import Lock
 import time
 from django.conf import settings
 from django.utils import timezone
+from django.db import IntegrityError
 from core.openrouter import OpenRouterClient
 from candidates.models import (
     Candidate, Resume, ParsedResume, Experience, Education, TimelineEvent, JobScore,
@@ -544,7 +545,15 @@ def parse_resume_service(resume_instance, job=None):
         candidate.linkedin_url = parsed_resume.linkedin_url
     if parsed_resume.github_url and not candidate.github_url:
         candidate.github_url = parsed_resume.github_url
-    candidate.save()
+    try:
+        candidate.save()
+    except IntegrityError as exc:
+        logger.error(
+            "Duplicate candidate email detected while saving parsed resume for candidate %s",
+            candidate.id,
+            exc_info=True,
+        )
+        raise ValueError("Resume parsing failed: فایل رزومه تکراری ست") from exc
     
     logger.info(f"Updated candidate {candidate.id}: {candidate.name}, {candidate.email}")
     
@@ -1439,7 +1448,16 @@ def _process_single_file_item(file_item, batch, counters, lock):
         if parsed_resume.email and (not candidate.email or candidate.email.startswith('temp_') or candidate.email.endswith('@temp.com') or candidate.email.endswith('@example.com')):
             old_email = candidate.email
             candidate.email = parsed_resume.email
-            candidate.save()
+            try:
+                candidate.save()
+            except IntegrityError as exc:
+                logger.error(
+                    "[RESUME %s] Duplicate candidate email detected while updating candidate %s",
+                    resume_id,
+                    candidate.id,
+                    exc_info=True,
+                )
+                raise ValueError("Resume parsing failed: فایل رزومه تکراری ست") from exc
             logger.info(f"[RESUME {resume_id}] Updated candidate {candidate.id} email from {old_email} to {parsed_resume.email}")
         
         # If batch has a job, create JobScore and apply auto-reject rules
