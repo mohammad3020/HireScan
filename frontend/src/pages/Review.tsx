@@ -576,6 +576,7 @@ type APICandidate = {
   seniority_match_score?: number | string | null;
   ai_review?: string;
   ai_summary?: string;
+  notes?: string;
   skills_payload?: SkillsSummary;
 };
 
@@ -774,7 +775,7 @@ export const Review = () => {
         skillset: c.skillset || flattenedSkills.slice(0, 5).join(', '),
         skills: flattenedSkills,
         skillsBreakdown,
-        notes: c.rejection_reason || '',
+        notes: c.notes || '',
         aiSummary: c.ai_summary || c.ai_review || '',
         isFavorite: favorites[c.candidate] || false,
         auto_rejected: c.auto_rejected,
@@ -1235,15 +1236,17 @@ export const Review = () => {
                           }}
                           className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-yellow-300 bg-yellow-50 text-yellow-600 hover:bg-yellow-100"
                         >
-                        <StickyNote className="h-4 w-4" />
-                      </button>
+                          <StickyNote className="h-4 w-4" />
+                        </button>
                         {openNotesId === candidate.id && (
                           <div
                             onClick={(e) => e.stopPropagation()}
-                            className="absolute right-0 bottom-full z-20 mb-2 w-56 rounded-lg border border-yellow-200 bg-white p-3 text-left text-xs text-gray-700 shadow-lg"
+                            className="absolute right-0 bottom-full z-20 mb-2 w-64 rounded-lg border border-yellow-200 bg-white p-4 text-left text-sm text-gray-700 shadow-lg"
                           >
-                            <div className="mb-1 text-xs font-semibold text-yellow-700">Notes</div>
-                            <p className="text-sm leading-5">{candidate.notes}</p>
+                            <div className="mb-2 text-xs font-semibold text-yellow-700">Notes</div>
+                            <p className="text-sm leading-5 text-gray-600">
+                              {candidate.notes || 'No notes available.'}
+                            </p>
                           </div>
                         )}
                       </div>
@@ -1263,17 +1266,19 @@ export const Review = () => {
                           }}
                           className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-purple-300 bg-purple-50 text-purple-600 hover:bg-purple-100"
                         >
-                        <Sparkles className="h-4 w-4" />
-                      </button>
+                          <Sparkles className="h-4 w-4" />
+                        </button>
                         {openAiId === candidate.id && (
                           <div
                             onClick={(e) => e.stopPropagation()}
-                            className="absolute right-0 bottom-full z-20 mb-2 w-56 rounded-lg border border-purple-200 bg-white p-3 text-left text-xs text-gray-700 shadow-lg"
+                            className="absolute right-0 bottom-full z-20 mb-2 w-64 rounded-lg border border-purple-200 bg-white p-4 text-left text-sm text-gray-700 shadow-lg"
                           >
-                            <div className="mb-1 text-xs font-semibold text-purple-700">
+                            <div className="mb-2 text-xs font-semibold text-purple-700">
                               AI Review
                             </div>
-                            <p className="text-sm leading-5">{candidate.aiSummary}</p>
+                            <p className="text-sm leading-5 text-gray-600 whitespace-pre-wrap">
+                              {candidate.aiSummary || 'No AI review available.'}
+                            </p>
                           </div>
                         )}
                       </div>

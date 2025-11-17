@@ -889,18 +889,19 @@ def parse_resume_service(resume_instance, job=None):
     db_ops_start = time.time()
     logger.info(f"[RESUME {resume_id}] Starting database operations (saving parsed data) at {time.strftime('%Y-%m-%d %H:%M:%S')}")
     
-    # Create timeline event
-    TimelineEvent.objects.create(
-        candidate=candidate,
-        event_type='parsed',
-        description='Resume parsed successfully',
-        metadata={'resume_id': resume_instance.id}
-    )
-    
     db_ops_time = time.time() - db_ops_start
     logger.info(f"[RESUME {resume_id}] Database operations completed in {db_ops_time:.2f} seconds at {time.strftime('%Y-%m-%d %H:%M:%S')}")
     
     parse_total_time = time.time() - parse_start_time
+    TimelineEvent.objects.create(
+        candidate=candidate,
+        event_type='parsed',
+        description='Resume parsed successfully',
+        metadata={
+            'resume_id': resume_instance.id,
+            'duration_seconds': round(parse_total_time, 2)
+        }
+    )
     timing_logger.info(f"[RESUME {resume_id}] [TIMING] Total resume parsing completed in {parse_total_time:.2f} seconds ({parse_total_time*1000:.0f}ms) for resume {resume_instance.id}")
     logger.info(f"[RESUME {resume_id}] Resume parsing completed successfully at {time.strftime('%Y-%m-%d %H:%M:%S')}")
     
@@ -1430,6 +1431,18 @@ def _process_single_file_item(file_item, batch, counters, lock):
             logger.error(f"[FILE ITEM {file_item.id}] Failed to create resume for file item {file_item.id}: {str(e)}")
             raise ValueError(f"Failed to create resume: {str(e)}")
         
+        upload_duration_seconds = max((timezone.now() - file_item.created_at).total_seconds(), 0.0)
+        TimelineEvent.objects.create(
+            candidate=candidate,
+            event_type='uploaded',
+            description='Resume uploaded',
+            metadata={
+                'resume_id': resume_id,
+                'file_name': Path(file_item.file.name).name,
+                'duration_seconds': round(upload_duration_seconds, 2)
+            }
+        )
+        
         file_item.candidate = candidate
         file_item.save()
         job = batch.job if getattr(batch, 'job', None) else None
@@ -1504,15 +1517,18 @@ def _process_single_file_item(file_item, batch, counters, lock):
                 
                 db_save_time = time.time() - db_save_start
                 
-                # Create timeline event
+                job_scoring_time = time.time() - job_scoring_start
                 TimelineEvent.objects.create(
                     candidate=candidate,
                     event_type='scored',
                     description=f'Scored for job: {job.title}',
-                    metadata={'job_id': job.id, 'score': score, 'auto_rejected': is_rejected}
+                    metadata={
+                        'job_id': job.id,
+                        'score': score,
+                        'auto_rejected': is_rejected,
+                        'duration_seconds': round(job_scoring_time, 2)
+                    }
                 )
-                
-                job_scoring_time = time.time() - job_scoring_start
                 logger.info(f"[RESUME {resume_id}] [JOB SCORING] Job scoring completed successfully in {job_scoring_time:.2f} seconds at {time.strftime('%Y-%m-%d %H:%M:%S')}")
             except Exception as scoring_error:
                 logger.error(f"[RESUME {resume_id}] [JOB SCORING] Failed to score candidate {candidate.id} for job {job.id}: {str(scoring_error)}", exc_info=True)

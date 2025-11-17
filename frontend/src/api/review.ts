@@ -31,6 +31,9 @@ export interface ReviewDashboard {
       education_level_score?: number | string | null;
       overall_weighted_score?: number | string | null;
       seniority_match_score?: number | string | null;
+      ai_review?: string;
+      ai_summary?: string;
+      notes?: string;
     }
   >;
 }

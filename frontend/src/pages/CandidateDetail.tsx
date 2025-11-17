@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
   Mail,
@@ -15,6 +15,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { useCandidate, useAddNote } from '../api/candidates';
+import type { TimelineEvent } from '../api/candidates';
 import { useCandidatesStore } from '../store/candidates';
 
 const scoreClasses = (value: number) => {
@@ -38,6 +39,27 @@ const ScoreBadge = ({ value }: { value?: number | null }) => {
   );
 };
 
+const parseDurationValue = (value: unknown): number | undefined => {
+  const numericValue = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(numericValue) ? numericValue : undefined;
+};
+
+const formatDuration = (seconds: number) => {
+  if (!Number.isFinite(seconds)) return '--';
+  if (seconds < 1) {
+    return `${Math.round(seconds * 1000)} ms`;
+  }
+  if (seconds < 60) {
+    const display = seconds >= 10 ? Math.round(seconds) : parseFloat(seconds.toFixed(1));
+    return `${display} s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds - minutes * 60;
+  const secondsDisplay =
+    remainingSeconds >= 10 ? Math.round(remainingSeconds) : parseFloat(remainingSeconds.toFixed(1));
+  return `${minutes}m ${secondsDisplay}s`;
+};
+
 type CandidateCategory =
   | 'shortlisted'
   | 'rejected'
@@ -58,12 +80,27 @@ const STATE_OPTIONS: Array<{ value: CandidateCategory; label: string; badgeClass
 export const CandidateDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const candidateId = id ? Number(id) : 0;
   
   const [newNote, setNewNote] = useState('');
   const { data: candidate, isLoading, error } = useCandidate(candidateId);
   const addNote = useAddNote();
   const { favorites, categories, setFavorite, setCategory } = useCandidatesStore();
+
+  // Scroll to section when hash is present in URL
+  useEffect(() => {
+    if (location.hash) {
+      const elementId = location.hash.substring(1); // Remove the #
+      const element = document.getElementById(elementId);
+      if (element) {
+        // Small delay to ensure the page has loaded
+        setTimeout(() => {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+      }
+    }
+  }, [location.hash, candidate]);
 
   // Loading state
   if (isLoading) {
@@ -117,6 +154,20 @@ export const CandidateDetail = () => {
   const interpretation = parsedResume?.interpretation;
   const auditTrail = parsedResume?.audit_trail;
   const finalScores = parsedResume?.scoring_results?.final_scores;
+  const timelineEvents: TimelineEvent[] = candidate.timeline_events ?? [];
+  const uploadEvent = timelineEvents.find((event) => event.event_type === 'uploaded');
+  const parsedEvent = timelineEvents.find((event) => event.event_type === 'parsed');
+  const scoredEvent = timelineEvents.find((event) => event.event_type === 'scored');
+  const uploadDuration = parseDurationValue(uploadEvent?.metadata?.duration_seconds);
+  const parseDurationSeconds = parseDurationValue(parsedEvent?.metadata?.duration_seconds);
+  const scoringDurationSeconds = parseDurationValue(scoredEvent?.metadata?.duration_seconds);
+  const processingDuration =
+    (parseDurationSeconds ?? 0) + (scoringDurationSeconds ?? 0);
+  const timelineHighlights = [
+    uploadDuration ? { label: 'Upload Duration', value: formatDuration(uploadDuration) } : null,
+    processingDuration > 0 ? { label: 'Parse & Scoring', value: formatDuration(processingDuration) } : null,
+  ].filter(Boolean) as Array<{ label: string; value: string }>;
+  const shouldShowTimelineCard = timelineEvents.length > 0 || timelineHighlights.length > 0;
   const isFavorite = candidateId ? !!favorites[candidateId] : false;
   const fallbackState: CandidateCategory =
     candidate?.job_scores?.some((score) => score.auto_rejected) ? 'rejected' : 'shortlisted';
@@ -221,7 +272,7 @@ export const CandidateDetail = () => {
         <div className="lg:col-span-2 space-y-6">
           {/* AI Review & Expected Salary */}
           {(parsedResume?.ai_review || parsedResume?.expected_salary) && (
-            <div className="card p-6">
+            <div id="ai-review" className="card p-6 scroll-mt-24">
               <div className="flex items-center space-x-2 mb-4">
                 <Sparkles className="h-5 w-5 text-primary" />
                 <h2 className="text-lg font-semibold text-gray-900">AI Analysis</h2>
@@ -535,24 +586,113 @@ export const CandidateDetail = () => {
           )}
 
           {/* Timeline */}
-          {candidate.timeline_events && candidate.timeline_events.length > 0 && (
-            <div className="card p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Timeline</h2>
-              <div className="space-y-4">
-                {candidate.timeline_events.map((event: any) => (
-                  <div key={event.id} className="flex items-start space-x-4">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      <Calendar className="h-4 w-4 text-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">{event.description}</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {new Date(event.created_at).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+          {shouldShowTimelineCard && (
+            <div className="card p-6 space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900">Timeline</h2>
               </div>
+              {timelineHighlights.length > 0 && (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {timelineHighlights.map((highlight) => (
+                    <div key={highlight.label} className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                      <p className="text-xs font-semibold uppercase text-gray-500">{highlight.label}</p>
+                      <p className="mt-2 text-2xl font-semibold text-gray-900">{highlight.value}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {timelineEvents.length > 0 && (
+                <div className="space-y-4">
+                  {timelineEvents.map((event) => {
+                    const eventDuration = parseDurationValue(event.metadata?.duration_seconds);
+                    return (
+                      <div key={event.id} className="flex items-start space-x-4">
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                          <Calendar className="h-4 w-4 text-primary" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-900">{event.description}</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {new Date(event.created_at).toLocaleString()}
+                          </p>
+                          {typeof eventDuration === 'number' && (
+                            <p className="text-xs text-gray-400 mt-1">Duration: {formatDuration(eventDuration)}</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {auditTrail && (
+            <div className="card p-6 space-y-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  <h2 className="text-lg font-semibold text-gray-900">Audit Trail</h2>
+                </div>
+              </div>
+              {auditTrail.data_completeness && (
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                    <p className="text-xs font-semibold uppercase text-gray-500">Positions Coverage</p>
+                    <p className="mt-2 text-2xl font-semibold text-gray-900">
+                      {auditTrail.data_completeness.positions_complete}/
+                      {auditTrail.data_completeness.positions_total}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                    <p className="text-xs font-semibold uppercase text-gray-500">Education Coverage</p>
+                    <p className="mt-2 text-2xl font-semibold text-gray-900">
+                      {auditTrail.data_completeness.education_complete}/
+                      {auditTrail.data_completeness.education_total}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {auditTrail.data_completeness?.missing_fields?.length ? (
+                <div className="text-xs text-gray-600">
+                  Missing fields: {auditTrail.data_completeness.missing_fields.join(', ')}
+                </div>
+              ) : null}
+              {auditTrail.assumptions_made && auditTrail.assumptions_made.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-gray-800">Assumptions</p>
+                  <div className="flex flex-wrap gap-2">
+                    {auditTrail.assumptions_made.map((item, idx) => (
+                      <span
+                        key={`assumption-${idx}`}
+                        className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 border border-blue-100"
+                      >
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {auditTrail.edge_cases && auditTrail.edge_cases.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-gray-800">Edge Cases</p>
+                  <ul className="space-y-1 text-sm text-gray-600">
+                    {auditTrail.edge_cases.map((item, idx) => (
+                      <li key={`edge-${idx}`}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {auditTrail.warnings && auditTrail.warnings.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-red-600">Warnings</p>
+                  <ul className="space-y-1 text-sm text-red-600">
+                    {auditTrail.warnings.map((item, idx) => (
+                      <li key={`warning-${idx}`}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -629,7 +769,11 @@ export const CandidateDetail = () => {
           )}
 
           {interpretation && (
-            <div className="card p-6 space-y-5">
+            <div id={parsedResume?.ai_review ? 'ai-review-interpretation' : 'ai-review'} className="card p-6 space-y-5 scroll-mt-24">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold text-gray-900">AI Review</h2>
+              </div>
               <div className="flex flex-wrap items-center gap-3">
                 {interpretation.seniority_fit_analysis && (
                   <>
@@ -701,72 +845,8 @@ export const CandidateDetail = () => {
             </div>
           )}
 
-          {auditTrail && (
-            <div className="card p-6 space-y-5">
-              <h2 className="text-lg font-semibold text-gray-900">Audit Trail</h2>
-              {auditTrail.data_completeness && (
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">Positions Coverage</p>
-                    <p className="mt-2 text-2xl font-semibold text-gray-900">
-                      {auditTrail.data_completeness.positions_complete}/
-                      {auditTrail.data_completeness.positions_total}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">Education Coverage</p>
-                    <p className="mt-2 text-2xl font-semibold text-gray-900">
-                      {auditTrail.data_completeness.education_complete}/
-                      {auditTrail.data_completeness.education_total}
-                    </p>
-                  </div>
-                </div>
-              )}
-              {auditTrail.data_completeness?.missing_fields?.length ? (
-                <div className="text-xs text-gray-600">
-                  Missing fields: {auditTrail.data_completeness.missing_fields.join(', ')}
-                </div>
-              ) : null}
-              {auditTrail.assumptions_made && auditTrail.assumptions_made.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-gray-800">Assumptions</p>
-                  <div className="flex flex-wrap gap-2">
-                    {auditTrail.assumptions_made.map((item, idx) => (
-                      <span
-                        key={`assumption-${idx}`}
-                        className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 border border-blue-100"
-                      >
-                        {item}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {auditTrail.edge_cases && auditTrail.edge_cases.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-gray-800">Edge Cases</p>
-                  <ul className="space-y-1 text-sm text-gray-600">
-                    {auditTrail.edge_cases.map((item, idx) => (
-                      <li key={`edge-${idx}`}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {auditTrail.warnings && auditTrail.warnings.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-red-600">Warnings</p>
-                  <ul className="space-y-1 text-sm text-red-600">
-                    {auditTrail.warnings.map((item, idx) => (
-                      <li key={`warning-${idx}`}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Notes */}
-          <div className="card p-6">
+          <div id="notes" className="card p-6 scroll-mt-24">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Notes</h2>
 
             {candidate.notes && candidate.notes.length > 0 && (

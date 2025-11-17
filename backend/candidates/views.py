@@ -22,6 +22,8 @@ from processing.models import BatchUpload, FileItem
 
 class CandidateViewSet(viewsets.ModelViewSet):
     """Candidate viewset"""
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
     queryset = Candidate.objects.prefetch_related(
         'resumes__parsed_data',
         'resumes__parsed_data__educations',

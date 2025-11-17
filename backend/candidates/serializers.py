@@ -244,7 +244,7 @@ class NoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Note
         fields = ['id', 'candidate', 'user', 'user_email', 'content', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'user', 'candidate', 'created_at', 'updated_at']
 
 
 class TimelineEventSerializer(serializers.ModelSerializer):

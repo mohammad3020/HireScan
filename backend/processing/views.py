@@ -213,7 +213,24 @@ class ReviewDashboardView(APIView):
                 # Add AI review from parsed resume
                 ai_review = parsed_resume.get('ai_review', '') if isinstance(parsed_resume, dict) else ''
                 candidate_data['ai_review'] = ai_review
-                candidate_data['ai_summary'] = ai_review or candidate_data.get('ai_summary', '')
+                
+                # Also check interpretation for AI review content
+                interpretation = parsed_resume.get('interpretation', {}) if isinstance(parsed_resume, dict) else {}
+                if isinstance(interpretation, dict):
+                    # Build AI summary from interpretation if available
+                    interpretation_parts = []
+                    if interpretation.get('overall_assessment'):
+                        interpretation_parts.append(interpretation.get('overall_assessment'))
+                    if interpretation.get('seniority_fit_analysis', {}).get('explanation'):
+                        interpretation_parts.append(interpretation.get('seniority_fit_analysis', {}).get('explanation'))
+                    
+                    if interpretation_parts:
+                        interpretation_text = ' '.join(interpretation_parts)
+                        candidate_data['ai_summary'] = ai_review or interpretation_text or candidate_data.get('ai_summary', '')
+                    else:
+                        candidate_data['ai_summary'] = ai_review or candidate_data.get('ai_summary', '')
+                else:
+                    candidate_data['ai_summary'] = ai_review or candidate_data.get('ai_summary', '')
                 
                 # Add scoring summary from parsed resume
                 scoring_results = parsed_resume.get('scoring_results', {}) if isinstance(parsed_resume, dict) else {}
