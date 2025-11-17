@@ -1,12 +1,17 @@
 """
 Jobs app views
 """
+import logging
 from rest_framework import viewsets, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Department, Job
 from .serializers import DepartmentSerializer, JobSerializer
+from candidates.models import JobScore
+from processing.services import apply_auto_reject_rules, calculate_initial_score
+
+logger = logging.getLogger(__name__)
 
 
 class DepartmentViewSet(viewsets.ModelViewSet):
@@ -32,6 +37,83 @@ class JobViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Set the created_by field to the current user"""
         serializer.save(created_by=self.request.user)
+    
+    def perform_update(self, serializer):
+        """Update job and re-evaluate all candidates for this job"""
+        instance = serializer.save()
+        
+        # Re-evaluate all candidates for this job after update
+        logger.info(f"Job {instance.id} updated. Re-evaluating all candidates for this job...")
+        self._reevaluate_candidates_for_job(instance)
+    
+    def _reevaluate_candidates_for_job(self, job):
+        """
+        Re-evaluate all candidates for a job by re-applying auto-reject rules and recalculating scores
+        """
+        try:
+            # Get all job scores for this job
+            job_scores = JobScore.objects.filter(job=job).select_related('candidate')
+            total_candidates = job_scores.count()
+            
+            if total_candidates == 0:
+                logger.info(f"No candidates found for job {job.id}. Skipping re-evaluation.")
+                return
+            
+            logger.info(f"Re-evaluating {total_candidates} candidates for job {job.id}...")
+            
+            updated_count = 0
+            for job_score in job_scores:
+                try:
+                    candidate = job_score.candidate
+                    
+                    # Re-apply auto-reject rules
+                    is_rejected, rejection_reason = apply_auto_reject_rules(candidate, job)
+                    
+                    # Recalculate score
+                    score = calculate_initial_score(candidate, job)
+                    
+                    # Update JobScore
+                    job_score.score = score
+                    job_score.auto_rejected = is_rejected
+                    job_score.rejection_reason = rejection_reason
+                    job_score.save()
+                    
+                    updated_count += 1
+                    
+                except Exception as e:
+                    logger.error(
+                        f"Error re-evaluating candidate {job_score.candidate.id} for job {job.id}: {str(e)}",
+                        exc_info=True
+                    )
+                    continue
+            
+            # Recalculate ranks for all candidates (non-rejected candidates only)
+            # Rank is based on score, with higher scores getting lower rank numbers (1 = best)
+            non_rejected_scores = JobScore.objects.filter(
+                job=job,
+                auto_rejected=False
+            ).order_by('-score', 'id')
+            
+            rank = 1
+            for job_score in non_rejected_scores:
+                job_score.rank = rank
+                job_score.save(update_fields=['rank'])
+                rank += 1
+            
+            # Set rank to None for rejected candidates
+            rejected_scores = JobScore.objects.filter(job=job, auto_rejected=True)
+            rejected_scores.update(rank=None)
+            
+            logger.info(
+                f"Successfully re-evaluated {updated_count}/{total_candidates} candidates for job {job.id}. "
+                f"Recalculated ranks for {non_rejected_scores.count()} non-rejected candidates."
+            )
+            
+        except Exception as e:
+            logger.error(
+                f"Error re-evaluating candidates for job {job.id}: {str(e)}",
+                exc_info=True
+            )
     
     @action(detail=False, methods=['get'])
     def by_department(self, request):

@@ -288,12 +288,18 @@ export const CandidateDetail = () => {
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
           {/* AI Review & Expected Salary */}
-          {(parsedResume?.ai_review || parsedResume?.expected_salary) && (
+          {(parsedResume?.ai_review || parsedResume?.expected_salary || interpretation?.overall_assessment) && (
             <div id="ai-review" className="card p-6 scroll-mt-24">
               <div className="flex items-center space-x-2 mb-4">
                 <Sparkles className="h-5 w-5 text-primary" />
                 <h2 className="text-lg font-semibold text-gray-900">AI Analysis</h2>
               </div>
+              {interpretation?.overall_assessment && (
+                <div className="mb-4">
+                  <p className="text-sm font-medium text-gray-700 mb-2">AI Review</p>
+                  <p className="text-sm text-gray-600 bg-blue-50 p-4 rounded-lg">{interpretation.overall_assessment}</p>
+                </div>
+              )}
               {parsedResume.ai_review && (
                 <div className="mb-4">
                   <p className="text-sm font-medium text-gray-700 mb-2">AI Review</p>

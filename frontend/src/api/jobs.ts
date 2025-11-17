@@ -190,3 +190,17 @@ export const useDepartments = () => {
   });
 };
 
+export const useCreateDepartment = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { name: string; description?: string }) => {
+      const response = await apiClient.post<Department>('/jobs/departments/', data);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['departments'] });
+    },
+  });
+};
+

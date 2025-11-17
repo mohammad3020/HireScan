@@ -1288,8 +1288,6 @@ export const Review = () => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            // Don't allow changing category for rejected candidates
-                            if (categories[candidate.id] === 'rejected') return;
                             setOpenCategoryId((prev) => {
                               const next = prev === candidate.id ? null : candidate.id;
                               if (next !== null) {
@@ -1299,12 +1297,7 @@ export const Review = () => {
                               return next;
                             });
                           }}
-                          disabled={categories[candidate.id] === 'rejected'}
                           className={`inline-flex h-9 items-center gap-1 rounded-lg border px-3 text-xs font-medium transition ${
-                            categories[candidate.id] === 'rejected'
-                              ? 'cursor-not-allowed opacity-75'
-                              : ''
-                          } ${
                             categories[candidate.id] === 'shortlisted'
                               ? 'border-green-300 bg-green-50 text-green-700 hover:bg-green-100'
                               : categories[candidate.id] === 'rejected'

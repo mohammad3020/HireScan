@@ -1,17 +1,21 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Search, Filter, Edit, Trash2, Briefcase } from 'lucide-react';
-import { useJobs, useDeleteJob, useDepartments, type Job } from '../api/jobs';
+import { Plus, Search, Filter, Edit, Trash2, Briefcase, X } from 'lucide-react';
+import { useJobs, useDeleteJob, useDepartments, useCreateDepartment, type Job } from '../api/jobs';
 
 export const Jobs = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDepartment, setFilterDepartment] = useState<string>('all');
+  const [isDepartmentModalOpen, setIsDepartmentModalOpen] = useState(false);
+  const [newDepartmentName, setNewDepartmentName] = useState('');
+  const [newDepartmentDescription, setNewDepartmentDescription] = useState('');
   
   const { data: jobsResponse, isLoading, error, isError } = useJobs(
     filterDepartment !== 'all' ? { search: searchTerm } : { search: searchTerm }
   );
   const { data: departmentsData, isLoading: isLoadingDepartments, isError: isDepartmentsError } = useDepartments();
   const deleteJobMutation = useDeleteJob();
+  const createDepartmentMutation = useCreateDepartment();
 
   const jobs = jobsResponse?.results || jobsResponse || [];
   
@@ -37,6 +41,31 @@ export const Jobs = () => {
         console.error('Failed to delete job:', error);
         alert('Failed to delete job. Please try again.');
       }
+    }
+  };
+
+  const handleCreateDepartment = async () => {
+    if (!newDepartmentName.trim()) {
+      alert('Department name is required');
+      return;
+    }
+
+    try {
+      await createDepartmentMutation.mutateAsync({
+        name: newDepartmentName.trim(),
+        description: newDepartmentDescription.trim() || undefined,
+      });
+      // Reset form and close modal
+      setNewDepartmentName('');
+      setNewDepartmentDescription('');
+      setIsDepartmentModalOpen(false);
+    } catch (error: any) {
+      console.error('Failed to create department:', error);
+      const errorMessage = error?.response?.data?.name?.[0] || 
+                         error?.response?.data?.detail || 
+                         error?.message || 
+                         'Failed to create department. Please try again.';
+      alert(errorMessage);
     }
   };
 
@@ -89,13 +118,22 @@ export const Jobs = () => {
           <h1 className="text-3xl font-bold text-gray-900">Job Positions</h1>
           <p className="text-gray-600 mt-1">Manage your job postings and requirements</p>
         </div>
-        <Link
-          to="/jobs/new"
-          className="btn-primary flex items-center"
-        >
-          <Plus className="h-5 w-5 mr-2" />
-          New Job
-        </Link>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsDepartmentModalOpen(true)}
+            className="btn-outline flex items-center"
+          >
+            <Plus className="h-5 w-5 mr-2" />
+            New Department
+          </button>
+          <Link
+            to="/jobs/new"
+            className="btn-primary flex items-center"
+          >
+            <Plus className="h-5 w-5 mr-2" />
+            New Job
+          </Link>
+        </div>
       </div>
 
       {/* Filters */}
@@ -194,6 +232,79 @@ export const Jobs = () => {
           ))
         )}
       </div>
+
+      {/* Create Department Modal */}
+      {isDepartmentModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">Create New Department</h2>
+              <button
+                onClick={() => {
+                  setIsDepartmentModalOpen(false);
+                  setNewDepartmentName('');
+                  setNewDepartmentDescription('');
+                }}
+                className="text-gray-400 hover:text-gray-600 transition"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div>
+                <label htmlFor="department-name" className="block text-sm font-medium text-gray-700 mb-2">
+                  Department Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="department-name"
+                  type="text"
+                  value={newDepartmentName}
+                  onChange={(e) => setNewDepartmentName(e.target.value)}
+                  placeholder="Enter department name"
+                  className="input-field w-full"
+                  autoFocus
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="department-description" className="block text-sm font-medium text-gray-700 mb-2">
+                  Description (Optional)
+                </label>
+                <textarea
+                  id="department-description"
+                  value={newDepartmentDescription}
+                  onChange={(e) => setNewDepartmentDescription(e.target.value)}
+                  placeholder="Enter department description"
+                  rows={4}
+                  className="input-field w-full resize-none"
+                />
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  setIsDepartmentModalOpen(false);
+                  setNewDepartmentName('');
+                  setNewDepartmentDescription('');
+                }}
+                className="btn-outline"
+                disabled={createDepartmentMutation.isPending}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateDepartment}
+                className="btn-primary"
+                disabled={createDepartmentMutation.isPending || !newDepartmentName.trim()}
+              >
+                {createDepartmentMutation.isPending ? 'Creating...' : 'Create'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
