@@ -42,41 +42,49 @@ echo.
 
 REM Check Backend dependencies (if venv exists)
 if exist "%ROOT%backend\venv\Scripts\python.exe" (
-    echo [Backend] Checking installed packages...
-    "%ROOT%backend\venv\Scripts\python.exe" -c "import django" 2>nul
-    if errorlevel 1 set /a MISSING_DEPS+=1
-    
-    "%ROOT%backend\venv\Scripts\python.exe" -c "import rest_framework" 2>nul
-    if errorlevel 1 set /a MISSING_DEPS+=1
-    
-    "%ROOT%backend\venv\Scripts\python.exe" -c "import rest_framework_simplejwt" 2>nul
-    if errorlevel 1 set /a MISSING_DEPS+=1
-    
-    "%ROOT%backend\venv\Scripts\python.exe" -c "import corsheaders" 2>nul
-    if errorlevel 1 set /a MISSING_DEPS+=1
-    
-    "%ROOT%backend\venv\Scripts\python.exe" -c "import django_filters" 2>nul
-    if errorlevel 1 set /a MISSING_DEPS+=1
-    
-    "%ROOT%backend\venv\Scripts\python.exe" -c "import dotenv" 2>nul
-    if errorlevel 1 set /a MISSING_DEPS+=1
-    
-    "%ROOT%backend\venv\Scripts\python.exe" -c "from PIL import Image" 2>nul
-    if errorlevel 1 set /a MISSING_DEPS+=1
-    
-    "%ROOT%backend\venv\Scripts\python.exe" -c "import requests" 2>nul
-    if errorlevel 1 set /a MISSING_DEPS+=1
-    
-    "%ROOT%backend\venv\Scripts\python.exe" -c "from docx import Document" 2>nul
-    if errorlevel 1 set /a MISSING_DEPS+=1
-    
-    "%ROOT%backend\venv\Scripts\python.exe" -c "from pypdf import PdfReader" 2>nul
-    if errorlevel 1 set /a MISSING_DEPS+=1
-    
-    if !MISSING_DEPS! EQU 0 (
-        echo   [OK] All backend dependencies are installed
+    REM First verify Python in venv works
+    "%ROOT%backend\venv\Scripts\python.exe" --version >nul 2>&1
+    if not errorlevel 1 (
+        echo [Backend] Checking installed packages...
+        
+        "%ROOT%backend\venv\Scripts\python.exe" -c "import django" >nul 2>&1
+        if errorlevel 1 set /a MISSING_DEPS+=1
+        
+        "%ROOT%backend\venv\Scripts\python.exe" -c "import rest_framework" >nul 2>&1
+        if errorlevel 1 set /a MISSING_DEPS+=1
+        
+        "%ROOT%backend\venv\Scripts\python.exe" -c "import rest_framework_simplejwt" >nul 2>&1
+        if errorlevel 1 set /a MISSING_DEPS+=1
+        
+        "%ROOT%backend\venv\Scripts\python.exe" -c "import corsheaders" >nul 2>&1
+        if errorlevel 1 set /a MISSING_DEPS+=1
+        
+        "%ROOT%backend\venv\Scripts\python.exe" -c "import django_filters" >nul 2>&1
+        if errorlevel 1 set /a MISSING_DEPS+=1
+        
+        "%ROOT%backend\venv\Scripts\python.exe" -c "import dotenv" >nul 2>&1
+        if errorlevel 1 set /a MISSING_DEPS+=1
+        
+        "%ROOT%backend\venv\Scripts\python.exe" -c "from PIL import Image" >nul 2>&1
+        if errorlevel 1 set /a MISSING_DEPS+=1
+        
+        "%ROOT%backend\venv\Scripts\python.exe" -c "import requests" >nul 2>&1
+        if errorlevel 1 set /a MISSING_DEPS+=1
+        
+        "%ROOT%backend\venv\Scripts\python.exe" -c "from docx import Document" >nul 2>&1
+        if errorlevel 1 set /a MISSING_DEPS+=1
+        
+        "%ROOT%backend\venv\Scripts\python.exe" -c "from pypdf import PdfReader" >nul 2>&1
+        if errorlevel 1 set /a MISSING_DEPS+=1
+        
+        if !MISSING_DEPS! EQU 0 (
+            echo   [OK] All backend dependencies are installed
+        ) else (
+            echo   [INFO] Some dependencies missing - will install automatically
+        )
     ) else (
-        echo   [INFO] Some dependencies missing - will install automatically
+        echo   [WARNING] Virtual environment Python not working - will reinstall
+        set /a MISSING_DEPS+=1
     )
 ) else (
     echo   [INFO] Virtual environment not found - will create and install
