@@ -6,6 +6,9 @@ import sys
 import re
 import json
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from threading import Lock
+import time
 from django.conf import settings
 from core.openrouter import OpenRouterClient
 from candidates.models import (
@@ -30,27 +33,64 @@ except ImportError:
     HAS_AI_SERVICE = False
 
 
+class RateLimiter:
+    """Thread-safe rate limiter to ensure minimum delay between API requests"""
+    def __init__(self, min_delay_seconds=0.5):
+        self.min_delay_seconds = min_delay_seconds
+        self.last_request_time = 0
+        self.lock = Lock()
+    
+    def wait_if_needed(self):
+        """Wait if necessary to maintain minimum delay between requests"""
+        with self.lock:
+            current_time = time.time()
+            time_since_last_request = current_time - self.last_request_time
+            if time_since_last_request < self.min_delay_seconds:
+                sleep_time = self.min_delay_seconds - time_since_last_request
+                time.sleep(sleep_time)
+            self.last_request_time = time.time()
+
+
+# Global rate limiter instance for API requests
+_api_rate_limiter = RateLimiter(min_delay_seconds=0.5)
+
+
 def extract_text_from_file(file_path):
     """Extract text from PDF or DOCX file"""
+    import logging
+    import time
+    logger = logging.getLogger('processing.timing')
+    
     file_ext = Path(file_path).suffix.lower()
+    start_time = time.time()
     
     if file_ext == '.pdf':
         try:
+            logger.info(f"[TIMING] Starting PDF text extraction: {file_path}")
             with open(file_path, 'rb') as file:
                 pdf_reader = PyPDF2.PdfReader(file)
                 text = ""
                 for page in pdf_reader.pages:
                     text += page.extract_text() + "\n"
-                return text
+            extraction_time = time.time() - start_time
+            logger.info(f"[TIMING] PDF text extraction completed in {extraction_time:.2f} seconds ({extraction_time*1000:.0f}ms) - Extracted {len(text)} characters")
+            return text
         except Exception as e:
+            extraction_time = time.time() - start_time
+            logger.error(f"[TIMING] PDF text extraction failed after {extraction_time:.2f} seconds: {str(e)}")
             raise ValueError(f"Error reading PDF: {str(e)}")
     
     elif file_ext in ['.doc', '.docx']:
         try:
+            logger.info(f"[TIMING] Starting DOCX text extraction: {file_path}")
             doc = Document(file_path)
             text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
+            extraction_time = time.time() - start_time
+            logger.info(f"[TIMING] DOCX text extraction completed in {extraction_time:.2f} seconds ({extraction_time*1000:.0f}ms) - Extracted {len(text)} characters")
             return text
         except Exception as e:
+            extraction_time = time.time() - start_time
+            logger.error(f"[TIMING] DOCX text extraction failed after {extraction_time:.2f} seconds: {str(e)}")
             raise ValueError(f"Error reading DOCX: {str(e)}")
     
     else:
@@ -86,23 +126,30 @@ def parse_resume_service(resume_instance):
         ValueError: If parsing fails or returns error
     """
     import logging
+    import time
     logger = logging.getLogger(__name__)
+    timing_logger = logging.getLogger('processing.timing')
     
     # Get file path
     file_path = resume_instance.file.path
-    logger.info(f"Parsing resume: {file_path}")
+    parse_start_time = time.time()
+    timing_logger.info(f"[TIMING] Starting resume parsing for: {file_path}")
     
     # Use AI service if available, otherwise fallback to old method
     parsed_data = None
     if HAS_AI_SERVICE:
         try:
             # Extract text using PyPDF2 first (as requested)
-            logger.info("Extracting text from resume using PyPDF2...")
+            # Timing is handled inside extract_text_from_file
             resume_text = extract_text_from_file(file_path)
-            logger.info(f"Extracted {len(resume_text)} characters from resume")
             
             # Process the file with the prompt - AI service will use extracted text
-            logger.info("Processing CV file with OpenRouter API using parse_resume.md prompt...")
+            timing_logger.info("[TIMING] Starting AI processing with OpenRouter API...")
+            ai_start_time = time.time()
+            
+            # Rate limiting: Wait if needed to maintain 500ms delay between API requests
+            _api_rate_limiter.wait_if_needed()
+            
             # Calculate approximate prompt length
             prompt_template = load_prompt_template('parse_resume')
             total_length = len(prompt_template) + len(resume_text)
@@ -117,16 +164,20 @@ def parse_resume_service(resume_instance):
             max_tokens = min(max_tokens, 32000)
             logger.info(f"Using max_tokens: {max_tokens} for total length: {total_length} chars (~{estimated_input_tokens} input tokens)")
             
+            # Pass extract_text=False since we already extracted the text above
+            # This prevents double extraction
             parsed_data = process_file_with_prompt(
                 file_path=str(file_path),
                 prompt_name='parse_resume',
-                model=settings.OPENROUTER_PARSE_MODEL,
-                extract_text=True,  # Force text extraction (we already extracted, but this ensures it's used)
+                model=settings.OPENROUTER_MODEL,
+                extract_text=False,  # We already extracted text, don't extract again
+                resume_text=resume_text,  # Pass the already-extracted text
                 temperature=0.3,  # Lower temperature for more consistent JSON output
                 max_tokens=max_tokens,
                 response_format={"type": "json_object"}
             )
-            logger.info("AI service parsing completed")
+            ai_processing_time = time.time() - ai_start_time
+            timing_logger.info(f"[TIMING] AI processing completed in {ai_processing_time:.2f} seconds ({ai_processing_time*1000:.0f}ms)")
         except Exception as e:
             error_str = str(e)
             # Log the full error for debugging
@@ -160,6 +211,9 @@ def parse_resume_service(resume_instance):
                     # Don't proceed if text extraction failed
                     raise ValueError(f"Failed to extract text from resume: {error_msg}")
                 
+                # Rate limiting: Wait if needed to maintain 500ms delay between API requests
+                _api_rate_limiter.wait_if_needed()
+                
                 client = OpenRouterClient()
                 prompt_template = load_prompt_template('parse_resume')
                 parsed_data = client.parse_resume(resume_text, prompt_template)
@@ -185,6 +239,9 @@ def parse_resume_service(resume_instance):
                 resume_text = extract_text_from_file(file_path)
             except Exception as extract_error:
                 logger.warning(f"Text extraction failed: {str(extract_error)}")
+            
+            # Rate limiting: Wait if needed to maintain 500ms delay between API requests
+            _api_rate_limiter.wait_if_needed()
             
             client = OpenRouterClient()
             prompt_template = load_prompt_template('parse_resume')
@@ -547,6 +604,9 @@ def parse_resume_service(resume_instance):
         metadata={'resume_id': resume_instance.id}
     )
     
+    parse_total_time = time.time() - parse_start_time
+    timing_logger.info(f"[TIMING] Total resume parsing completed in {parse_total_time:.2f} seconds ({parse_total_time*1000:.0f}ms) for resume {resume_instance.id}")
+    
     return parsed_resume
 
 
@@ -765,9 +825,151 @@ def rank_candidates_service(job, candidates):
     return ranked_results
 
 
+def _process_single_file_item(file_item, batch, counters, lock):
+    """
+    Process a single file item (called by worker threads)
+    
+    Args:
+        file_item: FileItem instance to process
+        batch: BatchUpload instance
+        counters: dict with 'successful' and 'failed' keys (thread-safe counters)
+        lock: threading.Lock for thread-safe operations
+    """
+    import logging
+    import time
+    from django.db import connections
+    
+    logger = logging.getLogger(__name__)
+    timing_logger = logging.getLogger('processing.timing')
+    
+    try:
+        file_processing_start = time.time()
+        file_item.status = 'processing'
+        file_item.save()
+        timing_logger.info(f"[TIMING] Starting processing for file item {file_item.id}: {file_item.file.name}")
+        # Create or get candidate (based on email if available in filename or parse)
+        # For MVP, create a new candidate for each file
+        candidate, created = Candidate.objects.get_or_create(
+            email=f"candidate_{file_item.id}@example.com",  # Placeholder
+            defaults={'name': f"Candidate {file_item.id}"}
+        )
+        
+        if created:
+            logger.info(f"Created new candidate {candidate.id} for file item {file_item.id}")
+        else:
+            logger.info(f"Using existing candidate {candidate.id} for file item {file_item.id}")
+        
+        # Create resume
+        try:
+            resume = Resume.objects.create(
+                candidate=candidate,
+                file=file_item.file
+            )
+            logger.info(f"Created resume {resume.id} for candidate {candidate.id}")
+        except Exception as e:
+            logger.error(f"Failed to create resume for file item {file_item.id}: {str(e)}")
+            raise ValueError(f"Failed to create resume: {str(e)}")
+        
+        file_item.candidate = candidate
+        file_item.save()
+        
+        # Parse resume
+        try:
+            parsed_resume = parse_resume_service(resume)
+            logger.info(f"Successfully parsed resume {resume.id}")
+        except Exception as parse_error:
+            logger.error(f"Failed to parse resume {resume.id}: {str(parse_error)}")
+            raise ValueError(f"Resume parsing failed: {str(parse_error)}")
+        
+        # Update candidate email if found in parsed data (already done in parse_resume_service)
+        # But ensure it's updated if parsing succeeded
+        if parsed_resume.email and (not candidate.email or candidate.email.startswith('temp_') or candidate.email.endswith('@temp.com') or candidate.email.endswith('@example.com')):
+            old_email = candidate.email
+            candidate.email = parsed_resume.email
+            candidate.save()
+            logger.info(f"Updated candidate {candidate.id} email from {old_email} to {parsed_resume.email}")
+        
+        # If batch has a job, create JobScore and apply auto-reject rules
+        if batch.job:
+            job = batch.job
+            logger.info(f"Processing job scoring for candidate {candidate.id} and job {job.id}")
+            
+            try:
+                # Apply auto-reject rules
+                is_rejected, rejection_reason = apply_auto_reject_rules(candidate, job)
+                logger.info(f"Auto-reject check for candidate {candidate.id}: rejected={is_rejected}, reason={rejection_reason}")
+                
+                # Calculate initial score
+                score = calculate_initial_score(candidate, job)
+                logger.info(f"Calculated score for candidate {candidate.id}: {score}")
+                
+                # Create or update JobScore
+                job_score, created = JobScore.objects.get_or_create(
+                    candidate=candidate,
+                    job=job,
+                    defaults={
+                        'score': score,
+                        'auto_rejected': is_rejected,
+                        'rejection_reason': rejection_reason
+                    }
+                )
+                
+                if not created:
+                    job_score.score = score
+                    job_score.auto_rejected = is_rejected
+                    job_score.rejection_reason = rejection_reason
+                    job_score.save()
+                    logger.info(f"Updated JobScore for candidate {candidate.id} and job {job.id}")
+                else:
+                    logger.info(f"Created JobScore for candidate {candidate.id} and job {job.id}")
+                
+                # Create timeline event
+                TimelineEvent.objects.create(
+                    candidate=candidate,
+                    event_type='scored',
+                    description=f'Scored for job: {job.title}',
+                    metadata={'job_id': job.id, 'score': score, 'auto_rejected': is_rejected}
+                )
+            except Exception as scoring_error:
+                logger.error(f"Failed to score candidate {candidate.id} for job {job.id}: {str(scoring_error)}")
+                # Don't fail the whole process if scoring fails, just log it
+                pass
+        
+        file_item.status = 'completed'
+        file_item.save()
+        
+        # Thread-safe counter update
+        with lock:
+            counters['successful'] += 1
+            batch.processed_files += 1
+            batch.save()
+        
+        file_processing_time = time.time() - file_processing_start
+        timing_logger.info(f"[TIMING] Successfully processed file item {file_item.id} in {file_processing_time:.2f} seconds ({file_processing_time*1000:.0f}ms)")
+        return True
+        
+    except Exception as e:
+        error_message = str(e)
+        file_item.status = 'failed'
+        file_item.error_message = error_message
+        file_item.save()
+        logger.error(f"Failed to process file item {file_item.id}: {error_message}", exc_info=True)
+        
+        # Thread-safe counter update
+        with lock:
+            counters['failed'] += 1
+            batch.processed_files += 1
+            batch.save()
+        
+        return False
+    finally:
+        # Close database connections for this thread
+        connections.close_all()
+
+
 def process_batch_service(batch_id):
     """
-    Process a batch of uploaded files (synchronous)
+    Process a batch of uploaded files using 3 threads for concurrent processing
     
     Args:
         batch_id: BatchUpload ID
@@ -783,10 +985,10 @@ def process_batch_service(batch_id):
     
     batch.status = 'processing'
     batch.save()
-    logger.info(f"Starting processing for batch {batch_id} (job: {batch.job.id if batch.job else 'None'})")
+    logger.info(f"Starting processing for batch {batch_id} (job: {batch.job.id if batch.job else 'None'}) with 3 threads")
     
-    file_items = batch.file_items.all()
-    batch.total_files = file_items.count()
+    file_items = list(batch.file_items.all())
+    batch.total_files = len(file_items)
     batch.save()
     
     if batch.total_files == 0:
@@ -795,126 +997,39 @@ def process_batch_service(batch_id):
         batch.save()
         return
     
-    successful_count = 0
-    failed_count = 0
+    # Thread-safe counters
+    counters = {'successful': 0, 'failed': 0}
+    lock = Lock()
     
     try:
-        for file_item in file_items:
-            file_item.status = 'processing'
-            file_item.save()
-            logger.info(f"Processing file item {file_item.id}: {file_item.file.name}")
+        # Use ThreadPoolExecutor with 3 workers to process 3 CVs simultaneously
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            # Submit all file items to the thread pool
+            future_to_file_item = {
+                executor.submit(_process_single_file_item, file_item, batch, counters, lock): file_item
+                for file_item in file_items
+            }
             
-            try:
-                # Create or get candidate (based on email if available in filename or parse)
-                # For MVP, create a new candidate for each file
-                candidate, created = Candidate.objects.get_or_create(
-                    email=f"candidate_{file_item.id}@example.com",  # Placeholder
-                    defaults={'name': f"Candidate {file_item.id}"}
-                )
-                
-                if created:
-                    logger.info(f"Created new candidate {candidate.id} for file item {file_item.id}")
-                else:
-                    logger.info(f"Using existing candidate {candidate.id} for file item {file_item.id}")
-                
-                # Create resume
+            # Wait for all tasks to complete
+            for future in as_completed(future_to_file_item):
+                file_item = future_to_file_item[future]
                 try:
-                    resume = Resume.objects.create(
-                        candidate=candidate,
-                        file=file_item.file
-                    )
-                    logger.info(f"Created resume {resume.id} for candidate {candidate.id}")
+                    success = future.result()
+                    if success:
+                        logger.info(f"Thread completed processing file item {file_item.id}")
+                    else:
+                        logger.warning(f"Thread completed processing file item {file_item.id} with errors")
                 except Exception as e:
-                    logger.error(f"Failed to create resume for file item {file_item.id}: {str(e)}")
-                    raise ValueError(f"Failed to create resume: {str(e)}")
-                
-                file_item.candidate = candidate
-                file_item.save()
-                
-                # Parse resume
-                try:
-                    parsed_resume = parse_resume_service(resume)
-                    logger.info(f"Successfully parsed resume {resume.id}")
-                except Exception as parse_error:
-                    logger.error(f"Failed to parse resume {resume.id}: {str(parse_error)}")
-                    raise ValueError(f"Resume parsing failed: {str(parse_error)}")
-                
-                # Update candidate email if found in parsed data (already done in parse_resume_service)
-                # But ensure it's updated if parsing succeeded
-                if parsed_resume.email and (not candidate.email or candidate.email.startswith('temp_') or candidate.email.endswith('@temp.com') or candidate.email.endswith('@example.com')):
-                    old_email = candidate.email
-                    candidate.email = parsed_resume.email
-                    candidate.save()
-                    logger.info(f"Updated candidate {candidate.id} email from {old_email} to {parsed_resume.email}")
-                
-                # If batch has a job, create JobScore and apply auto-reject rules
-                if batch.job:
-                    job = batch.job
-                    logger.info(f"Processing job scoring for candidate {candidate.id} and job {job.id}")
-                    
-                    try:
-                        # Apply auto-reject rules
-                        is_rejected, rejection_reason = apply_auto_reject_rules(candidate, job)
-                        logger.info(f"Auto-reject check for candidate {candidate.id}: rejected={is_rejected}, reason={rejection_reason}")
-                        
-                        # Calculate initial score
-                        score = calculate_initial_score(candidate, job)
-                        logger.info(f"Calculated score for candidate {candidate.id}: {score}")
-                        
-                        # Create or update JobScore
-                        job_score, created = JobScore.objects.get_or_create(
-                            candidate=candidate,
-                            job=job,
-                            defaults={
-                                'score': score,
-                                'auto_rejected': is_rejected,
-                                'rejection_reason': rejection_reason
-                            }
-                        )
-                        
-                        if not created:
-                            job_score.score = score
-                            job_score.auto_rejected = is_rejected
-                            job_score.rejection_reason = rejection_reason
-                            job_score.save()
-                            logger.info(f"Updated JobScore for candidate {candidate.id} and job {job.id}")
-                        else:
-                            logger.info(f"Created JobScore for candidate {candidate.id} and job {job.id}")
-                        
-                        # Create timeline event
-                        TimelineEvent.objects.create(
-                            candidate=candidate,
-                            event_type='scored',
-                            description=f'Scored for job: {job.title}',
-                            metadata={'job_id': job.id, 'score': score, 'auto_rejected': is_rejected}
-                        )
-                    except Exception as scoring_error:
-                        logger.error(f"Failed to score candidate {candidate.id} for job {job.id}: {str(scoring_error)}")
-                        # Don't fail the whole process if scoring fails, just log it
-                        pass
-                
-                file_item.status = 'completed'
-                file_item.save()
-                successful_count += 1
-                logger.info(f"Successfully processed file item {file_item.id}")
-                
-                batch.processed_files += 1
-                batch.save()
-                
-            except Exception as e:
-                failed_count += 1
-                error_message = str(e)
-                file_item.status = 'failed'
-                file_item.error_message = error_message
-                file_item.save()
-                logger.error(f"Failed to process file item {file_item.id}: {error_message}", exc_info=True)
-                
-                batch.processed_files += 1
-                batch.save()
+                    logger.error(f"Thread processing file item {file_item.id} raised exception: {str(e)}", exc_info=True)
+                    # Update counters for unexpected exceptions
+                    with lock:
+                        counters['failed'] += 1
+                        batch.processed_files += 1
+                        batch.save()
         
         batch.status = 'completed'
         batch.save()
-        logger.info(f"Batch {batch_id} processing completed: {successful_count} successful, {failed_count} failed")
+        logger.info(f"Batch {batch_id} processing completed: {counters['successful']} successful, {counters['failed']} failed")
         
     except Exception as e:
         batch.status = 'failed'

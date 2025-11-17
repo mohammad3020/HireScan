@@ -42,8 +42,16 @@ class BatchUploadViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def upload_files(self, request, pk=None):
         """Upload files to a batch"""
+        import logging
+        import time
+        logger = logging.getLogger(__name__)
+        timing_logger = logging.getLogger('processing.timing')
+        
+        upload_start_time = time.time()
         batch = self.get_object()
         files = request.FILES.getlist('files')
+        
+        timing_logger.info(f"[TIMING] Starting file upload for batch {batch.id} - {len(files)} file(s)")
         
         if len(files) > 100:
             return Response(
@@ -64,15 +72,22 @@ class BatchUploadViewSet(viewsets.ModelViewSet):
         # Create file items
         file_items = []
         for file in files:
+            file_upload_start = time.time()
             file_item = FileItem.objects.create(
                 batch=batch,
                 file=file,
                 status='pending'
             )
+            file_upload_time = time.time() - file_upload_start
+            file_size_kb = file.size / 1024
+            timing_logger.info(f"[TIMING] File '{file.name}' ({file_size_kb:.1f} KB) uploaded in {file_upload_time:.2f} seconds ({file_upload_time*1000:.0f}ms) - FileItem ID: {file_item.id}")
             file_items.append(file_item)
         
         batch.total_files = batch.file_items.count()
         batch.save()
+        
+        upload_total_time = time.time() - upload_start_time
+        timing_logger.info(f"[TIMING] Total upload completed in {upload_total_time:.2f} seconds ({upload_total_time*1000:.0f}ms) for {len(files)} file(s) in batch {batch.id}")
         
         # Process batch in background
         def process_in_thread():

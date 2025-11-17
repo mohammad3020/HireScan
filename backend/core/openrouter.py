@@ -14,8 +14,7 @@ class OpenRouterClient:
     def __init__(self):
         self.api_key = settings.OPENROUTER_API_KEY
         self.base_url = settings.OPENROUTER_BASE_URL
-        self.parse_model = settings.OPENROUTER_PARSE_MODEL
-        self.rank_model = settings.OPENROUTER_RANK_MODEL
+        self.model = settings.OPENROUTER_MODEL
         
         if not self.api_key:
             raise ValueError("OPENROUTER_API_KEY is not set in environment variables")
@@ -153,7 +152,14 @@ class OpenRouterClient:
         logger.info(f"Calculated max_tokens: {estimated_max_tokens} for prompt length: {prompt_length} chars (~{estimated_input_tokens} input tokens)")
         
         # Check if model supports json_object format
-        supports_json = "json" in self.parse_model.lower() or "gpt-4" in self.parse_model.lower() or "claude" in self.parse_model.lower()
+        # GPT-4, GPT-5, Claude, and models with "json" in name support json_object format
+        model_lower = self.model.lower()
+        supports_json = (
+            "json" in model_lower or 
+            "gpt-4" in model_lower or 
+            "gpt-5" in model_lower or 
+            "claude" in model_lower
+        )
         
         request_kwargs = {
             "temperature": 0.3,  # Lower temperature for more consistent JSON
@@ -167,7 +173,7 @@ class OpenRouterClient:
             logger.info("Model may not support json_object format, using default")
         
         response = self._make_request(
-            model=self.parse_model,
+            model=self.model,
             messages=messages,
             **request_kwargs
         )
@@ -299,10 +305,19 @@ class OpenRouterClient:
             }
         ]
         
+        # Check if model supports json_object format
+        model_lower = self.model.lower()
+        supports_json = (
+            "json" in model_lower or 
+            "gpt-4" in model_lower or 
+            "gpt-5" in model_lower or 
+            "claude" in model_lower
+        )
+        
         response = self._make_request(
-            model=self.rank_model,
+            model=self.model,
             messages=messages,
-            response_format={"type": "json_object"} if "json" in self.rank_model.lower() else None
+            response_format={"type": "json_object"} if supports_json else None
         )
         
         # Extract the content from the response

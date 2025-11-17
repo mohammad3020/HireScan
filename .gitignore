@@ -225,3 +225,20 @@ ai/CV_files/*
 !ai/CV_files/.gitkeep
 ai/test_output.json
 
+# CV Upload Files - All uploaded resumes and CVs
+# Ignore all files in media directories (batch uploads and resumes)
+backend/media/batch_uploads/*
+!backend/media/batch_uploads/.gitkeep
+backend/media/resumes/*
+!backend/media/resumes/.gitkeep
+
+# Ignore CV/resume files in media directories specifically
+backend/media/**/*.pdf
+backend/media/**/*.doc
+backend/media/**/*.docx
+
+# Keep the media directory structure
+!backend/media/
+!backend/media/batch_uploads/
+!backend/media/resumes/
+

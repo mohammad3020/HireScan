@@ -139,6 +139,7 @@ def process_file_with_prompt(
     prompt_name: str,
     model: str,
     extract_text: bool = None,
+    resume_text: str = None,
     **kwargs
 ) -> Dict[str, Any]:
     """
@@ -160,6 +161,7 @@ def process_file_with_prompt(
         extract_text: If True, extract text from PDF/DOCX and send as text instead of file.
                      If None (default), auto-detect: try file first, fallback to text for PDFs.
                      If False, always send as file (may fail for PDFs).
+        resume_text: Pre-extracted text from the resume. If provided, this will be used instead of extracting again.
         **kwargs: Optional OpenRouter API parameters:
             - temperature (float): Controls randomness (0.0-2.0)
             - max_tokens (int): Maximum tokens to generate
@@ -188,6 +190,10 @@ def process_file_with_prompt(
     file_ext = Path(file_path).suffix.lower()
     is_pdf_or_docx = file_ext in ['.pdf', '.docx', '.doc']
     
+    # If resume_text is provided, we should use text extraction method
+    if resume_text:
+        extract_text = True
+    
     # Determine if we should extract text
     if extract_text is None:
         # Auto-detect: For PDFs, prefer text extraction (more reliable)
@@ -195,9 +201,20 @@ def process_file_with_prompt(
     
     # Prepare messages based on extraction method
     if extract_text and is_pdf_or_docx:
-        # Extract text and send as text content
-        try:
-            file_text = _extract_text_from_file(file_path)
+        # Use pre-extracted text if provided, otherwise extract
+        if resume_text:
+            file_text = resume_text
+        else:
+            # Extract text and send as text content
+            try:
+                file_text = _extract_text_from_file(file_path)
+            except (ImportError, ValueError) as e:
+                # If text extraction fails, fall back to file upload so AI can try to read it
+                print(f"⚠️  Warning: Text extraction failed ({e}), trying file upload instead for AI analysis...")
+                extract_text = False
+        
+        # Check if we have valid text (either from pre-extraction or just extracted)
+        if extract_text and is_pdf_or_docx:
             # Check if extracted text is empty or too short (might be scanned PDF or corrupted)
             # If text is less than 50 characters, fallback to file upload so AI can analyze the file directly
             # This allows AI to read scanned PDFs or corrupted files
@@ -228,10 +245,6 @@ def process_file_with_prompt(
                         "content": full_prompt
                     }
                 ]
-        except (ImportError, ValueError) as e:
-            # If text extraction fails, fall back to file upload so AI can try to read it
-            print(f"⚠️  Warning: Text extraction failed ({e}), trying file upload instead for AI analysis...")
-            extract_text = False
     
     if not extract_text:
         # Send file as base64 data URL
