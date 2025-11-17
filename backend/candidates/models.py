@@ -398,6 +398,15 @@ class TimelineEvent(models.Model):
 
 class JobScore(models.Model):
     """Job score model - scores a candidate for a specific job"""
+    CATEGORY_CHOICES = [
+        ('shortlisted', 'Shortlisted'),
+        ('rejected', 'Rejected'),
+        ('interview_scheduled', 'Interview Scheduled'),
+        ('interviewed', 'Interviewed'),
+        ('offer_sent', 'Offer Sent'),
+        ('hired', 'Hired'),
+    ]
+    
     candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='job_scores')
     job = models.ForeignKey('jobs.Job', on_delete=models.CASCADE, related_name='candidate_scores')
     score = models.FloatField(help_text="Overall score out of 100 (from scoring response)")
@@ -406,6 +415,12 @@ class JobScore(models.Model):
     rank = models.IntegerField(null=True, blank=True, help_text="Rank among all candidates for this job")
     auto_rejected = models.BooleanField(default=False)
     rejection_reason = models.TextField(blank=True)
+    category = models.CharField(
+        max_length=20,
+        choices=CATEGORY_CHOICES,
+        default='shortlisted',
+        help_text="Candidate status/category for this job"
+    )
     scored_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

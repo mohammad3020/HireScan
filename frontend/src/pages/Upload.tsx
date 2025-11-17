@@ -7,12 +7,22 @@ import {
   CheckCircle,
   AlertCircle,
   Loader,
+  Shield,
+  ShieldAlert,
 } from 'lucide-react';
 import { useUploadCV } from '../api/candidates';
+import { validateResumeFile, quickResumeCheck } from '../utils/resumeValidator';
 
 interface FileWithPreview extends File {
   preview?: string;
   status?: 'pending' | 'processing' | 'completed' | 'failed';
+  validationStatus?: 'checking' | 'valid' | 'invalid' | 'warning';
+  validationResult?: {
+    isValid: boolean;
+    confidence: number;
+    reasons: string[];
+    warning?: string;
+  };
 }
 
 export const Upload = () => {
@@ -53,7 +63,7 @@ export const Upload = () => {
     return validTypes.includes(file.type) || validExtensions.includes(fileExtension);
   };
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
@@ -62,49 +72,176 @@ export const Upload = () => {
     const validFiles = droppedFiles.filter(validateFile);
     
     if (validFiles.length !== droppedFiles.length) {
-      alert('Some files were rejected. Only PDF, DOC, and DOCX files are allowed.');
+      alert('برخی فایل‌ها رد شدند. فقط فایل‌های PDF، DOC و DOCX مجاز هستند.');
     }
 
-    // Preserve File objects and add status property
-    const newFiles = validFiles.map((file) => {
-      // Add status property directly to the File object
-      (file as any).status = 'pending';
-      return file;
+    if (validFiles.length === 0) return;
+
+    // بررسی سریع اولیه
+    const quickValidated = validFiles.filter(file => {
+      const check = quickResumeCheck(file);
+      return check.isValid;
+    });
+
+    if (quickValidated.length !== validFiles.length) {
+      const rejectedCount = validFiles.length - quickValidated.length;
+      alert(`${rejectedCount} فایل به دلیل فرمت یا اندازه نامعتبر رد شد.`);
+    }
+
+    // اضافه کردن فایل‌ها با وضعیت در حال بررسی
+    const newFiles = quickValidated.map((file) => {
+      const fileWithStatus = file as FileWithPreview;
+      fileWithStatus.status = 'pending';
+      fileWithStatus.validationStatus = 'checking';
+      return fileWithStatus;
     });
 
     setFiles((prev) => {
       const combined = [...prev, ...newFiles];
-      if (combined.length > 100) {
-        alert('Maximum 100 files allowed. Only the first 100 will be processed.');
-        return combined.slice(0, 100);
+      if (combined.length > 50) {
+        alert('حداکثر 50 فایل مجاز است. لطفا رزومه‌ها را 50 تا 50 تا آپلود کنید.');
+        return prev;
       }
       return combined;
     });
+
+    // بررسی دقیق محتوا برای هر فایل
+    for (let i = 0; i < newFiles.length; i++) {
+      const file = newFiles[i];
+      try {
+        const validation = await validateResumeFile(file);
+        
+        setFiles((prev) => {
+          const updated = [...prev];
+          const fileIndex = updated.findIndex(f => f.name === file.name && f.size === file.size);
+          if (fileIndex !== -1) {
+            updated[fileIndex].validationStatus = validation.isValid 
+              ? (validation.confidence >= 70 ? 'valid' : 'warning')
+              : 'invalid';
+            updated[fileIndex].validationResult = {
+              isValid: validation.isValid,
+              confidence: validation.confidence,
+              reasons: validation.reasons,
+              warning: validation.warning
+            };
+          }
+          return updated;
+        });
+
+        // نمایش هشدار برای فایل‌های نامعتبر
+        if (!validation.isValid) {
+          console.warn(`فایل "${file.name}" احتمالاً رزومه نیست:`, validation.reasons.join('، '));
+        } else if (validation.warning) {
+          console.info(`هشدار برای فایل "${file.name}":`, validation.warning);
+        }
+      } catch (error: any) {
+        console.error(`خطا در بررسی فایل "${file.name}":`, error);
+        setFiles((prev) => {
+          const updated = [...prev];
+          const fileIndex = updated.findIndex(f => f.name === file.name && f.size === file.size);
+          if (fileIndex !== -1) {
+            updated[fileIndex].validationStatus = 'warning';
+            updated[fileIndex].validationResult = {
+              isValid: true,
+              confidence: 60,
+              reasons: ['بررسی اولیه موفق بود'],
+              warning: 'نمی‌توان محتوای فایل را بررسی کرد'
+            };
+          }
+          return updated;
+        });
+      }
+    }
   }, []);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
     const validFiles = selectedFiles.filter(validateFile);
     
     if (validFiles.length !== selectedFiles.length) {
-      alert('Some files were rejected. Only PDF, DOC, and DOCX files are allowed.');
+      alert('برخی فایل‌ها رد شدند. فقط فایل‌های PDF، DOC و DOCX مجاز هستند.');
     }
 
-    // Preserve File objects and add status property
-    const newFiles = validFiles.map((file) => {
-      // Add status property directly to the File object
-      (file as any).status = 'pending';
-      return file;
+    if (validFiles.length === 0) return;
+
+    // بررسی سریع اولیه
+    const quickValidated = validFiles.filter(file => {
+      const check = quickResumeCheck(file);
+      return check.isValid;
+    });
+
+    if (quickValidated.length !== validFiles.length) {
+      const rejectedCount = validFiles.length - quickValidated.length;
+      alert(`${rejectedCount} فایل به دلیل فرمت یا اندازه نامعتبر رد شد.`);
+    }
+
+    // اضافه کردن فایل‌ها با وضعیت در حال بررسی
+    const newFiles = quickValidated.map((file) => {
+      const fileWithStatus = file as FileWithPreview;
+      fileWithStatus.status = 'pending';
+      fileWithStatus.validationStatus = 'checking';
+      return fileWithStatus;
     });
 
     setFiles((prev) => {
       const combined = [...prev, ...newFiles];
-      if (combined.length > 100) {
-        alert('Maximum 100 files allowed. Only the first 100 will be processed.');
-        return combined.slice(0, 100);
+      if (combined.length > 50) {
+        alert('حداکثر 50 فایل مجاز است. لطفا رزومه‌ها را 50 تا 50 تا آپلود کنید.');
+        return prev;
       }
       return combined;
     });
+
+    // بررسی دقیق محتوا برای هر فایل
+    for (let i = 0; i < newFiles.length; i++) {
+      const file = newFiles[i];
+      try {
+        const validation = await validateResumeFile(file);
+        
+        setFiles((prev) => {
+          const updated = [...prev];
+          const fileIndex = updated.findIndex(f => f.name === file.name && f.size === file.size);
+          if (fileIndex !== -1) {
+            updated[fileIndex].validationStatus = validation.isValid 
+              ? (validation.confidence >= 70 ? 'valid' : 'warning')
+              : 'invalid';
+            updated[fileIndex].validationResult = {
+              isValid: validation.isValid,
+              confidence: validation.confidence,
+              reasons: validation.reasons,
+              warning: validation.warning
+            };
+          }
+          return updated;
+        });
+
+        // نمایش هشدار برای فایل‌های نامعتبر
+        if (!validation.isValid) {
+          console.warn(`فایل "${file.name}" احتمالاً رزومه نیست:`, validation.reasons.join('، '));
+        } else if (validation.warning) {
+          console.info(`هشدار برای فایل "${file.name}":`, validation.warning);
+        }
+      } catch (error: any) {
+        console.error(`خطا در بررسی فایل "${file.name}":`, error);
+        setFiles((prev) => {
+          const updated = [...prev];
+          const fileIndex = updated.findIndex(f => f.name === file.name && f.size === file.size);
+          if (fileIndex !== -1) {
+            updated[fileIndex].validationStatus = 'warning';
+            updated[fileIndex].validationResult = {
+              isValid: true,
+              confidence: 60,
+              reasons: ['بررسی اولیه موفق بود'],
+              warning: 'نمی‌توان محتوای فایل را بررسی کرد'
+            };
+          }
+          return updated;
+        });
+      }
+    }
+
+    // Reset input
+    e.target.value = '';
   };
 
   const removeFile = (index: number) => {
@@ -198,7 +335,7 @@ export const Upload = () => {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Upload Resumes</h1>
-        <p className="text-gray-600 mt-1">Upload resumes in batch (PDF, DOC, DOCX - Max 100 files)</p>
+        <p className="text-gray-600 mt-1">Upload resumes in batch (PDF, DOC, DOCX - Max 50 files)</p>
       </div>
 
       {/* Upload Area */}
@@ -230,7 +367,7 @@ export const Upload = () => {
           />
         </label>
         <p className="text-sm text-gray-500 mt-4">
-          Supported formats: PDF, DOC, DOCX (Max 100 files)
+          Supported formats: PDF, DOC, DOCX (Max 50 files)
         </p>
       </div>
 
@@ -260,7 +397,7 @@ export const Upload = () => {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">
-                  Selected Files ({files.length}/100)
+                  Selected Files ({files.length}/50)
                 </h2>
                 {jobId && (
                   <p className="text-sm text-gray-500 mt-1">
@@ -293,30 +430,75 @@ export const Upload = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
-                    <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                      {file.validationResult && (
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${
+                          file.validationStatus === 'valid' 
+                            ? 'bg-green-100 text-green-700'
+                            : file.validationStatus === 'warning'
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : 'bg-red-100 text-red-700'
+                        }`}>
+                          {file.validationResult.confidence}% اعتماد
+                        </span>
+                      )}
+                    </div>
+                    {file.validationResult?.warning && (
+                      <p className="text-xs text-yellow-600 mt-1">{file.validationResult.warning}</p>
+                    )}
+                    {file.validationResult && !file.validationResult.isValid && (
+                      <p className="text-xs text-red-600 mt-1">
+                        {file.validationResult.reasons.slice(0, 2).join('، ')}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center space-x-2">
+                    {/* نمایش وضعیت اعتبارسنجی */}
+                    {file.validationStatus === 'checking' && (
+                      <div className="flex items-center space-x-1" title="در حال بررسی...">
+                        <Loader className="h-4 w-4 text-blue-600 animate-spin" />
+                        <Shield className="h-4 w-4 text-blue-600" />
+                      </div>
+                    )}
+                    {file.validationStatus === 'valid' && (
+                      <div className="flex items-center space-x-1" title="رزومه معتبر">
+                        <Shield className="h-4 w-4 text-green-600" />
+                      </div>
+                    )}
+                    {file.validationStatus === 'warning' && (
+                      <div className="flex items-center space-x-1" title="هشدار: ممکن است رزومه نباشد">
+                        <ShieldAlert className="h-4 w-4 text-yellow-600" />
+                      </div>
+                    )}
+                    {file.validationStatus === 'invalid' && (
+                      <div className="flex items-center space-x-1" title="احتمالاً رزومه نیست">
+                        <ShieldAlert className="h-4 w-4 text-red-600" />
+                      </div>
+                    )}
+                    
+                    {/* نمایش وضعیت آپلود */}
                     {file.status === 'pending' && (
                       <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
-                        Pending
+                        در انتظار
                       </span>
                     )}
                     {file.status === 'processing' && (
                       <div className="flex items-center space-x-2">
                         <Loader className="h-4 w-4 text-blue-600 animate-spin" />
-                        <span className="text-xs text-blue-600">Processing...</span>
+                        <span className="text-xs text-blue-600">در حال پردازش...</span>
                       </div>
                     )}
                     {file.status === 'completed' && (
                       <div className="flex items-center space-x-2">
                         <CheckCircle className="h-5 w-5 text-green-600" />
-                        <span className="text-xs text-green-600">Completed</span>
+                        <span className="text-xs text-green-600">تکمیل شد</span>
                       </div>
                     )}
                     {file.status === 'failed' && (
                       <div className="flex items-center space-x-2">
                         <AlertCircle className="h-5 w-5 text-red-600" />
-                        <span className="text-xs text-red-600">Failed</span>
+                        <span className="text-xs text-red-600">ناموفق</span>
                       </div>
                     )}
                   </div>

@@ -159,25 +159,49 @@ export const Dashboard = () => {
         {/* Candidates by Status */}
         <div className="card p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Candidates by Status</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={candidatesByStatus}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                outerRadius={100}
-                fill="#8884d8"
-                dataKey="value"
-              >
+          {candidatesByStatus && candidatesByStatus.length > 0 && candidatesByStatus.some(item => item.value > 0) ? (
+            <div>
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie
+                    data={candidatesByStatus}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {candidatesByStatus.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+              {/* Custom Legend */}
+              <div className="flex flex-wrap justify-center gap-4 mt-4">
                 {candidatesByStatus.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
+                  <div key={`legend-${index}`} className="flex items-center gap-2">
+                    <div 
+                      className="w-3 h-3 rounded-full" 
+                      style={{ backgroundColor: entry.color }}
+                    />
+                    <span className="text-sm text-gray-700">
+                      {entry.name} ({entry.value})
+                    </span>
+                  </div>
                 ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-[300px] text-gray-400">
+              <div className="text-center">
+                <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">No candidate data available</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

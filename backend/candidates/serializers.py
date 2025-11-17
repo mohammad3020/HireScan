@@ -269,7 +269,7 @@ class JobScoreSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'candidate', 'candidate_name', 'job', 'job_title',
             'score', 'experience_score', 'education_score', 'rank',
-            'auto_rejected', 'rejection_reason', 'scored_at', 'updated_at'
+            'auto_rejected', 'rejection_reason', 'category', 'scored_at', 'updated_at'
         ]
         read_only_fields = ['id', 'scored_at', 'updated_at']
 

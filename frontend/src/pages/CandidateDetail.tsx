@@ -15,7 +15,7 @@ import {
   ChevronDown,
   X,
 } from 'lucide-react';
-import { useCandidate, useAddNote, useDeleteNote } from '../api/candidates';
+import { useCandidate, useAddNote, useDeleteNote, useUpdateJobScoreCategory } from '../api/candidates';
 import type { TimelineEvent } from '../api/candidates';
 import { useCandidatesStore } from '../store/candidates';
 
@@ -88,7 +88,8 @@ export const CandidateDetail = () => {
   const { data: candidate, isLoading, error } = useCandidate(candidateId);
   const addNote = useAddNote();
   const deleteNote = useDeleteNote();
-  const { favorites, categories, setFavorite, setCategory } = useCandidatesStore();
+  const updateCategory = useUpdateJobScoreCategory();
+  const { favorites, setFavorite } = useCandidatesStore();
 
   // Scroll to section when hash is present in URL
   useEffect(() => {
@@ -171,10 +172,13 @@ export const CandidateDetail = () => {
   ].filter(Boolean) as Array<{ label: string; value: string }>;
   const shouldShowTimelineCard = timelineEvents.length > 0 || timelineHighlights.length > 0;
   const isFavorite = candidateId ? !!favorites[candidateId] : false;
+  
+  // Get category from first job_score (from backend)
+  const jobScore = candidate?.job_scores?.[0];
+  const backendCategory = jobScore?.category as CandidateCategory | undefined;
   const fallbackState: CandidateCategory =
     candidate?.job_scores?.some((score) => score.auto_rejected) ? 'rejected' : 'shortlisted';
-  const candidateState: CandidateCategory =
-    (candidateId ? (categories[candidateId] as CandidateCategory) : null) || fallbackState;
+  const candidateState: CandidateCategory = backendCategory || fallbackState;
   const selectedStateOption =
     STATE_OPTIONS.find((option) => option.value === candidateState) || STATE_OPTIONS[0];
 
@@ -226,9 +230,18 @@ export const CandidateDetail = () => {
     }
   };
 
-  const handleStateChange = (value: CandidateCategory) => {
-    if (!candidateId) return;
-    setCategory(candidateId, value);
+  const handleStateChange = async (value: CandidateCategory) => {
+    if (!candidateId || !jobScore) return;
+    
+    try {
+      await updateCategory.mutateAsync({
+        jobScoreId: jobScore.id,
+        category: value,
+      });
+    } catch (error) {
+      console.error('Failed to update category:', error);
+      alert('Failed to update status. Please try again.');
+    }
   };
 
   const toggleFavorite = () => {

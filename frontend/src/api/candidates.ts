@@ -279,6 +279,7 @@ export interface JobScore {
   rank: number | null;
   auto_rejected: boolean;
   rejection_reason: string;
+  category?: 'shortlisted' | 'rejected' | 'interview_scheduled' | 'interviewed' | 'offer_sent' | 'hired';
   scored_at: string;
   updated_at: string;
 }
@@ -418,6 +419,26 @@ export const useUploadCV = () => {
       // Invalidate candidates and resumes queries
       queryClient.invalidateQueries({ queryKey: ['candidates'] });
       queryClient.invalidateQueries({ queryKey: ['resumes'] });
+    },
+  });
+};
+
+export const useUpdateJobScoreCategory = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ jobScoreId, category }: { jobScoreId: number; category: JobScore['category'] }) => {
+      const response = await apiClient.patch<JobScore>(
+        `/candidates/job-scores/${jobScoreId}/update-category/`,
+        { category }
+      );
+      return response.data;
+    },
+    onSuccess: (data) => {
+      // Invalidate related queries
+      queryClient.invalidateQueries({ queryKey: ['candidates'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['review'] });
     },
   });
 };

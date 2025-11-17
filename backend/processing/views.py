@@ -63,9 +63,9 @@ class BatchUploadViewSet(viewsets.ModelViewSet):
         
         timing_logger.info(f"[TIMING] Starting file upload for batch {batch.id} - {len(files)} file(s)")
         
-        if len(files) > 100:
+        if len(files) > 50:
             return Response(
-                {'error': 'Maximum 100 files allowed'},
+                {'error': 'Maximum 50 files allowed. لطفا رزومه‌ها را 50 تا 50 تا آپلود کنید.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         

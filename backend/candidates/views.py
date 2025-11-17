@@ -12,10 +12,10 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from django_filters.rest_framework import DjangoFilterBackend
 
-from .models import Candidate, Resume, ParsedResume, Note, TimelineEvent
+from .models import Candidate, Resume, ParsedResume, Note, TimelineEvent, JobScore
 from .serializers import (
     CandidateSerializer, CandidateListSerializer, ResumeSerializer,
-    NoteSerializer, TimelineEventSerializer, ParsedResumeSerializer
+    NoteSerializer, TimelineEventSerializer, ParsedResumeSerializer, JobScoreSerializer
 )
 from processing.models import BatchUpload, FileItem
 
@@ -163,9 +163,9 @@ class CVUploadView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        if len(files) > 100:
+        if len(files) > 50:
             return Response(
-                {'error': 'Maximum 100 files allowed'},
+                {'error': 'Maximum 50 files allowed. لطفا رزومه‌ها را 50 تا 50 تا آپلود کنید.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -242,3 +242,53 @@ class CVUploadView(APIView):
         }
         
         return Response(response_data, status=status.HTTP_202_ACCEPTED)
+
+
+class JobScoreViewSet(viewsets.ModelViewSet):
+    """JobScore viewset for managing candidate-job scores"""
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    queryset = JobScore.objects.select_related('candidate', 'job').all()
+    serializer_class = JobScoreSerializer
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['job', 'candidate', 'category', 'auto_rejected']
+    ordering_fields = ['score', 'rank', 'scored_at']
+    ordering = ['-score', 'rank']
+    
+    @action(detail=True, methods=['patch'], url_path='update-category')
+    def update_category(self, request, pk=None):
+        """Update candidate category for a job"""
+        job_score = self.get_object()
+        category = request.data.get('category')
+        
+        if not category:
+            return Response(
+                {'error': 'category is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        valid_categories = [choice[0] for choice in JobScore.CATEGORY_CHOICES]
+        if category not in valid_categories:
+            return Response(
+                {'error': f'Invalid category. Must be one of: {", ".join(valid_categories)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        old_category = job_score.category
+        job_score.category = category
+        job_score.save()
+        
+        # Create timeline event
+        TimelineEvent.objects.create(
+            candidate=job_score.candidate,
+            event_type='status_changed',
+            description=f"Status changed from {old_category} to {category} for {job_score.job.title}",
+            metadata={
+                'job_id': job_score.job.id,
+                'old_category': old_category,
+                'new_category': category
+            }
+        )
+        
+        serializer = self.get_serializer(job_score)
+        return Response(serializer.data)

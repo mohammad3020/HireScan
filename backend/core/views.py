@@ -72,10 +72,23 @@ class DashboardView(APIView):
             '81-100': JobScore.objects.filter(score__gte=81, score__lte=100).count(),
         }
         
-        # Candidates by status (based on job scores)
-        qualified_count = JobScore.objects.filter(score__gte=80, auto_rejected=False).count()
-        in_process_count = JobScore.objects.filter(score__gte=70, score__lt=80, auto_rejected=False).count()
-        new_count = JobScore.objects.filter(score__lt=70, auto_rejected=False).count()
+        # Candidates by status (based on category in JobScore)
+        # Try to use category field, fallback to score-based if field doesn't exist
+        try:
+            shortlisted_count = JobScore.objects.filter(category='shortlisted').count()
+            rejected_count = JobScore.objects.filter(category='rejected').count()
+            interview_scheduled_count = JobScore.objects.filter(category='interview_scheduled').count()
+            interviewed_count = JobScore.objects.filter(category='interviewed').count()
+            offer_sent_count = JobScore.objects.filter(category='offer_sent').count()
+            hired_count = JobScore.objects.filter(category='hired').count()
+        except Exception:
+            # Fallback to score-based calculation if category field doesn't exist yet
+            shortlisted_count = JobScore.objects.filter(score__gte=80, auto_rejected=False).count()
+            rejected_count = JobScore.objects.filter(auto_rejected=True).count()
+            interview_scheduled_count = JobScore.objects.filter(score__gte=70, score__lt=80, auto_rejected=False).count()
+            interviewed_count = 0
+            offer_sent_count = 0
+            hired_count = 0
         
         # Jobs by department
         jobs_by_department = Department.objects.annotate(
@@ -144,9 +157,12 @@ class DashboardView(APIView):
                 {'score': k, 'count': v} for k, v in score_distribution.items()
             ],
             'candidates_by_status': [
-                {'name': 'Qualified', 'value': qualified_count, 'color': '#10B981'},
-                {'name': 'In Process', 'value': in_process_count, 'color': '#F59E0B'},
-                {'name': 'New', 'value': new_count, 'color': '#3B82F6'},
+                {'name': 'Shortlisted', 'value': shortlisted_count, 'color': '#10B981'},
+                {'name': 'Interview Scheduled', 'value': interview_scheduled_count, 'color': '#3B82F6'},
+                {'name': 'Interviewed', 'value': interviewed_count, 'color': '#8B5CF6'},
+                {'name': 'Offer Sent', 'value': offer_sent_count, 'color': '#F59E0B'},
+                {'name': 'Hired', 'value': hired_count, 'color': '#059669'},
+                {'name': 'Rejected', 'value': rejected_count, 'color': '#EF4444'},
             ],
             'jobs_by_department': list(jobs_by_department),
             'candidates_per_job': [

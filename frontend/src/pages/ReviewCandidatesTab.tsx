@@ -14,6 +14,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { useReviewDashboard } from '../api/review';
+import { useUpdateJobScoreCategory } from '../api/candidates';
 
 type CandidateStatus = 'qualified' | 'in_process' | 'new';
 
@@ -42,6 +43,7 @@ type Candidate = {
   isFavorite: boolean;
   auto_rejected: boolean;
   category: CandidateCategory;
+  jobScoreId: number | null; // For API calls
 };
 
 type SortKeyExtended =
@@ -131,7 +133,8 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
   const [openNotesId, setOpenNotesId] = useState<number | null>(null);
   const [openAiId, setOpenAiId] = useState<number | null>(null);
   const [openCategoryId, setOpenCategoryId] = useState<number | null>(null);
-  const { favorites, categories, setFavorite, setCategory, initializeFromCandidates } = useCandidatesStore();
+  const { favorites, setFavorite } = useCandidatesStore();
+  const updateCategory = useUpdateJobScoreCategory();
   const [activeBucket, setActiveBucket] = useState<ActiveBucket>('all');
   const initializedRef = useRef<number | null>(null);
 
@@ -179,35 +182,13 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
         aiSummary: candidate.ai_summary || candidate.ai_review || '',
         isFavorite: favorites[candidateId] || false,
         auto_rejected: candidate.auto_rejected || false,
-        category: (categories[candidateId] || (candidate.auto_rejected ? 'rejected' : 'shortlisted')) as CandidateCategory,
+        category: (candidate.category || (candidate.auto_rejected ? 'rejected' : 'shortlisted')) as CandidateCategory,
+        jobScoreId: candidate.id || null,
       };
     });
-  }, [reviewData, jobId, favorites, categories]);
+  }, [reviewData, jobId, favorites]);
 
-  // Initialize store only once when reviewData first loads for this jobId
-  // Use ref to prevent re-initialization when favorites/categories change
-  useEffect(() => {
-    if (reviewData?.all_candidates && initializedRef.current !== jobId) {
-      const candidatesToInit = reviewData.all_candidates.map((candidate) => {
-        const candidateId = candidate.candidate || candidate.id;
-        const initialCategory = candidate.auto_rejected ? 'rejected' : 'shortlisted';
-        // Only initialize if not already in store, otherwise preserve existing values
-        // Read current values from store at initialization time
-        return { 
-          id: candidateId, 
-          isFavorite: favorites[candidateId] ?? false, 
-          category: (categories[candidateId] || initialCategory) as CandidateCategory 
-        };
-      });
-      
-      initializeFromCandidates(candidatesToInit);
-      initializedRef.current = jobId;
-    }
-    // Reset ref when jobId changes
-    if (initializedRef.current !== null && initializedRef.current !== jobId) {
-      initializedRef.current = null;
-    }
-  }, [reviewData, jobId, initializeFromCandidates]); // Only depend on reviewData and jobId to prevent loops
+  // No need to initialize store - category comes from backend
 
   useEffect(() => {
     const handleGlobalClick = () => {
@@ -222,8 +203,8 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
   const totalResumes = jobCandidates.length;
 
   const shortListedCount = useMemo(
-    () => jobCandidates.filter((candidate) => categories[candidate.id] === 'shortlisted').length,
-    [jobCandidates, categories]
+    () => jobCandidates.filter((candidate) => candidate.category === 'shortlisted').length,
+    [jobCandidates]
   );
 
   const favoriteCount = useMemo(
@@ -232,23 +213,23 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
   );
 
   const interviewScheduledCount = useMemo(
-    () => jobCandidates.filter((candidate) => categories[candidate.id] === 'interview_scheduled').length,
-    [jobCandidates, categories]
+    () => jobCandidates.filter((candidate) => candidate.category === 'interview_scheduled').length,
+    [jobCandidates]
   );
 
   const interviewedCount = useMemo(
-    () => jobCandidates.filter((candidate) => categories[candidate.id] === 'interviewed').length,
-    [jobCandidates, categories]
+    () => jobCandidates.filter((candidate) => candidate.category === 'interviewed').length,
+    [jobCandidates]
   );
 
   const offerSentCount = useMemo(
-    () => jobCandidates.filter((candidate) => categories[candidate.id] === 'offer_sent').length,
-    [jobCandidates, categories]
+    () => jobCandidates.filter((candidate) => candidate.category === 'offer_sent').length,
+    [jobCandidates]
   );
 
   const hiredCount = useMemo(
-    () => jobCandidates.filter((candidate) => categories[candidate.id] === 'hired').length,
-    [jobCandidates, categories]
+    () => jobCandidates.filter((candidate) => candidate.category === 'hired').length,
+    [jobCandidates]
   );
 
   const handleSort = (key: SortKeyExtended) => {
@@ -277,36 +258,21 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
   const bucketFilteredCandidates = useMemo(() => {
     switch (activeBucket) {
       case 'shortlisted':
-        return searchedCandidates.filter((candidate) => {
-          const cat = categories[candidate.id] || (candidate.auto_rejected ? 'rejected' : 'shortlisted');
-          return cat === 'shortlisted';
-        });
+        return searchedCandidates.filter((candidate) => candidate.category === 'shortlisted');
       case 'favorite':
         return searchedCandidates.filter((candidate) => favorites[candidate.id]);
       case 'interview_scheduled':
-        return searchedCandidates.filter((candidate) => {
-          const cat = categories[candidate.id] || (candidate.auto_rejected ? 'rejected' : 'shortlisted');
-          return cat === 'interview_scheduled';
-        });
+        return searchedCandidates.filter((candidate) => candidate.category === 'interview_scheduled');
       case 'interviewed':
-        return searchedCandidates.filter((candidate) => {
-          const cat = categories[candidate.id] || (candidate.auto_rejected ? 'rejected' : 'shortlisted');
-          return cat === 'interviewed';
-        });
+        return searchedCandidates.filter((candidate) => candidate.category === 'interviewed');
       case 'offer_sent':
-        return searchedCandidates.filter((candidate) => {
-          const cat = categories[candidate.id] || (candidate.auto_rejected ? 'rejected' : 'shortlisted');
-          return cat === 'offer_sent';
-        });
+        return searchedCandidates.filter((candidate) => candidate.category === 'offer_sent');
       case 'hired':
-        return searchedCandidates.filter((candidate) => {
-          const cat = categories[candidate.id] || (candidate.auto_rejected ? 'rejected' : 'shortlisted');
-          return cat === 'hired';
-        });
+        return searchedCandidates.filter((candidate) => candidate.category === 'hired');
       default:
         return searchedCandidates;
     }
-  }, [searchedCandidates, activeBucket, favorites, categories]);
+  }, [searchedCandidates, activeBucket, favorites]);
 
   const getCandidateSortValue = (candidate: Candidate, key: SortKeyExtended): number | null => {
     switch (key) {
@@ -345,8 +311,6 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
         return (a.skills.length - b.skills.length) * dir;
       }
       if (sortKey === 'category') {
-        const categoryA = categories[a.id] || (a.auto_rejected ? 'rejected' : 'shortlisted');
-        const categoryB = categories[b.id] || (b.auto_rejected ? 'rejected' : 'shortlisted');
         const categoryOrder: Record<CandidateCategory, number> = {
           shortlisted: 1,
           interview_scheduled: 2,
@@ -355,7 +319,7 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
           hired: 5,
           rejected: 6,
         };
-        return (categoryOrder[categoryA] - categoryOrder[categoryB]) * dir;
+        return (categoryOrder[a.category] - categoryOrder[b.category]) * dir;
       }
       if (numericKeys.includes(sortKey)) {
         const getNumeric = (value: number | null | undefined) =>
@@ -366,7 +330,7 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
       }
       return 0;
     });
-  }, [bucketFilteredCandidates, sortKey, sortDirection, categories]);
+  }, [bucketFilteredCandidates, sortKey, sortDirection]);
 
   const SortableHeader = ({
     label,
@@ -691,34 +655,34 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
                             });
                           }}
                           className={`inline-flex h-9 items-center gap-1 rounded-lg border px-3 text-xs font-medium transition ${
-                            categories[candidate.id] === 'shortlisted'
+                            candidate.category === 'shortlisted'
                               ? 'border-green-300 bg-green-50 text-green-700 hover:bg-green-100'
-                              : categories[candidate.id] === 'rejected'
+                              : candidate.category === 'rejected'
                               ? 'border-red-300 bg-red-50 text-red-700 hover:bg-red-100'
-                              : categories[candidate.id] === 'interview_scheduled'
+                              : candidate.category === 'interview_scheduled'
                               ? 'border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100'
-                              : categories[candidate.id] === 'interviewed'
+                              : candidate.category === 'interviewed'
                               ? 'border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
-                              : categories[candidate.id] === 'offer_sent'
+                              : candidate.category === 'offer_sent'
                               ? 'border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100'
-                              : categories[candidate.id] === 'hired'
+                              : candidate.category === 'hired'
                               ? 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
                               : 'border-gray-300 bg-gray-50 text-gray-700 hover:bg-gray-100'
                           }`}
                         >
                           <Tag className="h-3.5 w-3.5" />
                           <span className="capitalize">
-                            {categories[candidate.id] === 'shortlisted'
+                            {candidate.category === 'shortlisted'
                               ? 'Short Listed'
-                              : categories[candidate.id] === 'rejected'
+                              : candidate.category === 'rejected'
                               ? 'Rejected'
-                              : categories[candidate.id] === 'interview_scheduled'
+                              : candidate.category === 'interview_scheduled'
                               ? 'Interview Scheduled'
-                              : categories[candidate.id] === 'interviewed'
+                              : candidate.category === 'interviewed'
                               ? 'Interviewed'
-                              : categories[candidate.id] === 'offer_sent'
+                              : candidate.category === 'offer_sent'
                               ? 'Offer Sent'
-                              : categories[candidate.id] === 'hired'
+                              : candidate.category === 'hired'
                               ? 'Hired'
                               : 'Short Listed'}
                           </span>
@@ -733,12 +697,24 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
                               {(['shortlisted', 'interview_scheduled', 'interviewed', 'offer_sent', 'hired'] as CandidateCategory[]).map((category) => (
                                 <button
                                   key={category}
-                                  onClick={() => {
-                                    setCategory(candidate.id, category);
-                                    setOpenCategoryId(null);
+                                  onClick={async () => {
+                                    if (candidate.jobScoreId) {
+                                      try {
+                                        await updateCategory.mutateAsync({
+                                          jobScoreId: candidate.jobScoreId,
+                                          category: category,
+                                        });
+                                        setOpenCategoryId(null);
+                                      } catch (error) {
+                                        console.error('Failed to update category:', error);
+                                        alert('Failed to update status. Please try again.');
+                                      }
+                                    } else {
+                                      alert('Unable to update status. Job score not found.');
+                                    }
                                   }}
                                   className={`w-full px-4 py-2 text-left text-xs transition hover:bg-gray-50 ${
-                                    categories[candidate.id] === category
+                                    candidate.category === category
                                       ? 'bg-gray-50 font-medium text-gray-900'
                                       : 'text-gray-700'
                                   }`}

@@ -1496,13 +1496,17 @@ def _process_single_file_item(file_item, batch, counters, lock):
                 # Create or update JobScore
                 db_save_start = time.time()
                 logger.info(f"[RESUME {resume_id}] [JOB SCORING] Saving JobScore to database at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+                # Set initial category based on auto_rejected status
+                initial_category = 'rejected' if is_rejected else 'shortlisted'
+                
                 job_score, created = JobScore.objects.get_or_create(
                     candidate=candidate,
                     job=job,
                     defaults={
                         'score': score,
                         'auto_rejected': is_rejected,
-                        'rejection_reason': rejection_reason
+                        'rejection_reason': rejection_reason,
+                        'category': initial_category
                     }
                 )
                 
@@ -1510,6 +1514,9 @@ def _process_single_file_item(file_item, batch, counters, lock):
                     job_score.score = score
                     job_score.auto_rejected = is_rejected
                     job_score.rejection_reason = rejection_reason
+                    # Only update category if it's still the default (shortlisted) and now rejected
+                    if is_rejected and job_score.category == 'shortlisted':
+                        job_score.category = 'rejected'
                     job_score.save()
                     logger.info(f"[RESUME {resume_id}] [JOB SCORING] Updated JobScore for candidate {candidate.id} and job {job.id}")
                 else:
@@ -1570,7 +1577,7 @@ def _process_single_file_item(file_item, batch, counters, lock):
 
 def process_batch_service(batch_id):
     """
-    Process a batch of uploaded files using 10 threads for concurrent processing
+    Process a batch of uploaded files using 50 threads for concurrent processing
     
     Args:
         batch_id: BatchUpload ID
@@ -1586,7 +1593,7 @@ def process_batch_service(batch_id):
     
     batch.status = 'processing'
     batch.save()
-    logger.info(f"Starting processing for batch {batch_id} (job: {batch.job.id if batch.job else 'None'}) with 10 threads")
+    logger.info(f"Starting processing for batch {batch_id} (job: {batch.job.id if batch.job else 'None'}) with 50 threads")
     
     file_items = list(batch.file_items.all())
     batch.total_files = len(file_items)
@@ -1603,8 +1610,8 @@ def process_batch_service(batch_id):
     lock = Lock()
     
     try:
-        # Use ThreadPoolExecutor with 10 workers to process 10 CVs simultaneously
-        with ThreadPoolExecutor(max_workers=10) as executor:
+        # Use ThreadPoolExecutor with 50 workers to process 50 CVs simultaneously
+        with ThreadPoolExecutor(max_workers=50) as executor:
             # Submit all file items to the thread pool
             future_to_file_item = {
                 executor.submit(_process_single_file_item, file_item, batch, counters, lock): file_item
