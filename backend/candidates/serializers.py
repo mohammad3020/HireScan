@@ -5,7 +5,7 @@ from rest_framework import serializers
 from .models import (
     Candidate, Resume, ParsedResume, Experience, Education,
     TechnicalSkill, SoftSkill, SkillMentionedInJobTitle,
-    Project, Award, Language, Course, Publication,
+    Project, Award, Language, Course, Certification, Publication,
     Note, TimelineEvent, JobScore
 )
 
@@ -37,6 +37,7 @@ class EducationSerializer(serializers.ModelSerializer):
         model = Education
         fields = [
             'id', 'degree', 'field', 'institution', 'location',
+            'institution_category', 'graduation_year',
             'start_date', 'end_date', 'gpa', 'honors', 'thesis',
             'relevant_courses', 'order'
         ]
@@ -49,7 +50,9 @@ class ExperienceSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'job_title', 'company', 'company_type', 'location',
             'employment_type', 'start_date', 'end_date', 'duration',
-            'is_currently_employed', 'reasoning', 'responsibilities', 'order'
+            'duration_months',
+            'is_currently_employed', 'reasoning', 'responsibilities',
+            'extracted_skills', 'order'
         ]
 
 
@@ -92,6 +95,16 @@ class CourseSerializer(serializers.ModelSerializer):
         ]
 
 
+class CertificationSerializer(serializers.ModelSerializer):
+    """Certification serializer"""
+    class Meta:
+        model = Certification
+        fields = [
+            'id', 'name', 'issuer', 'date', 'description',
+            'certificate_id', 'verification_link', 'order'
+        ]
+
+
 class PublicationSerializer(serializers.ModelSerializer):
     """Publication serializer"""
     class Meta:
@@ -103,44 +116,98 @@ class PublicationSerializer(serializers.ModelSerializer):
 
 
 class ParsedResumeSerializer(serializers.ModelSerializer):
-    """Parsed resume serializer"""
-    educations = EducationSerializer(many=True, read_only=True)
-    experiences = ExperienceSerializer(many=True, read_only=True)
-    technical_skills = TechnicalSkillSerializer(many=True, read_only=True)
-    soft_skills = SoftSkillSerializer(many=True, read_only=True)
-    skills_mentioned_in_job_title = SkillMentionedInJobTitleSerializer(many=True, read_only=True)
-    projects = ProjectSerializer(many=True, read_only=True)
-    awards = AwardSerializer(many=True, read_only=True)
-    languages = LanguageSerializer(many=True, read_only=True)
-    courses = CourseSerializer(many=True, read_only=True)
-    publications = PublicationSerializer(many=True, read_only=True)
-    summary = serializers.SerializerMethodField()
-    
-    def get_summary(self, obj):
-        """Extract summary from other_sections"""
-        if obj.other_sections and isinstance(obj.other_sections, dict):
-            return obj.other_sections.get('summary', '')
-        return ''
-    
+    """Parsed resume serializer aligned with AI output structure"""
+    extracted_resume_data = serializers.SerializerMethodField()
+    scoring_results = serializers.SerializerMethodField()
+    interpretation = serializers.SerializerMethodField()
+    audit_trail = serializers.SerializerMethodField()
+
+    def _format_score(self, value):
+        if value is None:
+            return None
+        try:
+            return round(float(value), 2)
+        except (TypeError, ValueError):
+            return None
+
+    def get_extracted_resume_data(self, obj):
+        """Compose extracted resume data JSON"""
+        personal_info = {
+            "full_name": obj.full_name,
+            "phone": obj.phone,
+            "email": obj.email,
+            "address": obj.address,
+            "date_of_birth": obj.date_of_birth,
+            "marital_status": obj.marital_status,
+            "military_service": obj.military_service,
+            "links": {
+                "linkedin": obj.linkedin_url,
+                "github": obj.github_url,
+                "portfolio": obj.portfolio_url,
+                "website": obj.website_url,
+                "other": obj.other_links or []
+            }
+        }
+
+        technical_skills = [
+            {
+                "id": skill.id,
+                "name": skill.name,
+                "category": skill.category,
+                "level": skill.level
+            }
+            for skill in obj.technical_skills.all()
+        ]
+        soft_skills = [skill.name for skill in obj.soft_skills.all()]
+        mentioned_skills = [skill.name for skill in obj.skills_mentioned_in_job_title.all()]
+
+        extracted = {
+            "personal_info": personal_info,
+            "education": EducationSerializer(obj.educations.all(), many=True).data,
+            "experience": ExperienceSerializer(obj.experiences.all(), many=True).data,
+            "skills": {
+                "technical": technical_skills,
+                "soft": soft_skills,
+                "skills_mentioned_in_job_title": mentioned_skills
+            },
+            "projects": ProjectSerializer(obj.projects.all(), many=True).data,
+            "awards": AwardSerializer(obj.awards.all(), many=True).data,
+            "languages": LanguageSerializer(obj.languages.all(), many=True).data,
+            "courses": CourseSerializer(obj.courses.all(), many=True).data,
+            "certifications": CertificationSerializer(obj.certifications.all(), many=True).data,
+            "publications": PublicationSerializer(obj.publications.all(), many=True).data,
+            "interests": obj.interests or {},
+            "other_sections": obj.other_sections or {},
+            "extraction_notes": obj.extraction_notes or {}
+        }
+        return extracted
+
+    def get_scoring_results(self, obj):
+        """Compose scoring results with summary and stored details"""
+        final_scores = {
+            "experience_depth_score": self._format_score(obj.experience_depth_score),
+            "education_level_score": self._format_score(obj.education_level_score),
+            "overall_weighted_score": self._format_score(obj.overall_weighted_score),
+            "seniority_match_score": self._format_score(obj.seniority_match_score),
+        }
+        other_sections = obj.scoring_details or {}
+        return {
+            "final_scores": final_scores,
+            **other_sections
+        }
+
+    def get_interpretation(self, obj):
+        return obj.interpretation or {}
+
+    def get_audit_trail(self, obj):
+        return obj.audit_trail or {}
+
     class Meta:
         model = ParsedResume
         fields = [
             'id', 'resume', 'raw_text', 'parsed_data', 'parsed_at', 'updated_at',
-            # Personal info
-            'full_name', 'phone', 'email', 'address', 'date_of_birth',
-            'marital_status', 'military_service',
-            # Links
-            'linkedin_url', 'github_url', 'portfolio_url', 'website_url', 'other_links',
-            # Complex data
-            'interests', 'other_sections', 'extraction_notes',
-            # Summary (from parse_resume sample.md)
-            'summary',
-            # AI Review and Salary (from AI parsing JSON response)
             'ai_review', 'expected_salary',
-            # Related objects
-            'educations', 'experiences', 'technical_skills', 'soft_skills',
-            'skills_mentioned_in_job_title', 'projects', 'awards',
-            'languages', 'courses', 'publications'
+            'extracted_resume_data', 'scoring_results', 'interpretation', 'audit_trail'
         ]
         read_only_fields = ['id', 'parsed_at', 'updated_at']
 

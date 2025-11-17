@@ -1,0 +1,165 @@
+## Final Output Structure
+
+### Section 1: Complete JSON with Information
+json
+{
+  "extracted_resume_data": {
+"personal_info": {
+"full_name": "string",
+"phone": "string",
+"email": "string",
+"links": {
+"linkedin": "string",
+"github": "string",
+"portfolio": "string"
+}
+},
+"education": [
+{
+"degree": "string",
+"field": "string",
+"institution": "string",
+"institution_category": "string",
+"graduation_year": "number",
+"gpa": "string"
+}
+],
+"experience": [
+{
+"job_title": "string",
+"company": "string",
+"location": "string",
+"start_date": "string",
+"end_date": "string",
+"duration_months": "number",
+"responsibilities": ["string"],
+"extracted_skills": ["string"]
+}
+],
+"skills": {
+"technical": ["string"],
+"soft": ["string"]
+},
+"courses": ["string"],
+"certifications": ["string"]
+  },
+  
+  "scoring_results": {
+"final_scores": {
+"experience_depth_score": "number (2 decimal)",
+"education_level_score": "number (2 decimal)",
+"overall_weighted_score": "number (2 decimal)",
+"seniority_match_score": "number (2 decimal)"
+},
+"detailed_calculations": {
+"eds_breakdown": {
+"positions_analyzed": [
+{
+"position": "string",
+"duration_months": "number",
+"M": "number",
+"GM": "number",
+"RDF": "number",
+"SMS": "number",
+"calculation": "string with full formula",
+"contribution": "number"
+}
+],
+"total_weighted_months": "number",
+"total_weighted_years": "number",
+"final_calculation": "string"
+},
+"els_breakdown": {
+"S_degree": {
+"highest": "string",
+"value": "number"
+},
+"S_relevance": {
+"entries": [
+{
+"degree": "string",
+"R_i": "number",
+"L_i": "number",
+"W_i": "number",
+"contribution": "number"
+}
+],
+"total": "number"
+},
+"S_university": {
+"entries": [
+{
+"name": "string",
+"tier": "number",
+"T_i": "number",
+"W_i": "number",
+"contribution": "number"
+}
+],
+"total": "number"
+},
+"S_courses": {
+"count": "number",
+"calculation": "string",
+"value": "number"
+},
+"S_cert": {
+"count": "number",
+"calculation": "string",
+"value": "number"
+},
+"weighted_calculation": {
+"degree": "string",
+"relevance": "string",
+"university": "string",
+"courses": "string",
+"cert": "string",
+"total": "string"
+},
+"final_els": "number"
+},
+"overall_calculation": {
+"formula": "string",
+"substitution": "string",
+"result": "number"
+},
+"seniority_match_calculation": {
+"target_seniority": "string",
+"optimal_range": "string",
+"peak_score": "number",
+"candidate_overall": "number",
+"distance_from_peak": "number",
+"penalty_coefficient": "number",
+"formula": "string",
+"calculation": "string",
+"final_sms_score": "number"
+}
+}
+  },
+  
+  "interpretation": {
+"seniority_fit_analysis": {
+"fit_level": "Perfect|Good|Moderate|Poor",
+"explanation": "string",
+"overqualified": "boolean",
+"underqualified": "boolean"
+},
+"strengths": ["string"],
+"weaknesses": ["string"],
+"overall_assessment": "string",
+"recommendations": ["string"]
+  },
+  
+  "audit_trail": {
+"data_completeness": {
+"positions_complete": "number",
+"positions_total": "number",
+"education_complete": "number",
+"education_total": "number",
+"missing_fields": ["string"]
+},
+"assumptions_made": ["string"],
+"edge_cases": ["string"],
+"warnings": ["string"]
+  }
+}

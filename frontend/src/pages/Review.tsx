@@ -3,12 +3,11 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useJobs } from '../api/jobs';
 import { useReviewDashboard, useRefreshRanking } from '../api/review';
 import { useCandidatesStore } from '../store/candidates';
+import type { SkillsSummary } from '../api/candidates';
 import {
   Search,
   RefreshCw,
   Download,
-  User,
-  TrendingUp,
   ArrowUpDown,
   StickyNote,
   Sparkles,
@@ -28,13 +27,20 @@ type Candidate = {
   name: string;
   email: string;
   score: number;
-  experienceScore: number;
-  educationScore: number;
+  experienceDepthScore: number | null;
+  educationLevelScore: number | null;
+  overallWeightedScore: number | null;
+  seniorityMatchScore: number | null;
   rank: number;
   status: CandidateStatus;
   experienceYears: number;
   skillset: string;
   skills: string[];
+  skillsBreakdown: {
+    technical: string[];
+    soft: string[];
+    mentioned: string[];
+  };
   notes: string;
   aiSummary: string;
   isFavorite: boolean;
@@ -111,13 +117,20 @@ const generateCandidatesForJob = (
       name,
       email,
       score,
-      experienceScore: expScore,
-      educationScore: eduScore,
+      experienceDepthScore: expScore,
+      educationLevelScore: eduScore,
+      overallWeightedScore: Math.round(expScore * 0.7 + eduScore * 0.3),
+      seniorityMatchScore: Math.round(score),
       rank: auto_rejected ? 0 : rank++,
       status,
       experienceYears: Math.max(1, experienceYears),
       skillset,
       skills,
+      skillsBreakdown: {
+        technical: skills,
+        soft: [],
+        mentioned: [],
+      },
       notes: auto_rejected ? 'Auto-rejected based on criteria.' : `Candidate ${i + 1} for job ${jobId}.`,
       aiSummary: auto_rejected 
         ? 'Does not meet minimum requirements.' 
@@ -533,9 +546,9 @@ export const mockCandidates: Candidate[] = [
 type APICandidate = {
   id: number;
   candidate: number;
-  candidate_name: string;
+  candidate_name?: string;
   job: number;
-  job_title: string;
+  job_title?: string;
   score: number;
   rank: number | null;
   auto_rejected: boolean;
@@ -551,11 +564,33 @@ type APICandidate = {
   };
   skills?: string[];
   skillset?: string;
+  scoring_summary?: {
+    experience_depth_score?: number | string | null;
+    education_level_score?: number | string | null;
+    overall_weighted_score?: number | string | null;
+    seniority_match_score?: number | string | null;
+  };
+  experience_depth_score?: number | string | null;
+  education_level_score?: number | string | null;
+  overall_weighted_score?: number | string | null;
+  seniority_match_score?: number | string | null;
+  ai_review?: string;
+  ai_summary?: string;
+  skills_payload?: SkillsSummary;
 };
 
 type SortKey = 'name' | 'score' | 'experienceYears' | 'skills';
-type SortKeyExtended = SortKey | 'experienceScore' | 'educationScore' | 'index' | 'category';
+type SortKeyExtended =
+  | SortKey
+  | 'experienceDepthScore'
+  | 'educationLevelScore'
+  | 'overallWeightedScore'
+  | 'seniorityMatchScore'
+  | 'index'
+  | 'category';
 type ActiveBucket = 'all' | 'shortlisted' | 'favorite' | 'interview_scheduled' | 'interviewed' | 'offer_sent' | 'hired';
+
+const MAX_VISIBLE_SKILLS = 3;
 
 const scoreClasses = (value: number) => {
   if (value >= 90) return 'border-blue-300 bg-blue-50 text-blue-700';
@@ -565,15 +600,57 @@ const scoreClasses = (value: number) => {
   return 'border-red-300 bg-red-50 text-red-700';
 };
 
-const ScoreBadge = ({ value }: { value: number }) => (
-  <div
-    className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-sm font-semibold ${scoreClasses(
-      value
-    )}`}
-  >
-    {value}
-  </div>
-);
+const ScoreBadge = ({ value }: { value?: number | null }) => {
+  const isNumber = typeof value === 'number' && !Number.isNaN(value);
+  return (
+    <div
+      className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-sm font-semibold ${
+        isNumber ? scoreClasses(value as number) : 'border-gray-200 bg-gray-50 text-gray-500'
+      }`}
+    >
+      {isNumber ? Math.round(value as number) : '--'}
+    </div>
+  );
+};
+
+const roundScore = (value?: number | string | null): number | null => {
+  if (value === null || value === undefined || value === '') return null;
+  const numeric = typeof value === 'string' ? parseFloat(value) : value;
+  if (Number.isNaN(numeric as number)) return null;
+  return Math.round(numeric as number);
+};
+
+const extractSkills = (payload?: SkillsSummary) => {
+  if (!payload) {
+    return { technical: [], soft: [], mentioned: [] as string[] };
+  }
+  const technical =
+    Array.isArray(payload.technical)
+      ? payload.technical
+          .map((item) => {
+            if (!item) return null;
+            if (typeof item === 'string') return item;
+            return item.name || null;
+          })
+          .filter((name): name is string => !!name)
+      : [];
+  const soft = Array.isArray(payload.soft) ? payload.soft.filter((name): name is string => !!name) : [];
+  const mentioned = Array.isArray(payload.skills_mentioned_in_job_title)
+    ? payload.skills_mentioned_in_job_title.filter((name): name is string => !!name)
+    : [];
+  return { technical, soft, mentioned };
+};
+
+const getSkillBadgeStyle = (variant: 'technical' | 'soft' | 'mentioned') => {
+  switch (variant) {
+    case 'technical':
+      return 'bg-sky-50 text-sky-700 border border-sky-100';
+    case 'soft':
+      return 'bg-rose-50 text-rose-700 border border-rose-100';
+    default:
+      return 'bg-gray-100 text-gray-700 border border-gray-200';
+  }
+};
 
 export const Review = () => {
   const [searchParams] = useSearchParams();
@@ -600,7 +677,7 @@ export const Review = () => {
   });
   const refreshRanking = useRefreshRanking();
   
-  const [sortKey, setSortKey] = useState<SortKeyExtended>('score');
+  const [sortKey, setSortKey] = useState<SortKeyExtended>('overallWeightedScore');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [openNotesId, setOpenNotesId] = useState<number | null>(null);
   const [openAiId, setOpenAiId] = useState<number | null>(null);
@@ -654,28 +731,56 @@ export const Review = () => {
   }, []);
 
   // Transform API candidates to match component structure
-  const jobCandidates = useMemo(() => {
+  const jobCandidates = useMemo<Candidate[]>(() => {
     if (!reviewData?.all_candidates) return [];
     
-    return reviewData.all_candidates.map((c: APICandidate) => ({
-      id: c.candidate,
-      jobId: c.job,
-      name: c.candidate_details?.name || c.candidate_name || 'Unknown',
-      email: c.candidate_details?.email || '',
-      score: Math.round(c.score),
-      experienceScore: Math.round(c.score * 0.6), // Estimate from total score
-      educationScore: Math.round(c.score * 0.4), // Estimate from total score
-      rank: c.rank || 0,
-      status: (c.auto_rejected ? 'new' : (c.score >= 80 ? 'qualified' : c.score >= 70 ? 'in_process' : 'new')) as CandidateStatus,
-      experienceYears: 0, // Not available from API
-      skillset: c.skillset || '',
-      skills: c.skills || [],
-      notes: c.rejection_reason || '',
-      aiSummary: c.auto_rejected ? 'Auto-rejected based on criteria.' : `Match score: ${Math.round(c.score)}. ${c.score >= 80 ? 'Strong candidate' : c.score >= 70 ? 'Good candidate' : 'Average candidate'}.`,
-      isFavorite: favorites[c.candidate] || false,
-      auto_rejected: c.auto_rejected,
-      category: (c.auto_rejected ? 'rejected' : 'shortlisted') as CandidateCategory,
-    }));
+    return reviewData.all_candidates.map((c: APICandidate) => {
+      const scoringSummary = c.scoring_summary || {};
+      const experienceDepthScore = roundScore(scoringSummary.experience_depth_score ?? c.experience_depth_score);
+      const educationLevelScore = roundScore(scoringSummary.education_level_score ?? c.education_level_score);
+      const overallWeightedScore = roundScore(
+        scoringSummary.overall_weighted_score ?? c.overall_weighted_score ?? c.score
+      );
+      const seniorityMatchScore = roundScore(scoringSummary.seniority_match_score ?? c.seniority_match_score);
+      const skillsBreakdown = extractSkills(c.skills_payload);
+      const flattenedSkills = [
+        ...skillsBreakdown.technical,
+        ...skillsBreakdown.soft,
+        ...skillsBreakdown.mentioned,
+      ];
+
+      const finalScore = overallWeightedScore ?? roundScore(c.score) ?? 0;
+      const status: CandidateStatus = c.auto_rejected
+        ? 'new'
+        : finalScore >= 80
+          ? 'qualified'
+          : finalScore >= 70
+            ? 'in_process'
+            : 'new';
+
+      return {
+        id: c.candidate,
+        jobId: c.job,
+        name: c.candidate_details?.name || c.candidate_name || 'Unknown',
+        email: c.candidate_details?.email || '',
+        score: finalScore,
+        experienceDepthScore,
+        educationLevelScore,
+        overallWeightedScore,
+        seniorityMatchScore,
+        rank: c.rank || 0,
+        status,
+        experienceYears: 0,
+        skillset: c.skillset || flattenedSkills.slice(0, 5).join(', '),
+        skills: flattenedSkills,
+        skillsBreakdown,
+        notes: c.rejection_reason || '',
+        aiSummary: c.ai_summary || c.ai_review || '',
+        isFavorite: favorites[c.candidate] || false,
+        auto_rejected: c.auto_rejected,
+        category: (c.auto_rejected ? 'rejected' : 'shortlisted') as CandidateCategory,
+      };
+    });
   }, [reviewData, favorites]);
 
   const totalResumes = reviewData?.kpis?.total_candidates || 0;
@@ -685,16 +790,6 @@ export const Review = () => {
       return jobCandidates.filter((candidate) => {
         const cat = categories[candidate.id] || (candidate.auto_rejected ? 'rejected' : 'shortlisted');
         return cat === 'shortlisted';
-      }).length;
-    },
-    [jobCandidates, categories]
-  );
-
-  const rejectedCount = useMemo(
-    () => {
-      return jobCandidates.filter((candidate) => {
-        const cat = categories[candidate.id] || (candidate.auto_rejected ? 'rejected' : 'shortlisted');
-        return cat === 'rejected';
       }).length;
     },
     [jobCandidates, categories]
@@ -724,10 +819,6 @@ export const Review = () => {
     () => jobCandidates.filter((candidate) => categories[candidate.id] === 'hired').length,
     [jobCandidates, categories]
   );
-
-  const avgScore = useMemo(() => {
-    return reviewData?.kpis?.average_score || 0;
-  }, [reviewData]);
 
   const handleSort = (key: SortKeyExtended) => {
     if (sortKey === key) {
@@ -786,8 +877,35 @@ export const Review = () => {
     }
   }, [searchedCandidates, activeBucket, favorites, categories]);
 
+  const getCandidateSortValue = (candidate: Candidate, key: SortKeyExtended): number | null => {
+    switch (key) {
+      case 'score':
+        return candidate.score;
+      case 'experienceDepthScore':
+        return candidate.experienceDepthScore;
+      case 'educationLevelScore':
+        return candidate.educationLevelScore;
+      case 'overallWeightedScore':
+        return candidate.overallWeightedScore;
+      case 'seniorityMatchScore':
+        return candidate.seniorityMatchScore;
+      case 'experienceYears':
+        return candidate.experienceYears;
+      default:
+        return null;
+    }
+  };
+
   const sortedCandidates = useMemo(() => {
     const dir = sortDirection === 'asc' ? 1 : -1;
+    const numericKeys: SortKeyExtended[] = [
+      'score',
+      'experienceDepthScore',
+      'educationLevelScore',
+      'overallWeightedScore',
+      'seniorityMatchScore',
+      'experienceYears',
+    ];
     return [...bucketFilteredCandidates].sort((a, b) => {
       if (sortKey === 'name') {
         return a.name.localeCompare(b.name) * dir;
@@ -799,16 +917,23 @@ export const Review = () => {
         const categoryA = categories[a.id] || (a.auto_rejected ? 'rejected' : 'shortlisted');
         const categoryB = categories[b.id] || (b.auto_rejected ? 'rejected' : 'shortlisted');
         const categoryOrder: Record<CandidateCategory, number> = {
-          'shortlisted': 1,
-          'interview_scheduled': 2,
-          'interviewed': 3,
-          'offer_sent': 4,
-          'hired': 5,
-          'rejected': 6,
+          shortlisted: 1,
+          interview_scheduled: 2,
+          interviewed: 3,
+          offer_sent: 4,
+          hired: 5,
+          rejected: 6,
         };
         return (categoryOrder[categoryA] - categoryOrder[categoryB]) * dir;
       }
-      return ((a as any)[sortKey] - (b as any)[sortKey]) * dir;
+      if (numericKeys.includes(sortKey)) {
+        const getNumeric = (value: number | null | undefined) =>
+          typeof value === 'number' && !Number.isNaN(value) ? value : -Infinity;
+        const aVal = getNumeric(getCandidateSortValue(a, sortKey));
+        const bVal = getNumeric(getCandidateSortValue(b, sortKey));
+        return (aVal - bVal) * dir;
+      }
+      return 0;
     });
   }, [bucketFilteredCandidates, sortKey, sortDirection, categories]);
 
@@ -996,13 +1121,16 @@ export const Review = () => {
                   <SortableHeader label="Applicant" columnKey="name" />
                 </th>
                 <th className="px-6 py-4">
-                  <SortableHeader label="Overall Score" columnKey="score" />
+                  <SortableHeader label="EDS (Experience Depth)" columnKey="experienceDepthScore" />
                 </th>
                 <th className="px-6 py-4">
-                  <SortableHeader label="Experience Score" columnKey="experienceScore" />
+                  <SortableHeader label="ELS (Education Level)" columnKey="educationLevelScore" />
                 </th>
                 <th className="px-6 py-4">
-                  <SortableHeader label="Education Score" columnKey="educationScore" />
+                  <SortableHeader label="Overall Weighted" columnKey="overallWeightedScore" />
+                </th>
+                <th className="px-6 py-4">
+                  <SortableHeader label="Seniority Match" columnKey="seniorityMatchScore" />
                 </th>
                 <th className="px-4 py-4">
                   <SortableHeader label="Skills" columnKey="skills" />
@@ -1045,30 +1173,52 @@ export const Review = () => {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center">
-                        <ScoreBadge value={candidate.score} />
+                        <ScoreBadge value={candidate.experienceDepthScore} />
                       </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center">
-                        <ScoreBadge value={candidate.experienceScore} />
+                        <ScoreBadge value={candidate.educationLevelScore} />
                       </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center">
-                        <ScoreBadge value={candidate.educationScore} />
+                        <ScoreBadge value={candidate.overallWeightedScore} />
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {candidate.skills.map((skill) => (
-                          <span
-                            key={skill}
-                            className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700"
-                          >
-                            {skill}
-                          </span>
-                        ))}
+                      <div className="flex items-center justify-center">
+                        <ScoreBadge value={candidate.seniorityMatchScore} />
                       </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {(() => {
+                        const skillBadges = [
+                          ...candidate.skillsBreakdown.technical.map((name) => ({ name, variant: 'technical' as const })),
+                          ...candidate.skillsBreakdown.soft.map((name) => ({ name, variant: 'soft' as const })),
+                          ...candidate.skillsBreakdown.mentioned.map((name) => ({ name, variant: 'mentioned' as const })),
+                        ];
+                        const visibleSkills = skillBadges.slice(0, MAX_VISIBLE_SKILLS);
+                        const remaining = Math.max(skillBadges.length - visibleSkills.length, 0);
+                        
+                        return (
+                          <div className="flex flex-wrap items-center gap-2">
+                            {visibleSkills.map(({ name, variant }) => (
+                              <span
+                                key={`${variant}-${name}`}
+                                className={`rounded-full px-3 py-1 text-xs font-medium ${getSkillBadgeStyle(variant)}`}
+                              >
+                                {name}
+                              </span>
+                            ))}
+                            {remaining > 0 && (
+                              <span className="rounded-full bg-gray-200 px-3 py-1 text-xs font-medium text-gray-600">
+                                +{remaining} more
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="px-3 py-4 text-center">
                       <div className="relative flex justify-center">

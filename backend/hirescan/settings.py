@@ -178,9 +178,10 @@ CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = os.getenv('DJANGO_CSRF_TRUSTED_ORIGINS', 'http://localhost:5173').split(',')
 
 # OpenRouter Settings
+# All OpenRouter configuration should be set in .env file
 OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY', '')
-OPENROUTER_BASE_URL = os.getenv('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1')
-OPENROUTER_MODEL = os.getenv('OPENROUTER_MODEL', 'openai/gpt-5-mini')
+OPENROUTER_BASE_URL = os.getenv('OPENROUTER_BASE_URL', '')
+OPENROUTER_MODEL = os.getenv('OPENROUTER_MODEL', '')
 
 # Logging Configuration
 LOGGING = {

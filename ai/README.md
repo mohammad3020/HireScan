@@ -60,7 +60,7 @@ pip install -r ai/requirements.txt
 
 This will install:
 - `requests` - For API calls
-- `PyPDF2` - For PDF text extraction
+- `pypdf` - For PDF text extraction
 - `python-docx` - For DOCX text extraction
 - `python-dotenv` - For loading environment variables
 
@@ -168,4 +168,4 @@ See [OpenRouter Models](https://openrouter.ai/models) for the full list.
 
 **If PDF processing fails:**
 - The service automatically extracts text from PDFs (more reliable)
-- Make sure `PyPDF2` is installed: `pip install PyPDF2`
+- Make sure `pypdf` is installed: `pip install pypdf`

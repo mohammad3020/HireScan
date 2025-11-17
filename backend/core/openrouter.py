@@ -56,8 +56,19 @@ class OpenRouterClient:
                     logger.debug(f"First message preview (first 500 chars): {str(msg_content)[:500]}")
         
         try:
+            import time
+            request_start_time = time.time()
+            request_timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+            logger.info(f"[OPENROUTER API] Sending request to OpenRouter API at {request_timestamp} (model: {model})")
+            
             response = requests.post(url, headers=headers, json=payload, timeout=60)
             response.raise_for_status()
+            
+            request_end_time = time.time()
+            request_duration = request_end_time - request_start_time
+            response_timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+            logger.info(f"[OPENROUTER API] Received response from OpenRouter API at {response_timestamp} (request duration: {request_duration:.2f}s, status: {response.status_code})")
+            
             result = response.json()
             
             # Log response details

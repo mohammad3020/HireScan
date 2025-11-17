@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import apiClient from './client';
-import type { JobScore } from './candidates';
+import type { JobScore, FinalScores, SkillsSummary } from './candidates';
 
 export interface ReviewDashboard {
   job: {
@@ -14,17 +14,25 @@ export interface ReviewDashboard {
   };
   top_candidates: JobScore[];
   rejected_candidates: JobScore[];
-  all_candidates?: Array<JobScore & {
-    candidate_details?: {
-      name: string;
-      email: string;
-      phone: string;
-      linkedin_url: string;
-      github_url: string;
-    };
-    skills?: string[];
-    skillset?: string;
-  }>;
+  all_candidates?: Array<
+    JobScore & {
+      candidate_details?: {
+        name: string;
+        email: string;
+        phone: string;
+        linkedin_url: string;
+        github_url: string;
+      };
+      skills?: string[];
+      skillset?: string;
+      skills_payload?: SkillsSummary;
+      scoring_summary?: FinalScores;
+      experience_depth_score?: number | string | null;
+      education_level_score?: number | string | null;
+      overall_weighted_score?: number | string | null;
+      seniority_match_score?: number | string | null;
+    }
+  >;
 }
 
 export const useReviewDashboard = (jobId: number, options?: { enabled?: boolean }) => {

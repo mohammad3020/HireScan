@@ -11,10 +11,10 @@ import requests
 
 # Try to import PDF/DOCX text extraction libraries
 try:
-    import PyPDF2
-    HAS_PYPDF2 = True
+    from pypdf import PdfReader
+    HAS_PYPDF = True
 except ImportError:
-    HAS_PYPDF2 = False
+    HAS_PYPDF = False
 
 try:
     from docx import Document
@@ -80,14 +80,14 @@ def _extract_text_from_file(file_path: str) -> str:
     file_ext = Path(file_path).suffix.lower()
     
     if file_ext == '.pdf':
-        if not HAS_PYPDF2:
-            raise ImportError("PyPDF2 is required for PDF text extraction. Install it with: pip install PyPDF2")
+        if not HAS_PYPDF:
+            raise ImportError("pypdf is required for PDF text extraction. Install it with: pip install pypdf")
         try:
             with open(file_path, 'rb') as file:
-                pdf_reader = PyPDF2.PdfReader(file)
+                pdf_reader = PdfReader(file, strict=False)
                 text = ""
                 for page in pdf_reader.pages:
-                    text += page.extract_text() + "\n"
+                    text += (page.extract_text() or "") + "\n"
                 return text
         except Exception as e:
             raise ValueError(f"Error reading PDF: {str(e)}")
@@ -140,6 +140,7 @@ def process_file_with_prompt(
     model: str,
     extract_text: bool = None,
     resume_text: str = None,
+    prompt_override: Optional[str] = None,
     **kwargs
 ) -> Dict[str, Any]:
     """
@@ -149,10 +150,11 @@ def process_file_with_prompt(
         file_path: Path to the file (absolute or relative)
         prompt_name: Name of the prompt file without .md extension
         model: LLM model name. Examples:
-               - "anthropic/claude-3.5-sonnet" (recommended)
-               - "anthropic/claude-3-opus"
+               - "openai/gpt-5" (default, recommended)
                - "openai/gpt-4"
                - "openai/gpt-4-turbo"
+               - "anthropic/claude-3.5-sonnet"
+               - "anthropic/claude-3-opus"
                - "google/gemini-pro"
                - "google/gemini-pro-1.5"
                - "meta-llama/llama-3-70b-instruct"
@@ -183,8 +185,8 @@ def process_file_with_prompt(
     if not api_key:
         raise ValueError("OPENROUTER_API_KEY is not set in environment variables")
     
-    # Load prompt template
-    prompt_template = load_prompt(prompt_name)
+    # Load prompt template (allow overrides for custom context)
+    prompt_template = prompt_override if prompt_override is not None else load_prompt(prompt_name)
     
     # Check file type
     file_ext = Path(file_path).suffix.lower()
@@ -295,7 +297,22 @@ def process_file_with_prompt(
     
     try:
         # Make API request
+        import time
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        request_start_time = time.time()
+        request_timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+        logger.info(f"[OPENROUTER API] Sending request to OpenRouter API at {request_timestamp} (model: {model})")
+        print(f"[OPENROUTER API] Sending request to OpenRouter API at {request_timestamp} (model: {model})")
+        
         response = requests.post(url, headers=headers, json=payload, timeout=timeout)
+        
+        request_end_time = time.time()
+        request_duration = request_end_time - request_start_time
+        response_timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+        logger.info(f"[OPENROUTER API] Received response from OpenRouter API at {response_timestamp} (request duration: {request_duration:.2f}s, status: {response.status_code})")
+        print(f"[OPENROUTER API] Received response from OpenRouter API at {response_timestamp} (request duration: {request_duration:.2f}s, status: {response.status_code})")
         
         # If request failed, show detailed error
         if not response.ok:

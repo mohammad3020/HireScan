@@ -64,7 +64,7 @@ INFO [TIMING] Total upload completed in 0.45 seconds (450ms) for 3 file(s) in ba
 ```
 
 ### 2. PDF/DOCX Text Extraction Timing
-- Time to extract text using PyPDF2 or python-docx
+- Time to extract text using pypdf or python-docx
 - Number of characters extracted
 
 Example:

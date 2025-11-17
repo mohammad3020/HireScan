@@ -29,7 +29,7 @@ HireScan streamlines the recruitment process by automatically parsing resumes, e
 - **Database**: SQLite (for MVP, easily upgradeable to PostgreSQL)
 - **Authentication**: JWT (djangorestframework-simplejwt)
 - **AI Integration**: OpenRouter APIs for LLM-powered parsing and ranking
-- **File Processing**: PyPDF2, python-docx for resume extraction
+- **File Processing**: pypdf, python-docx for resume extraction
 
 ### Frontend
 - **Framework**: React 19 + Vite
@@ -89,8 +89,10 @@ Before you begin, ensure you have the following installed:
 4. **Set up environment variables:**
    ```bash
    # Create .env file in backend directory
+   # You can use backend/.env.example as a template
    # Add the following variables:
    OPENROUTER_API_KEY=your_api_key_here
+   OPENROUTER_MODEL=openai/gpt-5
    DJANGO_SECRET_KEY=your_secret_key_here
    DJANGO_DEBUG=True
    ```

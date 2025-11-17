@@ -3,7 +3,7 @@ from .models import (
     Candidate, Resume, ParsedResume,
     Education, Experience,
     TechnicalSkill, SoftSkill, SkillMentionedInJobTitle,
-    Project, Award, Language, Course, Publication,
+    Project, Award, Language, Course, Certification, Publication,
     Note, TimelineEvent, JobScore
 )
 
@@ -67,6 +67,11 @@ class CourseInline(admin.TabularInline):
     extra = 0
 
 
+class CertificationInline(admin.TabularInline):
+    model = Certification
+    extra = 0
+
+
 class PublicationInline(admin.TabularInline):
     model = Publication
     extra = 0
@@ -88,6 +93,7 @@ class ParsedResumeAdmin(admin.ModelAdmin):
         AwardInline,
         LanguageInline,
         CourseInline,
+        CertificationInline,
         PublicationInline,
     ]
     fieldsets = (
@@ -108,6 +114,20 @@ class ParsedResumeAdmin(admin.ModelAdmin):
         }),
         ('Additional Data', {
             'fields': ('interests', 'other_sections', 'extraction_notes'),
+            'classes': ('collapse',)
+        }),
+        ('Scoring Summary', {
+            'fields': (
+                'experience_depth_score',
+                'education_level_score',
+                'overall_weighted_score',
+                'seniority_match_score',
+                'scoring_details'
+            ),
+            'classes': ('collapse',)
+        }),
+        ('Interpretation & Audit', {
+            'fields': ('interpretation', 'audit_trail'),
             'classes': ('collapse',)
         }),
         ('Timestamps', {
@@ -171,6 +191,12 @@ class LanguageAdmin(admin.ModelAdmin):
 class CourseAdmin(admin.ModelAdmin):
     list_display = ['parsed_resume', 'name', 'provider', 'completion_date']
     search_fields = ['name', 'provider']
+
+
+@admin.register(Certification)
+class CertificationAdmin(admin.ModelAdmin):
+    list_display = ['parsed_resume', 'name', 'issuer', 'date']
+    search_fields = ['name', 'issuer']
 
 
 @admin.register(Publication)

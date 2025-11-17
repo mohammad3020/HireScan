@@ -79,6 +79,53 @@ class ParsedResume(models.Model):
     # AI Review and Salary (from AI parsing JSON response)
     ai_review = models.TextField(blank=True, help_text="AI summary and review of candidate's qualifications")
     expected_salary = models.CharField(max_length=200, blank=True, help_text="Expected salary from resume (e.g., '45 Million Toman / Month')")
+
+    # Scoring summary (selected fields are exposed to UI)
+    experience_depth_score = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="EDS summary score (0-100, 2 decimals)"
+    )
+    education_level_score = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="ELS summary score (0-100, 2 decimals)"
+    )
+    overall_weighted_score = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Overall weighted score (0-100, 2 decimals)"
+    )
+    seniority_match_score = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Seniority match score (0-100, 2 decimals)"
+    )
+    scoring_details = models.JSONField(
+        default=default_dict,
+        blank=True,
+        help_text="Full scoring_results.detailed_calculations payload"
+    )
+
+    # Narrative sections
+    interpretation = models.JSONField(
+        default=default_dict,
+        blank=True,
+        help_text="Interpretation and seniority fit analysis"
+    )
+    audit_trail = models.JSONField(
+        default=default_dict,
+        blank=True,
+        help_text="Audit trail, completeness and assumptions"
+    )
     
     class Meta:
         ordering = ['-parsed_at']
@@ -94,6 +141,16 @@ class Education(models.Model):
     field = models.CharField(max_length=200, help_text="رشته/گرایش تحصیلی")
     institution = models.CharField(max_length=200, help_text="نام دانشگاه/مؤسسه")
     location = models.CharField(max_length=200, blank=True, help_text="شهر، کشور")
+    institution_category = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Institution category (e.g., Top Iranian Universities, International)"
+    )
+    graduation_year = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Graduation year (numeric)"
+    )
     start_date = models.CharField(max_length=50, blank=True, help_text="تاریخ شروع")
     end_date = models.CharField(max_length=50, blank=True, help_text="تاریخ پایان یا 'در حال تحصیل'")
     gpa = models.CharField(max_length=50, blank=True, null=True, help_text="معدل و مقیاس")
@@ -119,10 +176,20 @@ class Experience(models.Model):
     employment_type = models.CharField(max_length=100, blank=True, null=True, help_text="نوع همکاری")
     start_date = models.CharField(max_length=50, blank=True, help_text="تاریخ شروع")
     end_date = models.CharField(max_length=50, blank=True, null=True, help_text="تاریخ پایان یا 'تاکنون'")
-    duration = models.CharField(max_length=50, blank=True, null=True, help_text="مدت زمان محاسبه شده")
+    duration = models.CharField(max_length=50, blank=True, null=True, help_text="Legacy duration text")
+    duration_months = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Duration in months (numeric)"
+    )
     is_currently_employed = models.BooleanField(default=False, help_text="آیا در حال حاضر مشغول به کار است")
     reasoning = models.TextField(blank=True, help_text="توضیح کوتاه به فارسی")
     responsibilities = models.JSONField(default=default_list, blank=True, help_text="شرح وظایف و دستاوردها")
+    extracted_skills = models.JSONField(
+        default=default_list,
+        blank=True,
+        help_text="Skills automatically extracted from responsibilities"
+    )
     order = models.IntegerField(default=0, help_text="Order for sorting")
     # Legacy fields for backward compatibility
     role = models.CharField(max_length=200, blank=True, help_text="Legacy: role field")
@@ -139,7 +206,11 @@ class Experience(models.Model):
 class TechnicalSkill(models.Model):
     """Technical skill model with category and level"""
     parsed_resume = models.ForeignKey(ParsedResume, on_delete=models.CASCADE, related_name='technical_skills')
-    category = models.CharField(max_length=100, help_text="دسته‌بندی مهارت (مثلاً: زبان‌های برنامه‌نویسی، فریمورک‌ها)")
+    category = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="دسته‌بندی مهارت (مثلاً: زبان‌های برنامه‌نویسی، فریمورک‌ها)"
+    )
     name = models.CharField(max_length=100, help_text="نام مهارت")
     level = models.CharField(max_length=50, blank=True, null=True, help_text="سطح تسلط (مثلاً: پیشرفته، متوسط)")
     
@@ -243,6 +314,24 @@ class Course(models.Model):
     class Meta:
         ordering = ['order', '-completion_date']
     
+    def __str__(self):
+        return self.name
+
+
+class Certification(models.Model):
+    """Certification model"""
+    parsed_resume = models.ForeignKey(ParsedResume, on_delete=models.CASCADE, related_name='certifications')
+    name = models.CharField(max_length=200, help_text="نام گواهی")
+    issuer = models.CharField(max_length=200, blank=True, null=True, help_text="صادرکننده")
+    date = models.CharField(max_length=50, blank=True, null=True, help_text="تاریخ دریافت")
+    description = models.TextField(blank=True, help_text="توضیحات یا مهارت‌های پوشش داده شده")
+    certificate_id = models.CharField(max_length=100, blank=True, null=True, help_text="شماره گواهی")
+    verification_link = models.URLField(blank=True, null=True, help_text="لینک تأیید")
+    order = models.IntegerField(default=0, help_text="Order for sorting")
+
+    class Meta:
+        ordering = ['order', '-date']
+
     def __str__(self):
         return self.name
 

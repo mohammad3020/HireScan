@@ -1,130 +1,21 @@
 import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Mail, Phone, Linkedin, Calendar, Sparkles, Wallet, Loader, AlertCircle } from 'lucide-react';
+import {
+  ArrowLeft,
+  Mail,
+  Phone,
+  Linkedin,
+  Calendar,
+  Sparkles,
+  Wallet,
+  Loader,
+  AlertCircle,
+  Star,
+  Tag,
+  ChevronDown,
+} from 'lucide-react';
 import { useCandidate, useAddNote } from '../api/candidates';
-
-// Mock data
-const mockCandidate = {
-  id: 1,
-  name: 'John Doe',
-  email: 'john.doe@example.com',
-  phone: '+1 (555) 123-4567',
-  linkedin_url: 'https://linkedin.com/in/johndoe',
-  created_at: '2024-01-15T10:30:00Z',
-  ai_review:
-    'AI summary: Strong alignment with senior engineering responsibilities, excels in mentoring and scalable architecture. Suggested focus for interview: distributed systems and leadership scenarios.',
-  expected_salary: '45 Million Toman / Month',
-  basic_information: {
-    age: 29,
-    location: 'Tehran, Iran',
-    gender: 'Male',
-    military_status: 'Completed',
-  },
-  resumes: [
-    {
-      id: 1,
-      file: 'resume.pdf',
-      uploaded_at: '2024-01-15T10:30:00Z',
-      parsed_data: {
-        id: 1,
-        parsed_data: {
-          summary: 'Experienced software engineer with 5+ years in full-stack development.',
-          education: [
-            {
-              institution: 'MIT',
-              degree: 'Bachelor of Science',
-              field: 'Computer Science',
-              end_date: '2018-05',
-            },
-            {
-              institution: 'Stanford University',
-              degree: 'Master of Science',
-              field: 'Software Engineering',
-              end_date: '2020-06',
-            },
-          ],
-        },
-        experiences: [
-          {
-            id: 1,
-            company: 'Tech Corp',
-            role: 'Senior Software Engineer',
-            start_date: '2020-01',
-            end_date: null,
-            is_current: true,
-            description: 'Leading development of microservices architecture.',
-          },
-          {
-            id: 2,
-            company: 'StartupXYZ',
-            role: 'Software Engineer',
-            start_date: '2018-06',
-            end_date: '2019-12',
-            is_current: false,
-            description: 'Developed React-based web applications.',
-          },
-        ],
-        skills: [
-          { id: 1, name: 'React', category: 'Frontend', proficiency: 'expert' },
-          { id: 2, name: 'TypeScript', category: 'Programming', proficiency: 'advanced' },
-          { id: 3, name: 'Node.js', category: 'Backend', proficiency: 'advanced' },
-          { id: 4, name: 'PostgreSQL', category: 'Database', proficiency: 'intermediate' },
-          { id: 5, name: 'AWS', category: 'Cloud', proficiency: 'advanced' },
-        ],
-        additional_info: {
-          achievements: ['Winner – 2023 National Hackathon', 'Published open-source library “stream-wizard”'],
-          articles: ['Scaling Microservices with Event Driven Design – Medium', 'Mentoring Junior Engineers Effectively – Dev.to'],
-        },
-      },
-    },
-  ],
-  notes: [
-    {
-      id: 1,
-      user_email: 'admin@example.com',
-      content: 'Strong candidate with excellent technical skills. Recommended for interview.',
-      created_at: '2024-01-16T14:20:00Z',
-    },
-    {
-      id: 2,
-      user_email: 'hr_manager@example.com',
-      content: 'Follow up on availability for next week.',
-      created_at: '2024-01-17T09:15:00Z',
-    },
-  ],
-  timeline_events: [
-    {
-      id: 1,
-      event_type: 'uploaded',
-      description: 'Resume uploaded',
-      created_at: '2024-01-15T10:30:00Z',
-    },
-    {
-      id: 2,
-      event_type: 'parsed',
-      description: 'Resume parsed successfully',
-      created_at: '2024-01-15T10:32:00Z',
-    },
-    {
-      id: 3,
-      event_type: 'scored',
-      description: 'Scored 92.5 for Senior Software Engineer position',
-      created_at: '2024-01-15T11:00:00Z',
-    },
-  ],
-  job_scores: [
-    {
-      id: 1,
-      job_title: 'Senior Software Engineer',
-      score: 92.5,
-      experience_score: 89,
-      education_score: 87,
-      rank: 1,
-      auto_rejected: false,
-      scored_at: '2024-01-15T11:00:00Z',
-    },
-  ],
-};
+import { useCandidatesStore } from '../store/candidates';
 
 const scoreClasses = (value: number) => {
   if (value >= 90) return 'border-blue-300 bg-blue-50 text-blue-700';
@@ -134,15 +25,35 @@ const scoreClasses = (value: number) => {
   return 'border-red-300 bg-red-50 text-red-700';
 };
 
-const ScoreBadge = ({ value }: { value: number }) => (
-  <div
-    className={`flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-semibold ${scoreClasses(
-      value
-    )}`}
-  >
-    {Math.round(value)}
-  </div>
-);
+const ScoreBadge = ({ value }: { value?: number | null }) => {
+  const isNumber = typeof value === 'number' && !Number.isNaN(value);
+  return (
+    <div
+      className={`flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-semibold ${
+        isNumber ? scoreClasses(value as number) : 'border-gray-200 bg-gray-50 text-gray-500'
+      }`}
+    >
+      {isNumber ? Math.round(value as number) : '--'}
+    </div>
+  );
+};
+
+type CandidateCategory =
+  | 'shortlisted'
+  | 'rejected'
+  | 'interview_scheduled'
+  | 'interviewed'
+  | 'offer_sent'
+  | 'hired';
+
+const STATE_OPTIONS: Array<{ value: CandidateCategory; label: string; badgeClass: string }> = [
+  { value: 'shortlisted', label: 'Shortlisted', badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  { value: 'interview_scheduled', label: 'Interview Scheduled', badgeClass: 'bg-blue-50 text-blue-700 border-blue-200' },
+  { value: 'interviewed', label: 'Interviewed', badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+  { value: 'offer_sent', label: 'Offer Sent', badgeClass: 'bg-orange-50 text-orange-700 border-orange-200' },
+  { value: 'hired', label: 'Hired', badgeClass: 'bg-purple-50 text-purple-700 border-purple-200' },
+  { value: 'rejected', label: 'Rejected', badgeClass: 'bg-red-50 text-red-600 border-red-200' },
+];
 
 export const CandidateDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -152,6 +63,7 @@ export const CandidateDetail = () => {
   const [newNote, setNewNote] = useState('');
   const { data: candidate, isLoading, error } = useCandidate(candidateId);
   const addNote = useAddNote();
+  const { favorites, categories, setFavorite, setCategory } = useCandidatesStore();
 
   // Loading state
   if (isLoading) {
@@ -189,15 +101,29 @@ export const CandidateDetail = () => {
 
   const resume = candidate.resumes?.[0];
   const parsedResume = resume?.parsed_data;
-  const educationEntries = parsedResume?.educations || [];
-  const experienceEntries = parsedResume?.experiences || [];
-  const technicalSkills = parsedResume?.technical_skills || [];
-  const softSkills = parsedResume?.soft_skills || [];
-  const projects = parsedResume?.projects || [];
-  const awards = parsedResume?.awards || [];
-  const languages = parsedResume?.languages || [];
-  const courses = parsedResume?.courses || [];
-  const publications = parsedResume?.publications || [];
+  const extractedData = parsedResume?.extracted_resume_data;
+  const personalInfo = extractedData?.personal_info;
+  const educationEntries = extractedData?.education || [];
+  const experienceEntries = extractedData?.experience || [];
+  const technicalSkills = extractedData?.skills?.technical || [];
+  const softSkills = extractedData?.skills?.soft || [];
+  const mentionedSkills = extractedData?.skills?.skills_mentioned_in_job_title || [];
+  const projects = extractedData?.projects || [];
+  const awards = extractedData?.awards || [];
+  const languages = extractedData?.languages || [];
+  const courses = extractedData?.courses || [];
+  const certifications = extractedData?.certifications || [];
+  const extractionNotes = extractedData?.extraction_notes || {};
+  const interpretation = parsedResume?.interpretation;
+  const auditTrail = parsedResume?.audit_trail;
+  const finalScores = parsedResume?.scoring_results?.final_scores;
+  const isFavorite = candidateId ? !!favorites[candidateId] : false;
+  const fallbackState: CandidateCategory =
+    candidate?.job_scores?.some((score) => score.auto_rejected) ? 'rejected' : 'shortlisted';
+  const candidateState: CandidateCategory =
+    (candidateId ? (categories[candidateId] as CandidateCategory) : null) || fallbackState;
+  const selectedStateOption =
+    STATE_OPTIONS.find((option) => option.value === candidateState) || STATE_OPTIONS[0];
 
   const formatDate = (value?: string | null) => {
     if (!value) return null;
@@ -232,19 +158,61 @@ export const CandidateDetail = () => {
     }
   };
 
+  const handleStateChange = (value: CandidateCategory) => {
+    if (!candidateId) return;
+    setCategory(candidateId, value);
+  };
+
+  const toggleFavorite = () => {
+    if (!candidateId) return;
+    setFavorite(candidateId, !isFavorite);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center space-x-4">
-        <Link
-          to="/review"
-          className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold text-gray-900">{candidate.name}</h1>
-          <p className="text-gray-600 mt-1">Candidate Profile & Details</p>
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-4 flex-1 min-w-0">
+          <Link
+            to="/review"
+            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-bold text-gray-900 truncate">{candidate.name}</h1>
+            </div>
+            <p className="text-gray-600 mt-1">Candidate Profile & Details</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={toggleFavorite}
+            className={`rounded-full border p-2 transition ${
+              isFavorite
+                ? 'border-yellow-300 bg-yellow-100 text-yellow-500 hover:bg-yellow-200'
+                : 'border-gray-200 bg-white text-gray-400 hover:border-yellow-200 hover:bg-yellow-50 hover:text-yellow-500'
+            }`}
+            aria-label="Toggle favorite"
+          >
+            <Star className={`h-4 w-4 ${isFavorite ? 'fill-current' : ''}`} />
+          </button>
+          <div className="relative">
+            <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+            <select
+              value={candidateState}
+              onChange={(e) => handleStateChange(e.target.value as CandidateCategory)}
+              className={`appearance-none rounded-full border py-2 pl-10 pr-8 text-sm font-medium transition ${selectedStateOption.badgeClass}`}
+            >
+              {STATE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+          </div>
         </div>
       </div>
 
@@ -284,8 +252,11 @@ export const CandidateDetail = () => {
                 <Mail className="h-5 w-5 text-gray-400" />
                 <div>
                   <p className="text-sm text-gray-600">Email</p>
-                  <a href={`mailto:${candidate.email}`} className="text-sm font-medium text-gray-900">
-                    {candidate.email}
+                  <a
+                    href={`mailto:${personalInfo?.email || candidate.email}`}
+                    className="text-sm font-medium text-gray-900"
+                  >
+                    {personalInfo?.email || candidate.email}
                   </a>
                 </div>
               </div>
@@ -293,16 +264,18 @@ export const CandidateDetail = () => {
                 <Phone className="h-5 w-5 text-gray-400" />
                 <div>
                   <p className="text-sm text-gray-600">Phone</p>
-                  <p className="text-sm font-medium text-gray-900">{candidate.phone}</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {personalInfo?.phone || candidate.phone || '—'}
+                  </p>
                 </div>
               </div>
-              {candidate.linkedin_url && (
+              {(personalInfo?.links?.linkedin || candidate.linkedin_url) && (
                 <div className="flex items-center space-x-3">
                   <Linkedin className="h-5 w-5 text-gray-400" />
                   <div>
                     <p className="text-sm text-gray-600">LinkedIn</p>
                     <a
-                      href={candidate.linkedin_url}
+                      href={personalInfo?.links?.linkedin || candidate.linkedin_url}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-sm font-medium text-primary hover:underline"
@@ -386,7 +359,7 @@ export const CandidateDetail = () => {
           )}
 
           {/* Skills */}
-          {(technicalSkills.length > 0 || softSkills.length > 0) && (
+          {(technicalSkills.length > 0 || softSkills.length > 0 || mentionedSkills.length > 0) && (
             <div className="card p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Skills</h2>
               {technicalSkills.length > 0 && (
@@ -395,12 +368,15 @@ export const CandidateDetail = () => {
                   <div className="flex flex-wrap gap-2">
                     {technicalSkills.map((skill: any) => (
                       <span
-                        key={skill.id}
+                        key={skill.id ?? `${skill.name}-${skill.category}`}
                         className="px-3 py-1 bg-primary text-white rounded-full text-sm font-medium"
                       >
                         {skill.name}
                         {skill.level && (
                           <span className="ml-2 text-xs opacity-75">({skill.level})</span>
+                        )}
+                        {skill.category && (
+                          <span className="ml-2 text-xs opacity-75">{skill.category}</span>
                         )}
                       </span>
                     ))}
@@ -413,10 +389,22 @@ export const CandidateDetail = () => {
                   <div className="flex flex-wrap gap-2">
                     {softSkills.map((skill: any) => (
                       <span
-                        key={skill.id}
+                        key={skill}
                         className="px-3 py-1 bg-secondary text-gray-900 rounded-full text-sm font-medium"
                       >
-                        {skill.name}
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {mentionedSkills.length > 0 && (
+                <div className="mt-4">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Mentioned in Roles</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {mentionedSkills.map((skill: string) => (
+                      <span key={skill} className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm font-medium">
+                        {skill}
                       </span>
                     ))}
                   </div>
@@ -483,6 +471,69 @@ export const CandidateDetail = () => {
             </div>
           )}
 
+          {(courses.length > 0 || certifications.length > 0) && (
+            <div className="card p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Learning & Certifications</h2>
+              {courses.length > 0 && (
+                <div className="mb-4">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Courses</h3>
+                  <ul className="space-y-2 text-sm text-gray-700">
+                    {courses.map((course: any) => (
+                      <li key={course.id} className="flex flex-col">
+                        <span className="font-medium text-gray-900">{course.name}</span>
+                        <span className="text-xs text-gray-500">
+                          {[course.provider, course.completion_date].filter(Boolean).join(' • ')}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {certifications.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Certifications</h3>
+                  <ul className="space-y-2 text-sm text-gray-700">
+                    {certifications.map((cert: any) => (
+                      <li key={cert.id} className="flex flex-col">
+                        <span className="font-medium text-gray-900">{cert.name}</span>
+                        <span className="text-xs text-gray-500">
+                          {[cert.issuer, cert.date].filter(Boolean).join(' • ')}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          {extractionNotes && Object.keys(extractionNotes).length > 0 && (
+            <div className="card p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Extraction Notes</h2>
+              <div className="space-y-3 text-sm text-gray-700">
+                {Object.entries(extractionNotes).map(([key, value]) => {
+                  if (!value || (Array.isArray(value) && value.length === 0)) {
+                    return null;
+                  }
+                  return (
+                    <div key={key}>
+                      <p className="text-xs uppercase text-gray-500 mb-1">{key.replace(/_/g, ' ')}</p>
+                      {Array.isArray(value) ? (
+                        <ul className="list-disc list-inside space-y-1">
+                          {value.map((item, idx) => (
+                            <li key={`${key}-${idx}`}>{item}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p>{String(value)}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Timeline */}
           {candidate.timeline_events && candidate.timeline_events.length > 0 && (
             <div className="card p-6">
@@ -508,89 +559,209 @@ export const CandidateDetail = () => {
 
         {/* Sidebar */}
         <div className="space-y-6">
+          {/* Scoring Summary */}
+          {finalScores && (
+            <div className="card p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Score Summary</h2>
+              <div className="grid grid-cols-2 gap-4">
+                {finalScores.experience_depth_score !== undefined && finalScores.experience_depth_score !== null && (
+                  <div className="text-center">
+                    <p className="text-xs uppercase text-gray-500 mb-2">Experience Depth</p>
+                    <ScoreBadge value={finalScores.experience_depth_score} />
+                  </div>
+                )}
+                {finalScores.education_level_score !== undefined && finalScores.education_level_score !== null && (
+                  <div className="text-center">
+                    <p className="text-xs uppercase text-gray-500 mb-2">Education Level</p>
+                    <ScoreBadge value={finalScores.education_level_score} />
+                  </div>
+                )}
+                {finalScores.overall_weighted_score !== undefined && finalScores.overall_weighted_score !== null && (
+                  <div className="text-center">
+                    <p className="text-xs uppercase text-gray-500 mb-2">Overall Score</p>
+                    <ScoreBadge value={finalScores.overall_weighted_score} />
+                  </div>
+                )}
+                {finalScores.seniority_match_score !== undefined && finalScores.seniority_match_score !== null && (
+                  <div className="text-center">
+                    <p className="text-xs uppercase text-gray-500 mb-2">Seniority Match</p>
+                    <ScoreBadge value={finalScores.seniority_match_score} />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Basic Information */}
-          {parsedResume && (
+          {(personalInfo?.date_of_birth ||
+            personalInfo?.address ||
+            personalInfo?.marital_status ||
+            personalInfo?.military_service) && (
             <div className="card p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h2>
               <dl className="space-y-2 text-sm text-gray-700">
-                {parsedResume.date_of_birth && (
+                {personalInfo?.date_of_birth && (
                   <div className="flex justify-between">
                     <dt className="font-medium text-gray-600">Date of Birth</dt>
-                    <dd>{parsedResume.date_of_birth}</dd>
+                    <dd>{personalInfo.date_of_birth}</dd>
                   </div>
                 )}
-                {parsedResume.address && (
+                {personalInfo?.address && (
                   <div className="flex justify-between">
                     <dt className="font-medium text-gray-600">Address</dt>
-                    <dd className="text-right max-w-xs">{parsedResume.address}</dd>
+                    <dd className="text-right max-w-xs">{personalInfo.address}</dd>
                   </div>
                 )}
-                {parsedResume.marital_status && (
+                {personalInfo?.marital_status && (
                   <div className="flex justify-between">
                     <dt className="font-medium text-gray-600">Marital Status</dt>
-                    <dd>{parsedResume.marital_status}</dd>
+                    <dd>{personalInfo.marital_status}</dd>
                   </div>
                 )}
-                {parsedResume.military_service && (
+                {personalInfo?.military_service && (
                   <div className="flex justify-between">
                     <dt className="font-medium text-gray-600">Military Status</dt>
-                    <dd>{parsedResume.military_service}</dd>
+                    <dd>{personalInfo.military_service}</dd>
                   </div>
                 )}
               </dl>
             </div>
           )}
 
-          {/* Job Scores */}
-          {candidate.job_scores && candidate.job_scores.length > 0 && (
-            <div className="card p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Job Scores</h2>
-              <div className="space-y-4">
-                {candidate.job_scores.map((score: any) => (
-                  <div key={score.id} className="p-4 bg-gray-50 rounded-lg space-y-4">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium text-gray-900">{score.job_title || 'Unknown Job'}</p>
-                      {score.rank && (
-                        <span className="px-2 py-1 text-xs font-medium bg-secondary text-primary rounded-full">
-                          Rank #{score.rank}
-                        </span>
-                      )}
-                      {score.auto_rejected && (
-                        <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-700 rounded-full">
-                          Auto-Rejected
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xs uppercase text-gray-500 mb-2">Overall Score</p>
-                      <ScoreBadge value={score.score} />
-                    </div>
-                    {(score.experience_score !== null && score.experience_score !== undefined) || 
-                     (score.education_score !== null && score.education_score !== undefined) ? (
-                      <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-200">
-                        {score.experience_score !== null && score.experience_score !== undefined && (
-                          <div className="text-center">
-                            <p className="text-xs uppercase text-gray-500 mb-1">Experience</p>
-                            <ScoreBadge value={score.experience_score} />
-                          </div>
-                        )}
-                        {score.education_score !== null && score.education_score !== undefined && (
-                          <div className="text-center">
-                            <p className="text-xs uppercase text-gray-500 mb-1">Education</p>
-                            <ScoreBadge value={score.education_score} />
-                          </div>
-                        )}
-                      </div>
-                    ) : null}
-                    {score.rejection_reason && (
-                      <div className="pt-2 border-t border-gray-200">
-                        <p className="text-xs font-medium text-red-700 mb-1">Rejection Reason:</p>
-                        <p className="text-xs text-gray-600">{score.rejection_reason}</p>
-                      </div>
+          {interpretation && (
+            <div className="card p-6 space-y-5">
+              <div className="flex flex-wrap items-center gap-3">
+                {interpretation.seniority_fit_analysis && (
+                  <>
+                    <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1 text-sm font-semibold text-primary">
+                      <Sparkles className="h-4 w-4" />
+                      {interpretation.seniority_fit_analysis.fit_level || 'Unknown'} Fit
+                    </span>
+                    {interpretation.seniority_fit_analysis.overqualified && (
+                      <span className="rounded-full border border-yellow-200 bg-yellow-50 px-3 py-1 text-xs font-semibold text-yellow-700">
+                        Overqualified
+                      </span>
                     )}
-                  </div>
-                ))}
+                    {interpretation.seniority_fit_analysis.underqualified && (
+                      <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-red-600">
+                        Underqualified
+                      </span>
+                    )}
+                  </>
+                )}
               </div>
+              {interpretation.seniority_fit_analysis?.explanation && (
+                <p className="text-sm text-gray-600 leading-6 bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                  {interpretation.seniority_fit_analysis.explanation}
+                </p>
+              )}
+              {interpretation.strengths && interpretation.strengths.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-gray-800">Strengths</p>
+                  <div className="flex flex-wrap gap-2">
+                    {interpretation.strengths.map((item, idx) => (
+                      <span
+                        key={`strength-${idx}`}
+                        className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 border border-emerald-100"
+                      >
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {interpretation.weaknesses && interpretation.weaknesses.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-gray-800">Risks / Weaknesses</p>
+                  <div className="flex flex-wrap gap-2">
+                    {interpretation.weaknesses.map((item, idx) => (
+                      <span
+                        key={`weakness-${idx}`}
+                        className="rounded-full bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700 border border-rose-100"
+                      >
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {interpretation.recommendations && interpretation.recommendations.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-gray-800">Recommendations</p>
+                  <ul className="space-y-2 text-sm text-gray-600">
+                    {interpretation.recommendations.map((item, idx) => (
+                      <li key={`recommendation-${idx}`} className="flex items-start gap-2">
+                        <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary"></span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          {auditTrail && (
+            <div className="card p-6 space-y-5">
+              <h2 className="text-lg font-semibold text-gray-900">Audit Trail</h2>
+              {auditTrail.data_completeness && (
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                    <p className="text-xs font-semibold uppercase text-gray-500">Positions Coverage</p>
+                    <p className="mt-2 text-2xl font-semibold text-gray-900">
+                      {auditTrail.data_completeness.positions_complete}/
+                      {auditTrail.data_completeness.positions_total}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                    <p className="text-xs font-semibold uppercase text-gray-500">Education Coverage</p>
+                    <p className="mt-2 text-2xl font-semibold text-gray-900">
+                      {auditTrail.data_completeness.education_complete}/
+                      {auditTrail.data_completeness.education_total}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {auditTrail.data_completeness?.missing_fields?.length ? (
+                <div className="text-xs text-gray-600">
+                  Missing fields: {auditTrail.data_completeness.missing_fields.join(', ')}
+                </div>
+              ) : null}
+              {auditTrail.assumptions_made && auditTrail.assumptions_made.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-gray-800">Assumptions</p>
+                  <div className="flex flex-wrap gap-2">
+                    {auditTrail.assumptions_made.map((item, idx) => (
+                      <span
+                        key={`assumption-${idx}`}
+                        className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 border border-blue-100"
+                      >
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {auditTrail.edge_cases && auditTrail.edge_cases.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-gray-800">Edge Cases</p>
+                  <ul className="space-y-1 text-sm text-gray-600">
+                    {auditTrail.edge_cases.map((item, idx) => (
+                      <li key={`edge-${idx}`}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {auditTrail.warnings && auditTrail.warnings.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-red-600">Warnings</p>
+                  <ul className="space-y-1 text-sm text-red-600">
+                    {auditTrail.warnings.map((item, idx) => (
+                      <li key={`warning-${idx}`}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
 

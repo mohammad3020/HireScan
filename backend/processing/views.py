@@ -17,6 +17,16 @@ from candidates.models import Candidate, JobScore
 from jobs.models import Job
 
 
+def _safe_float(value):
+    """Convert numeric-like values to float"""
+    try:
+        if value in (None, ''):
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 class BatchUploadViewSet(viewsets.ModelViewSet):
     """Batch upload viewset"""
     queryset = BatchUpload.objects.prefetch_related('file_items').all()
@@ -171,17 +181,54 @@ class ReviewDashboardView(APIView):
                 'linkedin_url': candidate_details.get('linkedin_url', ''),
                 'github_url': candidate_details.get('github_url', ''),
             }
-            # Get skills from parsed resume
+            # Get skills & scoring details from parsed resume
             try:
                 resume = candidate_details.get('resumes', [{}])[0] if candidate_details.get('resumes') else {}
-                parsed_data = resume.get('parsed_data', {}) if resume else {}
-                technical_skills = parsed_data.get('technical_skills', []) if parsed_data else []
-                skills = [s.get('name', '') for s in technical_skills]
-                candidate_data['skills'] = skills
-                candidate_data['skillset'] = ', '.join(skills[:5]) if skills else ''
+                parsed_resume = resume.get('parsed_data', {}) if resume else {}
+                extracted_resume = parsed_resume.get('extracted_resume_data', {}) if isinstance(parsed_resume, dict) else {}
+                skills_section = extracted_resume.get('skills', {}) if isinstance(extracted_resume, dict) else {}
+                technical_data = skills_section.get('technical', []) if isinstance(skills_section, dict) else []
+                soft_data = skills_section.get('soft', []) if isinstance(skills_section, dict) else []
+                mentioned_data = skills_section.get('skills_mentioned_in_job_title', []) if isinstance(skills_section, dict) else []
+                
+                technical_names = []
+                if isinstance(technical_data, list):
+                    for item in technical_data:
+                        if isinstance(item, dict) and item.get('name'):
+                            technical_names.append(item.get('name'))
+                        elif isinstance(item, str):
+                            technical_names.append(item)
+                else:
+                    technical_data = []
+                
+                soft_names = [name for name in soft_data if isinstance(name, str)] if isinstance(soft_data, list) else []
+                mentioned_names = [name for name in mentioned_data if isinstance(name, str)] if isinstance(mentioned_data, list) else []
+                
+                combined_skills = [name for name in (technical_names + soft_names + mentioned_names) if name]
+                
+                candidate_data['skills_payload'] = skills_section if isinstance(skills_section, dict) else {}
+                candidate_data['skills'] = combined_skills
+                candidate_data['skillset'] = ', '.join(combined_skills[:5]) if combined_skills else ''
+                
                 # Add AI review from parsed resume
-                candidate_data['ai_review'] = parsed_data.get('ai_review', '')
-                candidate_data['ai_summary'] = parsed_data.get('ai_review', '')  # Alias for frontend compatibility
+                ai_review = parsed_resume.get('ai_review', '') if isinstance(parsed_resume, dict) else ''
+                candidate_data['ai_review'] = ai_review
+                candidate_data['ai_summary'] = ai_review or candidate_data.get('ai_summary', '')
+                
+                # Add scoring summary from parsed resume
+                scoring_results = parsed_resume.get('scoring_results', {}) if isinstance(parsed_resume, dict) else {}
+                final_scores = scoring_results.get('final_scores', {}) if isinstance(scoring_results, dict) else {}
+                scoring_summary = {
+                    'experience_depth_score': _safe_float(final_scores.get('experience_depth_score')),
+                    'education_level_score': _safe_float(final_scores.get('education_level_score')),
+                    'overall_weighted_score': _safe_float(final_scores.get('overall_weighted_score')),
+                    'seniority_match_score': _safe_float(final_scores.get('seniority_match_score')),
+                }
+                candidate_data['scoring_summary'] = scoring_summary
+                candidate_data['experience_depth_score'] = scoring_summary['experience_depth_score']
+                candidate_data['education_level_score'] = scoring_summary['education_level_score']
+                candidate_data['overall_weighted_score'] = scoring_summary['overall_weighted_score']
+                candidate_data['seniority_match_score'] = scoring_summary['seniority_match_score']
             except Exception as e:
                 import logging
                 logger = logging.getLogger(__name__)
@@ -190,6 +237,12 @@ class ReviewDashboardView(APIView):
                 candidate_data['skillset'] = ''
                 candidate_data['ai_review'] = ''
                 candidate_data['ai_summary'] = ''
+                candidate_data['skills_payload'] = {}
+                candidate_data['scoring_summary'] = {}
+                candidate_data['experience_depth_score'] = None
+                candidate_data['education_level_score'] = None
+                candidate_data['overall_weighted_score'] = None
+                candidate_data['seniority_match_score'] = None
             
             # Get notes for this candidate
             try:

@@ -25,13 +25,15 @@ export interface Resume {
   parsed_data?: ParsedResume;
 }
 
-export interface ParsedResume {
-  id: number;
-  raw_text: string;
-  parsed_data: Record<string, any>;
-  parsed_at: string;
-  updated_at?: string;
-  // Personal info
+export interface Links {
+  linkedin?: string;
+  github?: string;
+  portfolio?: string;
+  website?: string;
+  other?: string[];
+}
+
+export interface PersonalInfo {
   full_name?: string;
   phone?: string;
   email?: string;
@@ -39,43 +41,19 @@ export interface ParsedResume {
   date_of_birth?: string;
   marital_status?: string;
   military_service?: string;
-  // Links
-  linkedin_url?: string;
-  github_url?: string;
-  portfolio_url?: string;
-  website_url?: string;
-  // Summary (from parse_resume sample.md)
-  summary?: string;
-  // AI Review and Salary (from AI parsing JSON response)
-  ai_review?: string;
-  expected_salary?: string;
-  // Related objects
-  educations?: Education[];
-  experiences?: Experience[];
-  technical_skills?: TechnicalSkill[];
-  soft_skills?: SoftSkill[];
-  projects?: Project[];
-  awards?: Award[];
-  languages?: Language[];
-  courses?: Course[];
-  publications?: Publication[];
-  // Legacy
-  skills?: Skill[];
+  links?: Links;
 }
 
-export interface Education {
-  id: number;
-  degree: string;
-  field: string;
-  institution: string;
-  location?: string;
-  start_date?: string;
-  end_date?: string;
-  gpa?: string;
-  honors?: string;
-  thesis?: string;
-  relevant_courses?: string[];
-  order?: number;
+export interface TechnicalSkillItem {
+  name: string;
+  category?: string;
+  level?: string | null;
+}
+
+export interface SkillsSummary {
+  technical?: TechnicalSkillItem[];
+  soft?: string[];
+  skills_mentioned_in_job_title?: string[];
 }
 
 export interface Experience {
@@ -88,14 +66,33 @@ export interface Experience {
   start_date: string | null;
   end_date: string | null;
   duration?: string;
+  duration_months?: number | null;
   is_currently_employed?: boolean;
   reasoning?: string;
   responsibilities?: string[];
+  extracted_skills?: string[];
   order?: number;
   // Legacy fields
   role?: string;
   is_current?: boolean;
   description?: string;
+}
+
+export interface Education {
+  id: number;
+  degree: string;
+  field: string;
+  institution: string;
+  location?: string;
+  institution_category?: string;
+  graduation_year?: number | null;
+  start_date?: string;
+  end_date?: string;
+  gpa?: string;
+  honors?: string;
+  thesis?: string;
+  relevant_courses?: string[];
+  order?: number;
 }
 
 export interface TechnicalSkill {
@@ -108,6 +105,104 @@ export interface TechnicalSkill {
 export interface SoftSkill {
   id: number;
   name: string;
+}
+
+export interface Course {
+  id: number;
+  name: string;
+  provider?: string;
+  instructor?: string;
+  completion_date?: string;
+  duration?: string;
+  certificate_id?: string;
+  verification_link?: string;
+  order?: number;
+}
+
+export interface Certification {
+  id: number;
+  name: string;
+  issuer?: string;
+  date?: string;
+  description?: string;
+  certificate_id?: string;
+  verification_link?: string;
+  order?: number;
+}
+
+export interface ExtractedResumeData {
+  personal_info?: PersonalInfo;
+  education: Education[];
+  experience: Experience[];
+  skills?: SkillsSummary;
+  projects: Project[];
+  awards: Award[];
+  languages: Language[];
+  courses: Course[];
+  certifications: Certification[];
+  publications: Publication[];
+  interests?: Record<string, any>;
+  other_sections?: Record<string, any>;
+  extraction_notes?: Record<string, any>;
+}
+
+export interface FinalScores {
+  experience_depth_score?: number | null;
+  education_level_score?: number | null;
+  overall_weighted_score?: number | null;
+  seniority_match_score?: number | null;
+}
+
+export interface ScoringResults {
+  final_scores?: FinalScores;
+  detailed_calculations?: Record<string, any>;
+  eds_breakdown?: Record<string, any>;
+  els_breakdown?: Record<string, any>;
+  overall_calculation?: Record<string, any>;
+  seniority_match_calculation?: Record<string, any>;
+  [key: string]: any;
+}
+
+export interface SeniorityFitAnalysis {
+  fit_level?: string;
+  explanation?: string;
+  overqualified?: boolean;
+  underqualified?: boolean;
+}
+
+export interface Interpretation {
+  seniority_fit_analysis?: SeniorityFitAnalysis;
+  strengths?: string[];
+  weaknesses?: string[];
+  overall_assessment?: string;
+  recommendations?: string[];
+}
+
+export interface AuditTrail {
+  data_completeness?: {
+    positions_complete?: number;
+    positions_total?: number;
+    education_complete?: number;
+    education_total?: number;
+    missing_fields?: string[];
+  };
+  assumptions_made?: string[];
+  edge_cases?: string[];
+  warnings?: string[];
+}
+
+export interface ParsedResume {
+  id: number;
+  raw_text: string;
+  parsed_data: Record<string, any>;
+  parsed_at: string;
+  updated_at?: string;
+  ai_review?: string;
+  expected_salary?: string;
+  extracted_resume_data?: ExtractedResumeData;
+  scoring_results?: ScoringResults;
+  interpretation?: Interpretation;
+  audit_trail?: AuditTrail;
 }
 
 export interface Project {
@@ -139,18 +234,6 @@ export interface Language {
   certificates?: any[];
 }
 
-export interface Course {
-  id: number;
-  name: string;
-  provider?: string;
-  instructor?: string;
-  completion_date?: string;
-  duration?: string;
-  certificate_id?: string;
-  verification_link?: string;
-  order?: number;
-}
-
 export interface Publication {
   id: number;
   title: string;
@@ -165,13 +248,6 @@ export interface Publication {
 }
 
 // Legacy interface
-export interface Skill {
-  id: number;
-  name: string;
-  category: string;
-  proficiency: string;
-}
-
 export interface Note {
   id: number;
   candidate: number;
