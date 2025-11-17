@@ -103,24 +103,6 @@ class OpenRouterClient:
         import logging
         logger = logging.getLogger(__name__)
         
-        # Validate resume_text - check if it's actually text or an error message
-        if not resume_text:
-            return {
-                "error": True,
-                "message": "نمی‌توانم متن رزومه را از فایل استخراج کنم. احتمالاً فایل PDF شامل متن قابل استخراج نیست (مثلاً فایل اسکن شده) یا فایل آسیب دیده است. لطفاً یک فایل PDF با متن قابل کپی استفاده کنید یا از روش دیگری برای ارسال رزومه استفاده کنید."
-            }
-        
-        # Check if resume_text looks like an error message (not actual resume text)
-        resume_text_stripped = resume_text.strip()
-        if (len(resume_text_stripped) < 50 or 
-            resume_text_stripped.lower() in ['error', '"error"', "'error'", ' "error"', "' \"error\"'"] or
-            resume_text_stripped.startswith('error') or
-            'error' in resume_text_stripped.lower() and len(resume_text_stripped) < 100):
-            return {
-                "error": True,
-                "message": f"نمی‌توانم متن رزومه را از فایل استخراج کنم. خطا: {resume_text_stripped}"
-            }
-        
         # Format the prompt with resume text
         # Use safe formatting to avoid KeyError if resume_text contains braces
         # Check if prompt has {resume_text} placeholder, otherwise append text

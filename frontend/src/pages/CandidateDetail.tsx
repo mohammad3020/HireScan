@@ -145,14 +145,36 @@ export const CandidateDetail = () => {
   const personalInfo = extractedData?.personal_info;
   const educationEntries = extractedData?.education || [];
   const experienceEntries = extractedData?.experience || [];
-  const technicalSkills = extractedData?.skills?.technical || [];
-  const softSkills = extractedData?.skills?.soft || [];
+  // Handle skills as string arrays (new format) or objects (legacy format)
+  const technicalSkillsRaw = extractedData?.skills?.technical || [];
+  const softSkillsRaw = extractedData?.skills?.soft || [];
   const mentionedSkills = extractedData?.skills?.skills_mentioned_in_job_title || [];
+  
+  // Normalize technical skills: if string array, use as is; if object array, extract names
+  const technicalSkills = technicalSkillsRaw.map((skill: any) => 
+    typeof skill === 'string' ? skill : (skill?.name || skill?.toString())
+  ).filter(Boolean);
+  
+  // Normalize soft skills: if string array, use as is; if object, extract name
+  const softSkills = softSkillsRaw.map((skill: any) => 
+    typeof skill === 'string' ? skill : (skill?.name || skill?.toString())
+  ).filter(Boolean);
   const projects = extractedData?.projects || [];
   const awards = extractedData?.awards || [];
   const languages = extractedData?.languages || [];
-  const courses = extractedData?.courses || [];
-  const certifications = extractedData?.certifications || [];
+  // Handle courses and certifications as string arrays (new format) or objects (legacy format)
+  const coursesRaw = extractedData?.courses || [];
+  const certificationsRaw = extractedData?.certifications || [];
+  
+  // Normalize courses: if string array, use as is; if object array, extract names
+  const courses = coursesRaw.map((course: any) => 
+    typeof course === 'string' ? course : (course?.name || course?.toString())
+  ).filter(Boolean);
+  
+  // Normalize certifications: if string array, use as is; if object array, extract names
+  const certifications = certificationsRaw.map((cert: any) => 
+    typeof cert === 'string' ? cert : (cert?.name || cert?.toString())
+  ).filter(Boolean);
   const extractionNotes = extractedData?.extraction_notes || {};
   const interpretation = parsedResume?.interpretation;
   const auditTrail = parsedResume?.audit_trail;
@@ -181,6 +203,39 @@ export const CandidateDetail = () => {
   const candidateState: CandidateCategory = backendCategory || fallbackState;
   const selectedStateOption =
     STATE_OPTIONS.find((option) => option.value === candidateState) || STATE_OPTIONS[0];
+
+  // Parse rejection reason to determine which section it relates to
+  const getRejectionBadgeInfo = () => {
+    if (!jobScore?.auto_rejected || !jobScore?.rejection_reason) return null;
+    
+    const reason = jobScore.rejection_reason.toLowerCase();
+    
+    if (reason.includes('experience') || reason.includes('years of experience')) {
+      return { section: 'experience', text: 'Auto Rejected: Experience' };
+    }
+    if (reason.includes('age')) {
+      return { section: 'age', text: 'Auto Rejected: Age' };
+    }
+    if (reason.includes('military')) {
+      return { section: 'military', text: 'Auto Rejected: Military Status' };
+    }
+    if (reason.includes('education level') || reason.includes('education')) {
+      return { section: 'education', text: 'Auto Rejected: Education' };
+    }
+    if (reason.includes('major')) {
+      return { section: 'education', text: 'Auto Rejected: Education Major' };
+    }
+    if (reason.includes('university')) {
+      return { section: 'education', text: 'Auto Rejected: University' };
+    }
+    if (reason.includes('gender')) {
+      return { section: 'gender', text: 'Auto Rejected: Gender' };
+    }
+    
+    return { section: 'general', text: 'Auto Rejected' };
+  };
+
+  const rejectionBadgeInfo = getRejectionBadgeInfo();
 
   const formatDate = (value?: string | null) => {
     if (!value) return null;
@@ -261,8 +316,21 @@ export const CandidateDetail = () => {
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-3xl font-bold text-gray-900 truncate">{candidate.name}</h1>
+              {rejectionBadgeInfo && (
+                // Show badge in header only if the related section doesn't exist
+                (rejectionBadgeInfo.section === 'experience' && experienceEntries.length === 0) ||
+                (rejectionBadgeInfo.section === 'education' && educationEntries.length === 0) ||
+                ((rejectionBadgeInfo.section === 'age' || rejectionBadgeInfo.section === 'military' || rejectionBadgeInfo.section === 'gender') && 
+                 !(personalInfo?.date_of_birth || personalInfo?.address || personalInfo?.marital_status || personalInfo?.military_service)) ||
+                rejectionBadgeInfo.section === 'general'
+              ) && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-red-300 bg-red-50 px-3 py-1 text-sm font-semibold text-red-700">
+                  <AlertCircle className="h-4 w-4" />
+                  {rejectionBadgeInfo.text}
+                </span>
+              )}
             </div>
             <p className="text-gray-600 mt-1">Candidate Profile & Details</p>
           </div>
@@ -341,13 +409,53 @@ export const CandidateDetail = () => {
                   </div>
                 </div>
               )}
+              {personalInfo?.links?.portfolio && (
+                <div className="flex items-center space-x-3">
+                  <Wallet className="h-5 w-5 text-gray-400" />
+                  <div>
+                    <p className="text-sm text-gray-600">Portfolio</p>
+                    <a
+                      href={personalInfo.links.portfolio}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-medium text-primary hover:underline"
+                    >
+                      View Portfolio
+                    </a>
+                  </div>
+                </div>
+              )}
+              {personalInfo?.links?.github && (
+                <div className="flex items-center space-x-3">
+                  <Linkedin className="h-5 w-5 text-gray-400" />
+                  <div>
+                    <p className="text-sm text-gray-600">GitHub</p>
+                    <a
+                      href={personalInfo.links.github}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-medium text-primary hover:underline"
+                    >
+                      View Profile
+                    </a>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Education */}
           {educationEntries?.length > 0 && (
             <div className="card p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Education</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">Education</h2>
+                {rejectionBadgeInfo?.section === 'education' && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-red-300 bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
+                    <AlertCircle className="h-3.5 w-3.5" />
+                    {rejectionBadgeInfo.text}
+                  </span>
+                )}
+              </div>
               <div className="space-y-6">
                 {educationEntries.map((edu: any, index: number) => (
                   <div key={`education-${index}`} className="border-l-4 border-secondary pl-4">
@@ -357,12 +465,19 @@ export const CandidateDetail = () => {
                       {(edu.field || edu.major) && (
                         <p className="text-sm text-gray-600">{edu.field ?? edu.major}</p>
                       )}
-                      {(formatDate(edu.start_date) || formatDate(edu.end_date)) && (
+                      {edu.institution_category && (
+                        <p className="text-xs text-gray-500 italic">{edu.institution_category}</p>
+                      )}
+                      {(formatDate(edu.start_date) || formatDate(edu.end_date) || edu.graduation_year) && (
                         <p className="text-sm text-gray-500 mt-1">
                           {formatDate(edu.start_date) ?? '—'}{' '}
                           -{' '}
-                          {formatDate(edu.end_date) ?? 'Present'}
+                          {formatDate(edu.end_date) ?? (edu.graduation_year ? `Graduated ${edu.graduation_year}` : 'Present')}
+                          {!formatDate(edu.end_date) && edu.graduation_year && formatDate(edu.start_date) && ` (${edu.graduation_year})`}
                         </p>
+                      )}
+                      {edu.gpa && (
+                        <p className="text-sm text-gray-500">GPA: {edu.gpa}</p>
                       )}
                       {edu.description && <p className="text-sm text-gray-600 mt-2">{edu.description}</p>}
                     </div>
@@ -375,7 +490,15 @@ export const CandidateDetail = () => {
           {/* Experience */}
           {experienceEntries.length > 0 && (
             <div className="card p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Work Experience</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">Work Experience</h2>
+                {rejectionBadgeInfo?.section === 'experience' && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-red-300 bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
+                    <AlertCircle className="h-3.5 w-3.5" />
+                    {rejectionBadgeInfo.text}
+                  </span>
+                )}
+              </div>
               <div className="space-y-6">
                 {experienceEntries.map((exp: any) => (
                   <div key={exp.id} className="border-l-4 border-secondary pl-4">
@@ -406,6 +529,21 @@ export const CandidateDetail = () => {
                             ))}
                           </ul>
                         )}
+                        {exp.extracted_skills && exp.extracted_skills.length > 0 && (
+                          <div className="mt-3">
+                            <p className="text-xs font-semibold text-gray-500 mb-1">Skills Extracted:</p>
+                            <div className="flex flex-wrap gap-2">
+                              {exp.extracted_skills.map((skill: string, idx: number) => (
+                                <span
+                                  key={idx}
+                                  className="px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium border border-blue-100"
+                                >
+                                  {skill}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -422,18 +560,12 @@ export const CandidateDetail = () => {
                 <div className="mb-4">
                   <h3 className="text-sm font-semibold text-gray-700 mb-2">Technical Skills</h3>
                   <div className="flex flex-wrap gap-2">
-                    {technicalSkills.map((skill: any) => (
+                    {technicalSkills.map((skill: string, idx: number) => (
                       <span
-                        key={skill.id ?? `${skill.name}-${skill.category}`}
+                        key={`technical-${idx}-${skill}`}
                         className="px-3 py-1 bg-primary text-white rounded-full text-sm font-medium"
                       >
-                        {skill.name}
-                        {skill.level && (
-                          <span className="ml-2 text-xs opacity-75">({skill.level})</span>
-                        )}
-                        {skill.category && (
-                          <span className="ml-2 text-xs opacity-75">{skill.category}</span>
-                        )}
+                        {skill}
                       </span>
                     ))}
                   </div>
@@ -443,9 +575,9 @@ export const CandidateDetail = () => {
                 <div>
                   <h3 className="text-sm font-semibold text-gray-700 mb-2">Soft Skills</h3>
                   <div className="flex flex-wrap gap-2">
-                    {softSkills.map((skill: any) => (
+                    {softSkills.map((skill: string, idx: number) => (
                       <span
-                        key={skill}
+                        key={`soft-${idx}-${skill}`}
                         className="px-3 py-1 bg-secondary text-gray-900 rounded-full text-sm font-medium"
                       >
                         {skill}
@@ -533,31 +665,31 @@ export const CandidateDetail = () => {
               {courses.length > 0 && (
                 <div className="mb-4">
                   <h3 className="text-sm font-semibold text-gray-700 mb-2">Courses</h3>
-                  <ul className="space-y-2 text-sm text-gray-700">
-                    {courses.map((course: any) => (
-                      <li key={course.id} className="flex flex-col">
-                        <span className="font-medium text-gray-900">{course.name}</span>
-                        <span className="text-xs text-gray-500">
-                          {[course.provider, course.completion_date].filter(Boolean).join(' • ')}
-                        </span>
-                      </li>
+                  <div className="flex flex-wrap gap-2">
+                    {courses.map((course: string, idx: number) => (
+                      <span
+                        key={`course-${idx}-${course}`}
+                        className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium border border-blue-100"
+                      >
+                        {course}
+                      </span>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               )}
               {certifications.length > 0 && (
                 <div>
                   <h3 className="text-sm font-semibold text-gray-700 mb-2">Certifications</h3>
-                  <ul className="space-y-2 text-sm text-gray-700">
-                    {certifications.map((cert: any) => (
-                      <li key={cert.id} className="flex flex-col">
-                        <span className="font-medium text-gray-900">{cert.name}</span>
-                        <span className="text-xs text-gray-500">
-                          {[cert.issuer, cert.date].filter(Boolean).join(' • ')}
-                        </span>
-                      </li>
+                  <div className="flex flex-wrap gap-2">
+                    {certifications.map((cert: string, idx: number) => (
+                      <span
+                        key={`cert-${idx}-${cert}`}
+                        className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-sm font-medium border border-green-100"
+                      >
+                        {cert}
+                      </span>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               )}
             </div>
@@ -743,7 +875,17 @@ export const CandidateDetail = () => {
             personalInfo?.marital_status ||
             personalInfo?.military_service) && (
             <div className="card p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">Basic Information</h2>
+                {(rejectionBadgeInfo?.section === 'age' || 
+                  rejectionBadgeInfo?.section === 'military' || 
+                  rejectionBadgeInfo?.section === 'gender') && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-red-300 bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
+                    <AlertCircle className="h-3.5 w-3.5" />
+                    {rejectionBadgeInfo.text}
+                  </span>
+                )}
+              </div>
               <dl className="space-y-2 text-sm text-gray-700">
                 {personalInfo?.date_of_birth && (
                   <div className="flex justify-between">
@@ -832,6 +974,14 @@ export const CandidateDetail = () => {
                       </span>
                     ))}
                   </div>
+                </div>
+              )}
+              {interpretation.overall_assessment && (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-gray-800">Overall Assessment</p>
+                  <p className="text-sm text-gray-600 leading-6 bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                    {interpretation.overall_assessment}
+                  </p>
                 </div>
               )}
               {interpretation.recommendations && interpretation.recommendations.length > 0 && (

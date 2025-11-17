@@ -22,7 +22,7 @@ class CustomUserChangeForm(UserChangeForm):
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    """Admin interface for custom User model"""
+    """Admin interface for custom User model - Python 3.14 compatible"""
     form = CustomUserChangeForm
     add_form = CustomUserCreationForm
     
@@ -49,12 +49,14 @@ class UserAdmin(BaseUserAdmin):
         }),
     )
     
+    # Override get_fieldsets without calling super() to avoid Python 3.14 issues
     def get_fieldsets(self, request, obj=None):
         """Get fieldsets for user admin"""
         if not obj:
             return self.add_fieldsets
         return self.fieldsets
     
+    # Override get_form to use our custom forms without super() issues
     def get_form(self, request, obj=None, **kwargs):
         """Get form for user admin"""
         defaults = {}
@@ -63,4 +65,5 @@ class UserAdmin(BaseUserAdmin):
         else:
             defaults['form'] = self.form
         defaults.update(kwargs)
-        return super().get_form(request, obj, **defaults)
+        # Use admin.ModelAdmin directly instead of super() to avoid Python 3.14 issues
+        return admin.ModelAdmin.get_form(self, request, obj, **defaults)

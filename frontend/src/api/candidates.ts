@@ -51,7 +51,7 @@ export interface TechnicalSkillItem {
 }
 
 export interface SkillsSummary {
-  technical?: TechnicalSkillItem[];
+  technical?: string[] | TechnicalSkillItem[]; // Support both new format (string array) and legacy format (object array)
   soft?: string[];
   skills_mentioned_in_job_title?: string[];
 }
@@ -138,8 +138,8 @@ export interface ExtractedResumeData {
   projects: Project[];
   awards: Award[];
   languages: Language[];
-  courses: Course[];
-  certifications: Certification[];
+  courses: string[] | Course[]; // Support both new format (string array) and legacy format (object array)
+  certifications: string[] | Certification[]; // Support both new format (string array) and legacy format (object array)
   publications: Publication[];
   interests?: Record<string, any>;
   other_sections?: Record<string, any>;

@@ -5,17 +5,6 @@ You are an intelligent resume analysis system with two main responsibilities:
 1. **Complete and accurate extraction of information** from resume text
 2. **Calculation of specialized scores** based on EDS and ELS criteria
 
-## Part 1: Resume Information Extraction
-
-### Step 1: Initial File Analysis
-First check:
-- Text quality and readability
-- Resume language (Persian/English/Mixed)
-- Presence of main sections (name, work history, education)
-- Page count
-
-If there are readability issues or missing key information, provide clear error message.
-
 ### Step 2: Precise Content Extraction
 
 #### Personal Information
@@ -260,91 +249,6 @@ json
 "education_level_score": "number (2 decimal)",
 "overall_weighted_score": "number (2 decimal)",
 "seniority_match_score": "number (2 decimal)"
-},
-"detailed_calculations": {
-"eds_breakdown": {
-"positions_analyzed": [
-{
-"position": "string",
-"duration_months": "number",
-"M": "number",
-"GM": "number",
-"RDF": "number",
-"SMS": "number",
-"calculation": "string with full formula",
-"contribution": "number"
-}
-],
-"total_weighted_months": "number",
-"total_weighted_years": "number",
-"final_calculation": "string"
-},
-"els_breakdown": {
-"S_degree": {
-"highest": "string",
-"value": "number"
-},
-"S_relevance": {
-"entries": [
-{
-"degree": "string",
-"R_i": "number",
-"L_i": "number",
-"W_i": "number",
-"contribution": "number"
-}
-],
-"total": "number"
-},
-"S_university": {
-"entries": [
-{
-"name": "string",
-"tier": "number",
-"T_i": "number",
-"W_i": "number",
-"contribution": "number"
-}
-],
-"total": "number"
-},
-"S_courses": {
-"count": "number",
-"calculation": "string",
-"value": "number"
-},
-"S_cert": {
-"count": "number",
-"calculation": "string",
-"value": "number"
-},
-"weighted_calculation": {
-"degree": "string",
-"relevance": "string",
-"university": "string",
-"courses": "string",
-"cert": "string",
-"total": "string"
-},
-"final_els": "number"
-},
-"overall_calculation": {
-"formula": "string",
-"substitution": "string",
-"result": "number"
-},
-"seniority_match_calculation": {
-"target_seniority": "string",
-"optimal_range": "string",
-"peak_score": "number",
-"candidate_overall": "number",
-"distance_from_peak": "number",
-"penalty_coefficient": "number",
-"formula": "string",
-"calculation": "string",
-"final_sms_score": "number"
-}
-}
   },
   
   "interpretation": {
@@ -356,55 +260,9 @@ json
 },
 "strengths": ["string"],
 "weaknesses": ["string"],
-"overall_assessment": "string",
-"recommendations": ["string"]
-  },
-  
-  "audit_trail": {
-"data_completeness": {
-"positions_complete": "number",
-"positions_total": "number",
-"education_complete": "number",
-"education_total": "number",
-"missing_fields": ["string"]
-},
-"assumptions_made": ["string"],
-"edge_cases": ["string"],
-"warnings": ["string"]
+"overall_assessment": "string"
   }
-}
 
-### Section 2: Markdown Report
-markdown
-# Resume Scoring Report
-
-## Score Summary
-| Metric | Score | Maximum |
-|--------|-------|---------|
-| Experience Depth (EDS) | XX.XX | 100.00 |
-| Education Level (ELS) | XX.XX | 100.00 |
-| **Overall Score (70% EDS + 30% ELS)** | **XX.XX** | **100.00** |
-| **Seniority Match Score** | **XX.XX** | **100.00** |
-
-## Seniority Fit Analysis
-**Target Position**: [Seniority Level]
-**Fit Assessment**: [Perfect/Good/Moderate/Poor]
-**Explanation**: [Detailed explanation of why the candidate is/isn't a good fit]
-
-## Strength Analysis
-[List of strengths based on calculations]
-
-## Weakness Analysis
-[List of weaknesses based on calculations]
-
-## Overall Score Explanation
-[Comprehensive explanation of the score]
-
-## Improvement Suggestions
-[Practical suggestions for improvement]
-
-## Audit Trail
-[Data quality details and assumptions]
 
 ## Important Notes:
 - All scores with 2 decimal places

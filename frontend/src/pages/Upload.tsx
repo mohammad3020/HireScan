@@ -7,22 +7,12 @@ import {
   CheckCircle,
   AlertCircle,
   Loader,
-  Shield,
-  ShieldAlert,
 } from 'lucide-react';
 import { useUploadCV } from '../api/candidates';
-import { validateResumeFile, quickResumeCheck } from '../utils/resumeValidator';
 
 interface FileWithPreview extends File {
   preview?: string;
   status?: 'pending' | 'processing' | 'completed' | 'failed';
-  validationStatus?: 'checking' | 'valid' | 'invalid' | 'warning';
-  validationResult?: {
-    isValid: boolean;
-    confidence: number;
-    reasons: string[];
-    warning?: string;
-  };
 }
 
 export const Upload = () => {
@@ -77,22 +67,10 @@ export const Upload = () => {
 
     if (validFiles.length === 0) return;
 
-    // بررسی سریع اولیه
-    const quickValidated = validFiles.filter(file => {
-      const check = quickResumeCheck(file);
-      return check.isValid;
-    });
-
-    if (quickValidated.length !== validFiles.length) {
-      const rejectedCount = validFiles.length - quickValidated.length;
-      alert(`${rejectedCount} فایل به دلیل فرمت یا اندازه نامعتبر رد شد.`);
-    }
-
-    // اضافه کردن فایل‌ها با وضعیت در حال بررسی
-    const newFiles = quickValidated.map((file) => {
+    // اضافه کردن فایل‌ها
+    const newFiles = validFiles.map((file) => {
       const fileWithStatus = file as FileWithPreview;
       fileWithStatus.status = 'pending';
-      fileWithStatus.validationStatus = 'checking';
       return fileWithStatus;
     });
 
@@ -104,54 +82,6 @@ export const Upload = () => {
       }
       return combined;
     });
-
-    // بررسی دقیق محتوا برای هر فایل
-    for (let i = 0; i < newFiles.length; i++) {
-      const file = newFiles[i];
-      try {
-        const validation = await validateResumeFile(file);
-        
-        setFiles((prev) => {
-          const updated = [...prev];
-          const fileIndex = updated.findIndex(f => f.name === file.name && f.size === file.size);
-          if (fileIndex !== -1) {
-            updated[fileIndex].validationStatus = validation.isValid 
-              ? (validation.confidence >= 70 ? 'valid' : 'warning')
-              : 'invalid';
-            updated[fileIndex].validationResult = {
-              isValid: validation.isValid,
-              confidence: validation.confidence,
-              reasons: validation.reasons,
-              warning: validation.warning
-            };
-          }
-          return updated;
-        });
-
-        // نمایش هشدار برای فایل‌های نامعتبر
-        if (!validation.isValid) {
-          console.warn(`فایل "${file.name}" احتمالاً رزومه نیست:`, validation.reasons.join('، '));
-        } else if (validation.warning) {
-          console.info(`هشدار برای فایل "${file.name}":`, validation.warning);
-        }
-      } catch (error: any) {
-        console.error(`خطا در بررسی فایل "${file.name}":`, error);
-        setFiles((prev) => {
-          const updated = [...prev];
-          const fileIndex = updated.findIndex(f => f.name === file.name && f.size === file.size);
-          if (fileIndex !== -1) {
-            updated[fileIndex].validationStatus = 'warning';
-            updated[fileIndex].validationResult = {
-              isValid: true,
-              confidence: 60,
-              reasons: ['بررسی اولیه موفق بود'],
-              warning: 'نمی‌توان محتوای فایل را بررسی کرد'
-            };
-          }
-          return updated;
-        });
-      }
-    }
   }, []);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -164,22 +94,10 @@ export const Upload = () => {
 
     if (validFiles.length === 0) return;
 
-    // بررسی سریع اولیه
-    const quickValidated = validFiles.filter(file => {
-      const check = quickResumeCheck(file);
-      return check.isValid;
-    });
-
-    if (quickValidated.length !== validFiles.length) {
-      const rejectedCount = validFiles.length - quickValidated.length;
-      alert(`${rejectedCount} فایل به دلیل فرمت یا اندازه نامعتبر رد شد.`);
-    }
-
-    // اضافه کردن فایل‌ها با وضعیت در حال بررسی
-    const newFiles = quickValidated.map((file) => {
+    // اضافه کردن فایل‌ها
+    const newFiles = validFiles.map((file) => {
       const fileWithStatus = file as FileWithPreview;
       fileWithStatus.status = 'pending';
-      fileWithStatus.validationStatus = 'checking';
       return fileWithStatus;
     });
 
@@ -191,54 +109,6 @@ export const Upload = () => {
       }
       return combined;
     });
-
-    // بررسی دقیق محتوا برای هر فایل
-    for (let i = 0; i < newFiles.length; i++) {
-      const file = newFiles[i];
-      try {
-        const validation = await validateResumeFile(file);
-        
-        setFiles((prev) => {
-          const updated = [...prev];
-          const fileIndex = updated.findIndex(f => f.name === file.name && f.size === file.size);
-          if (fileIndex !== -1) {
-            updated[fileIndex].validationStatus = validation.isValid 
-              ? (validation.confidence >= 70 ? 'valid' : 'warning')
-              : 'invalid';
-            updated[fileIndex].validationResult = {
-              isValid: validation.isValid,
-              confidence: validation.confidence,
-              reasons: validation.reasons,
-              warning: validation.warning
-            };
-          }
-          return updated;
-        });
-
-        // نمایش هشدار برای فایل‌های نامعتبر
-        if (!validation.isValid) {
-          console.warn(`فایل "${file.name}" احتمالاً رزومه نیست:`, validation.reasons.join('، '));
-        } else if (validation.warning) {
-          console.info(`هشدار برای فایل "${file.name}":`, validation.warning);
-        }
-      } catch (error: any) {
-        console.error(`خطا در بررسی فایل "${file.name}":`, error);
-        setFiles((prev) => {
-          const updated = [...prev];
-          const fileIndex = updated.findIndex(f => f.name === file.name && f.size === file.size);
-          if (fileIndex !== -1) {
-            updated[fileIndex].validationStatus = 'warning';
-            updated[fileIndex].validationResult = {
-              isValid: true,
-              confidence: 60,
-              reasons: ['بررسی اولیه موفق بود'],
-              warning: 'نمی‌توان محتوای فایل را بررسی کرد'
-            };
-          }
-          return updated;
-        });
-      }
-    }
 
     // Reset input
     e.target.value = '';
@@ -429,54 +299,12 @@ export const Upload = () => {
                     <FileIcon className="h-5 w-5 text-gray-600" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
+                    <p className="text-sm font-medium text-gray-900 truncate max-w-xs">{file.name}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
-                      {file.validationResult && (
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          file.validationStatus === 'valid' 
-                            ? 'bg-green-100 text-green-700'
-                            : file.validationStatus === 'warning'
-                            ? 'bg-yellow-100 text-yellow-700'
-                            : 'bg-red-100 text-red-700'
-                        }`}>
-                          {file.validationResult.confidence}% اعتماد
-                        </span>
-                      )}
                     </div>
-                    {file.validationResult?.warning && (
-                      <p className="text-xs text-yellow-600 mt-1">{file.validationResult.warning}</p>
-                    )}
-                    {file.validationResult && !file.validationResult.isValid && (
-                      <p className="text-xs text-red-600 mt-1">
-                        {file.validationResult.reasons.slice(0, 2).join('، ')}
-                      </p>
-                    )}
                   </div>
                   <div className="flex items-center space-x-2">
-                    {/* نمایش وضعیت اعتبارسنجی */}
-                    {file.validationStatus === 'checking' && (
-                      <div className="flex items-center space-x-1" title="در حال بررسی...">
-                        <Loader className="h-4 w-4 text-blue-600 animate-spin" />
-                        <Shield className="h-4 w-4 text-blue-600" />
-                      </div>
-                    )}
-                    {file.validationStatus === 'valid' && (
-                      <div className="flex items-center space-x-1" title="رزومه معتبر">
-                        <Shield className="h-4 w-4 text-green-600" />
-                      </div>
-                    )}
-                    {file.validationStatus === 'warning' && (
-                      <div className="flex items-center space-x-1" title="هشدار: ممکن است رزومه نباشد">
-                        <ShieldAlert className="h-4 w-4 text-yellow-600" />
-                      </div>
-                    )}
-                    {file.validationStatus === 'invalid' && (
-                      <div className="flex items-center space-x-1" title="احتمالاً رزومه نیست">
-                        <ShieldAlert className="h-4 w-4 text-red-600" />
-                      </div>
-                    )}
-                    
                     {/* نمایش وضعیت آپلود */}
                     {file.status === 'pending' && (
                       <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">

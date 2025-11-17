@@ -149,15 +149,15 @@ class ParsedResumeSerializer(serializers.ModelSerializer):
             }
         }
 
-        technical_skills = [
-            {
-                "id": skill.id,
-                "name": skill.name,
-                "category": skill.category,
-                "level": skill.level
-            }
-            for skill in obj.technical_skills.all()
-        ]
+        # Convert technical skills to string array (new format) or object array (legacy)
+        technical_skills_raw = obj.technical_skills.all()
+        if technical_skills_raw.exists():
+            # Check if we should return as string array (new format) or object array (legacy)
+            # For now, return as string array to match new JSON structure
+            technical_skills = [skill.name for skill in technical_skills_raw]
+        else:
+            technical_skills = []
+        
         soft_skills = [skill.name for skill in obj.soft_skills.all()]
         mentioned_skills = [skill.name for skill in obj.skills_mentioned_in_job_title.all()]
 
@@ -173,8 +173,9 @@ class ParsedResumeSerializer(serializers.ModelSerializer):
             "projects": ProjectSerializer(obj.projects.all(), many=True).data,
             "awards": AwardSerializer(obj.awards.all(), many=True).data,
             "languages": LanguageSerializer(obj.languages.all(), many=True).data,
-            "courses": CourseSerializer(obj.courses.all(), many=True).data,
-            "certifications": CertificationSerializer(obj.certifications.all(), many=True).data,
+            # Return courses and certifications as string arrays (new format) to match new JSON structure
+            "courses": [course.name for course in obj.courses.all()],
+            "certifications": [cert.name for cert in obj.certifications.all()],
             "publications": PublicationSerializer(obj.publications.all(), many=True).data,
             "interests": obj.interests or {},
             "other_sections": obj.other_sections or {},

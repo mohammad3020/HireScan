@@ -138,7 +138,7 @@ export const Processing = () => {
                     {getStatusIcon(item.status)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
+                    <p className="text-sm font-medium text-gray-900 truncate max-w-xs">
                       {typeof item.file === 'string' ? item.file.split('/').pop() : 'Unknown file'}
                     </p>
                     {item.candidate && (
