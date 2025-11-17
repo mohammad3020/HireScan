@@ -284,7 +284,7 @@ class CandidateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Candidate
         fields = [
-            'id', 'email', 'name', 'phone', 'linkedin_url', 'github_url',
+            'id', 'email', 'name', 'phone', 'linkedin_url', 'github_url', 'state',
             'created_at', 'updated_at', 'resumes', 'notes', 'timeline_events', 'job_scores'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
@@ -298,7 +298,7 @@ class CandidateListSerializer(serializers.ModelSerializer):
         model = Candidate
         fields = [
             'id', 'email', 'name', 'phone', 'linkedin_url', 'github_url',
-            'created_at', 'resume_count'
+            'state', 'created_at', 'resume_count'
         ]
         read_only_fields = ['id', 'created_at']
 

@@ -192,14 +192,50 @@ REM --------------------------------------------------
 echo.
 echo [Phase 3/3] Starting servers...
 echo.
+
+REM Verify backend is ready
+if not exist "%ROOT%backend\venv\Scripts\python.exe" (
+    echo [ERROR] Backend virtual environment not found after setup!
+    goto :backend_error
+)
+
+if not exist "%ROOT%backend\manage.py" (
+    echo [ERROR] manage.py not found in backend directory!
+    goto :backend_error
+)
+
+REM Verify Django is installed
+"%ROOT%backend\venv\Scripts\python.exe" -c "import django" >nul 2>&1
+if errorlevel 1 (
+    echo [ERROR] Django is not installed in virtual environment!
+    goto :backend_error
+)
+
+REM Verify frontend is ready
+if not exist "%ROOT%frontend\package.json" (
+    echo [ERROR] package.json not found in frontend directory!
+    goto :frontend_error
+)
+
+if not exist "%ROOT%frontend\node_modules" (
+    echo [ERROR] Frontend node_modules not found after setup!
+    goto :frontend_error
+)
+
+if not exist "%ROOT%frontend\node_modules\vite" (
+    echo [ERROR] Vite is not installed in frontend!
+    goto :frontend_error
+)
+
 echo [Backend] Starting Django development server...
+REM Use absolute path for Python to ensure it works
 if exist "%ROOT%backend\venv\Scripts\activate.bat" (
     start "HireScan Backend" cmd /k "cd /d %ROOT%backend && venv\Scripts\activate.bat && python manage.py runserver"
 ) else (
     start "HireScan Backend" cmd /k "cd /d %ROOT%backend && %ROOT%backend\venv\Scripts\python.exe manage.py runserver"
 )
 
-REM Wait a moment before starting frontend
+REM Wait a moment before starting frontend to let backend initialize
 timeout /t 3 /nobreak >nul
 
 REM --------------------------------------------------

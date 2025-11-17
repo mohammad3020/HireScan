@@ -19,11 +19,27 @@ def default_list():
 
 class Candidate(models.Model):
     """Candidate model"""
+    STATE_CHOICES = [
+        ('shortlisted', 'Shortlisted'),
+        ('rejected', 'Rejected'),
+        ('interview_scheduled', 'Interview Scheduled'),
+        ('interviewed', 'Interviewed'),
+        ('offer_sent', 'Offer Sent'),
+        ('hired', 'Hired'),
+    ]
+    
     email = models.EmailField(unique=True)
     name = models.CharField(max_length=200)
     phone = models.CharField(max_length=20, blank=True)
     linkedin_url = models.URLField(blank=True)
     github_url = models.URLField(blank=True)
+    state = models.CharField(
+        max_length=50,
+        choices=STATE_CHOICES,
+        default='shortlisted',
+        blank=True,
+        help_text='Current state of the candidate in the hiring process'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
