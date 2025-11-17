@@ -87,7 +87,16 @@ export const Layout = ({ children }: LayoutProps) => {
         {/* User info and logout */}
         <div className="px-4 py-4 border-t border-gray-200 flex-shrink-0">
           <div className="mb-3 px-4 py-2 text-sm">
-            <div className="font-medium text-gray-900">{user?.email}</div>
+            {user?.first_name || user?.last_name ? (
+              <div>
+                <div className="font-medium text-gray-900">
+                  {[user.first_name, user.last_name].filter(Boolean).join(' ') || user.email}
+                </div>
+                <div className="text-xs text-gray-500 mt-0.5">{user.email}</div>
+              </div>
+            ) : (
+              <div className="font-medium text-gray-900">{user?.email}</div>
+            )}
           </div>
           <button
             onClick={handleLogout}

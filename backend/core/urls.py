@@ -6,13 +6,14 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
     TokenVerifyView,
 )
-from .views import CustomTokenObtainPairView, register_user, DashboardView
+from .views import CustomTokenObtainPairView, register_user, get_current_user, DashboardView
 
 urlpatterns = [
     path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('token/verify/', TokenVerifyView.as_view(), name='token_verify'),
     path('register/', register_user, name='register'),
+    path('me/', get_current_user, name='get_current_user'),
     path('dashboard/', DashboardView.as_view(), name='dashboard'),
 ]
 

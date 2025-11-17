@@ -92,7 +92,7 @@ Before you begin, ensure you have the following installed:
    # You can use backend/.env.example as a template
    # Add the following variables:
    OPENROUTER_API_KEY=your_api_key_here
-   OPENROUTER_MODEL=google/gemini-2.5-pro
+   OPENROUTER_MODEL=openai/gpt-4o-mini
    DJANGO_SECRET_KEY=your_secret_key_here
    DJANGO_DEBUG=True
    ```

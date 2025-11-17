@@ -21,6 +21,35 @@ from processing.models import BatchUpload
 class CustomTokenObtainPairView(TokenObtainPairView):
     """Custom JWT token obtain view that uses email instead of username"""
     serializer_class = CustomTokenObtainPairSerializer
+    
+    def post(self, request, *args, **kwargs):
+        """Override to include user data in response"""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        # Get user from validated serializer
+        user = serializer.user
+        # Call parent to get tokens (this will validate again but that's okay)
+        response = super().post(request, *args, **kwargs)
+        if response.status_code == 200:
+            # Add user data to response
+            response.data['user'] = {
+                'email': user.email,
+                'first_name': user.first_name or '',
+                'last_name': user.last_name or '',
+            }
+        return response
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_current_user(request):
+    """Get current authenticated user information"""
+    user = request.user
+    return Response({
+        'email': user.email,
+        'first_name': user.first_name,
+        'last_name': user.last_name,
+    })
 
 
 @api_view(['POST'])

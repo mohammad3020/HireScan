@@ -12,7 +12,9 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
   useEffect(() => {
     // Check authentication status on mount
-    checkAuth();
+    checkAuth().catch(() => {
+      // Error handling is done in checkAuth
+    });
   }, [checkAuth]);
 
   // Check both store state and localStorage token

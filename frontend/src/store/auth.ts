@@ -22,14 +22,14 @@ export const useAuthStore = create<AuthState>()(
           email,
           password,
         });
-        const { access, refresh } = response.data;
+        const { access, refresh, user } = response.data;
         if (typeof window !== 'undefined') {
           localStorage.setItem('access_token', access);
           localStorage.setItem('refresh_token', refresh);
         }
         set({
           isAuthenticated: true,
-          user: { email },
+          user: user || { email },
         });
       },
       signup: async (email: string, password: string, password2: string, firstName?: string, lastName?: string) => {
@@ -71,11 +71,33 @@ export const useAuthStore = create<AuthState>()(
           localStorage.removeItem('refresh_token');
         }
       },
-      checkAuth: () => {
+      checkAuth: async () => {
         const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-        set({
-          isAuthenticated: !!token,
-        });
+        if (token) {
+          try {
+            // Fetch current user data
+            const response = await apiClient.get('/auth/me/');
+            set({
+              isAuthenticated: true,
+              user: response.data,
+            });
+          } catch (error) {
+            // If token is invalid, clear it
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('access_token');
+              localStorage.removeItem('refresh_token');
+            }
+            set({
+              isAuthenticated: false,
+              user: null,
+            });
+          }
+        } else {
+          set({
+            isAuthenticated: false,
+            user: null,
+          });
+        }
       },
     }),
     {
