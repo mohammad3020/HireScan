@@ -321,6 +321,20 @@ export const useAddNote = () => {
   });
 };
 
+export const useDeleteNote = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ candidateId, noteId }: { candidateId: number; noteId: number }) => {
+      await apiClient.delete(`/candidates/candidates/${candidateId}/delete_note/${noteId}/`);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['candidates', variables.candidateId] });
+      queryClient.invalidateQueries({ queryKey: ['candidates'] });
+    },
+  });
+};
+
 // CRUD Operations for Candidate
 export const useUpdateCandidate = () => {
   const queryClient = useQueryClient();

@@ -98,20 +98,50 @@ apiClient.interceptors.response.use(
             // Retry the original request with new token
             return apiClient(originalRequest);
           } else {
-            // No refresh token, redirect to login
-            localStorage.removeItem('access_token');
-            window.location.href = '/login';
+            // No refresh token, clear auth and redirect to login
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('access_token');
+              localStorage.removeItem('refresh_token');
+              // Update auth store
+              const { useAuthStore } = await import('../store/auth');
+              useAuthStore.getState().logout();
+              // Use replace to avoid back button issues
+              window.location.replace('/login');
+            }
+            return Promise.reject(error);
           }
         }
       } catch (refreshError: any) {
-        // Refresh failed (token expired or invalid), redirect to login
+        // Refresh failed (token expired or invalid), clear auth and redirect to login
         console.error('Token refresh failed:', refreshError);
         if (typeof window !== 'undefined') {
           localStorage.removeItem('access_token');
           localStorage.removeItem('refresh_token');
-          window.location.href = '/login';
+          // Update auth store
+          const { useAuthStore } = await import('../store/auth');
+          useAuthStore.getState().logout();
+          // Use replace to avoid back button issues
+          window.location.replace('/login');
         }
         return Promise.reject(refreshError);
+      }
+    }
+
+    // Handle specific token errors (like "Given token not valid for any token type")
+    if (error.response?.data?.detail || error.response?.data?.code) {
+      const detail = String(error.response.data.detail || error.response.data.code || '').toLowerCase();
+      if (detail.includes('token') || detail.includes('authentication') || detail.includes('not valid')) {
+        // Token-related error, clear auth and redirect
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+          // Import and update auth store synchronously
+          import('../store/auth').then(({ useAuthStore }) => {
+            useAuthStore.getState().logout();
+          });
+          window.location.replace('/login');
+        }
+        return Promise.reject(error);
       }
     }
 

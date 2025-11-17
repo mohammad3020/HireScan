@@ -1570,7 +1570,7 @@ def _process_single_file_item(file_item, batch, counters, lock):
 
 def process_batch_service(batch_id):
     """
-    Process a batch of uploaded files using 3 threads for concurrent processing
+    Process a batch of uploaded files using 10 threads for concurrent processing
     
     Args:
         batch_id: BatchUpload ID
@@ -1586,7 +1586,7 @@ def process_batch_service(batch_id):
     
     batch.status = 'processing'
     batch.save()
-    logger.info(f"Starting processing for batch {batch_id} (job: {batch.job.id if batch.job else 'None'}) with 3 threads")
+    logger.info(f"Starting processing for batch {batch_id} (job: {batch.job.id if batch.job else 'None'}) with 10 threads")
     
     file_items = list(batch.file_items.all())
     batch.total_files = len(file_items)
@@ -1603,8 +1603,8 @@ def process_batch_service(batch_id):
     lock = Lock()
     
     try:
-        # Use ThreadPoolExecutor with 3 workers to process 3 CVs simultaneously
-        with ThreadPoolExecutor(max_workers=3) as executor:
+        # Use ThreadPoolExecutor with 10 workers to process 10 CVs simultaneously
+        with ThreadPoolExecutor(max_workers=10) as executor:
             # Submit all file items to the thread pool
             future_to_file_item = {
                 executor.submit(_process_single_file_item, file_item, batch, counters, lock): file_item

@@ -13,8 +13,9 @@ import {
   Star,
   Tag,
   ChevronDown,
+  X,
 } from 'lucide-react';
-import { useCandidate, useAddNote } from '../api/candidates';
+import { useCandidate, useAddNote, useDeleteNote } from '../api/candidates';
 import type { TimelineEvent } from '../api/candidates';
 import { useCandidatesStore } from '../store/candidates';
 
@@ -86,6 +87,7 @@ export const CandidateDetail = () => {
   const [newNote, setNewNote] = useState('');
   const { data: candidate, isLoading, error } = useCandidate(candidateId);
   const addNote = useAddNote();
+  const deleteNote = useDeleteNote();
   const { favorites, categories, setFavorite, setCategory } = useCandidatesStore();
 
   // Scroll to section when hash is present in URL
@@ -206,6 +208,21 @@ export const CandidateDetail = () => {
         console.error('Failed to add note:', error);
         alert('Failed to add note. Please try again.');
       }
+    }
+  };
+
+  const handleDeleteNote = async (noteId: number) => {
+    if (!candidateId || !window.confirm('Are you sure you want to delete this note?')) {
+      return;
+    }
+    try {
+      await deleteNote.mutateAsync({
+        candidateId,
+        noteId,
+      });
+    } catch (error) {
+      console.error('Failed to delete note:', error);
+      alert('Failed to delete note. Please try again.');
     }
   };
 
@@ -852,12 +869,22 @@ export const CandidateDetail = () => {
             {candidate.notes && candidate.notes.length > 0 && (
               <div className="space-y-4 mb-4">
                 {candidate.notes.map((note: any) => (
-                  <div key={note.id} className="p-4 bg-gray-50 rounded-lg">
+                  <div key={note.id} className="p-4 bg-gray-50 rounded-lg relative group">
                     <div className="flex items-start justify-between mb-2">
                       <p className="text-sm font-medium text-gray-900">{note.user_email || 'Unknown User'}</p>
-                      <p className="text-xs text-gray-500">
-                        {new Date(note.created_at).toLocaleDateString()}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs text-gray-500">
+                          {new Date(note.created_at).toLocaleDateString()}
+                        </p>
+                        <button
+                          onClick={() => handleDeleteNote(note.id)}
+                          disabled={deleteNote.isPending}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-red-100 text-red-600 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Delete note"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                     <p className="text-sm text-gray-700">{note.content}</p>
                   </div>

@@ -106,6 +106,26 @@ class CandidateViewSet(viewsets.ModelViewSet):
         notes = candidate.notes.all()
         serializer = NoteSerializer(notes, many=True)
         return Response(serializer.data)
+    
+    @action(detail=True, methods=['delete'], url_path='delete_note/(?P<note_id>[^/.]+)')
+    def delete_note(self, request, pk=None, note_id=None):
+        """Delete a note from a candidate"""
+        candidate = self.get_object()
+        try:
+            note = candidate.notes.get(id=note_id)
+            # Only allow the note creator or superuser to delete
+            if note.user != request.user and not request.user.is_superuser:
+                return Response(
+                    {'error': 'You do not have permission to delete this note.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            note.delete()
+            return Response({'message': 'Note deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
+        except Note.DoesNotExist:
+            return Response(
+                {'error': 'Note not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
 
 class ResumeViewSet(viewsets.ModelViewSet):
