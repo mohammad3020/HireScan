@@ -68,24 +68,18 @@ def main():
     parser = argparse.ArgumentParser(description='Test AI service with resume parsing')
     parser.add_argument('model', nargs='?', default='anthropic/claude-3.5-sonnet',
                        help='LLM model name (default: anthropic/claude-3.5-sonnet)')
-    parser.add_argument('--use-pypdf', action='store_true',
-                       help='Use pypdf to extract text instead of sending file directly to OpenRouter')
     parser.add_argument('--pdf-engine', choices=['pdf-text', 'mistral-ocr', 'native'],
-                       help='PDF processing engine for OpenRouter (only used when not using pypdf)')
+                       help='PDF processing engine for OpenRouter')
     
     args = parser.parse_args()
     
     model = args.model
-    use_pypdf = args.use_pypdf
     pdf_engine = args.pdf_engine
     
     print(f"🤖 Using model: {model}")
-    if use_pypdf:
-        print("📄 Using pypdf for text extraction")
-    else:
-        print("📄 Sending file directly to OpenRouter (default)")
-        if pdf_engine:
-            print(f"📄 PDF engine: {pdf_engine}")
+    print("📄 Sending file directly to OpenRouter (PDF as base64, DOCX as text)")
+    if pdf_engine:
+        print(f"📄 PDF engine: {pdf_engine}")
     print()
     
     try:
@@ -98,7 +92,6 @@ def main():
             file_path=str(cv_file),
             prompt_name=prompt_name,
             model=model,
-            use_pypdf=use_pypdf,
             pdf_engine=pdf_engine,
             temperature=0.7,
             max_tokens=4000,

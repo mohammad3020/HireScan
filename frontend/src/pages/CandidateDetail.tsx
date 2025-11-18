@@ -61,6 +61,15 @@ const formatDuration = (seconds: number) => {
   return `${minutes}m ${secondsDisplay}s`;
 };
 
+// Helper function to check if a value is truly empty (null, undefined, empty string, empty array, empty object)
+const isEmpty = (value: any): boolean => {
+  if (value === null || value === undefined) return true;
+  if (typeof value === 'string' && value.trim() === '') return true;
+  if (Array.isArray(value) && value.length === 0) return true;
+  if (typeof value === 'object' && Object.keys(value).length === 0) return true;
+  return false;
+};
+
 type CandidateCategory =
   | 'shortlisted'
   | 'rejected'
@@ -162,22 +171,23 @@ export const CandidateDetail = () => {
   const projects = extractedData?.projects || [];
   const awards = extractedData?.awards || [];
   const languages = extractedData?.languages || [];
-  // Handle courses and certifications as string arrays (new format) or objects (legacy format)
-  const coursesRaw = extractedData?.courses || [];
-  const certificationsRaw = extractedData?.certifications || [];
-  
-  // Normalize courses: if string array, use as is; if object array, extract names
-  const courses = coursesRaw.map((course: any) => 
-    typeof course === 'string' ? course : (course?.name || course?.toString())
-  ).filter(Boolean);
-  
-  // Normalize certifications: if string array, use as is; if object array, extract names
-  const certifications = certificationsRaw.map((cert: any) => 
-    typeof cert === 'string' ? cert : (cert?.name || cert?.toString())
-  ).filter(Boolean);
+  // Handle courses and certifications as objects (with all fields)
+  const courses = extractedData?.courses || [];
+  const certifications = extractedData?.certifications || [];
+  const publications = extractedData?.publications || [];
+  const otherSections = extractedData?.other_sections || {};
   const extractionNotes = extractedData?.extraction_notes || {};
-  const interpretation = parsedResume?.interpretation;
-  const finalScores = parsedResume?.scoring_results?.final_scores;
+  const interests = extractedData?.interests || {};
+  // Try to get scoring_results from parsedResume.scoring_results first, then from parsed_data
+  const scoringResults = parsedResume?.scoring_results || parsedResume?.parsed_data?.scoring_results || {};
+  const finalScores = scoringResults?.final_scores || {};
+  const scoringDetails = scoringResults;
+  // Try to get interpretation from scoring_results.interpretation first (as per parse_resume.md),
+  // then from parsedResume.interpretation, then from parsed_data.interpretation
+  const interpretation = scoringResults?.interpretation || 
+                        parsedResume?.interpretation || 
+                        parsedResume?.parsed_data?.interpretation || {};
+  const auditTrail = parsedResume?.audit_trail || parsedResume?.parsed_data?.audit_trail || {};
   const timelineEvents: TimelineEvent[] = candidate.timeline_events ?? [];
   const uploadEvent = timelineEvents.find((event) => event.event_type === 'uploaded');
   const parsedEvent = timelineEvents.find((event) => event.event_type === 'parsed');
@@ -445,54 +455,6 @@ export const CandidateDetail = () => {
                   </p>
                 </div>
               </div>
-              {(personalInfo?.links?.linkedin || candidate.linkedin_url) && (
-                <div className="flex items-center space-x-3">
-                  <Linkedin className="h-5 w-5 text-gray-400" />
-                  <div>
-                    <p className="text-sm text-gray-600">LinkedIn</p>
-                    <a
-                      href={personalInfo?.links?.linkedin || candidate.linkedin_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm font-medium text-primary hover:underline"
-                    >
-                      View Profile
-                    </a>
-                  </div>
-                </div>
-              )}
-              {personalInfo?.links?.portfolio && (
-                <div className="flex items-center space-x-3">
-                  <Wallet className="h-5 w-5 text-gray-400" />
-                  <div>
-                    <p className="text-sm text-gray-600">Portfolio</p>
-                    <a
-                      href={personalInfo.links.portfolio}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm font-medium text-primary hover:underline"
-                    >
-                      View Portfolio
-                    </a>
-                  </div>
-                </div>
-              )}
-              {personalInfo?.links?.github && (
-                <div className="flex items-center space-x-3">
-                  <Linkedin className="h-5 w-5 text-gray-400" />
-                  <div>
-                    <p className="text-sm text-gray-600">GitHub</p>
-                    <a
-                      href={personalInfo.links.github}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm font-medium text-primary hover:underline"
-                    >
-                      View Profile
-                    </a>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
@@ -512,26 +474,30 @@ export const CandidateDetail = () => {
                 {educationEntries.map((edu: any, index: number) => (
                   <div key={`education-${index}`} className="border-l-4 border-secondary pl-4">
                     <div className="flex flex-col gap-1">
-                      <h3 className="text-lg font-semibold text-gray-900">{edu.degree ?? edu.title}</h3>
-                      <p className="text-sm font-medium text-gray-600">{edu.institution ?? edu.school}</p>
-                      {(edu.field || edu.major) && (
+                      {!isEmpty(edu.degree ?? edu.title) && (
+                        <h3 className="text-lg font-semibold text-gray-900">{edu.degree ?? edu.title}</h3>
+                      )}
+                      {!isEmpty(edu.institution ?? edu.school) && (
+                        <p className="text-sm font-medium text-gray-600">{edu.institution ?? edu.school}</p>
+                      )}
+                      {!isEmpty(edu.field || edu.major) && (
                         <p className="text-sm text-gray-600">{edu.field ?? edu.major}</p>
                       )}
-                      {edu.institution_category && (
+                      {!isEmpty(edu.institution_category) && (
                         <p className="text-xs text-gray-500 italic">{edu.institution_category}</p>
                       )}
                       {(formatDate(edu.start_date) || formatDate(edu.end_date) || edu.graduation_year) && (
                         <p className="text-sm text-gray-500 mt-1">
-                          {formatDate(edu.start_date) ?? '—'}{' '}
-                          -{' '}
-                          {formatDate(edu.end_date) ?? (edu.graduation_year ? `Graduated ${edu.graduation_year}` : 'Present')}
+                          {formatDate(edu.start_date) || ''}{' '}
+                          {formatDate(edu.start_date) && formatDate(edu.end_date) && '- '}
+                          {formatDate(edu.end_date) || (edu.graduation_year ? `Graduated ${edu.graduation_year}` : 'Present')}
                           {!formatDate(edu.end_date) && edu.graduation_year && formatDate(edu.start_date) && ` (${edu.graduation_year})`}
                         </p>
                       )}
-                      {edu.gpa && (
+                      {!isEmpty(edu.gpa) && (
                         <p className="text-sm text-gray-500">GPA: {edu.gpa}</p>
                       )}
-                      {edu.description && <p className="text-sm text-gray-600 mt-2">{edu.description}</p>}
+                      {!isEmpty(edu.description) && <p className="text-sm text-gray-600 mt-2">{edu.description}</p>}
                     </div>
                   </div>
                 ))}
@@ -551,55 +517,92 @@ export const CandidateDetail = () => {
                   </span>
                 )}
               </div>
-              <div className="space-y-6">
-                {experienceEntries.map((exp: any) => (
-                  <div key={exp.id} className="border-l-4 border-secondary pl-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-gray-900">{exp.job_title || exp.role || 'Unknown Position'}</h3>
-                        <p className="text-sm font-medium text-gray-600">{exp.company || 'Unknown Company'}</p>
-                        {(exp.start_date || exp.end_date) && (
-                          <p className="text-sm text-gray-500 mt-1">
-                            {formatDate(exp.start_date) || '—'}{' '}
-                            -{' '}
-                            {exp.is_currently_employed || exp.is_current
-                              ? 'Present'
-                              : formatDate(exp.end_date) || 'Present'}
-                            {exp.duration && ` (${exp.duration})`}
-                          </p>
+              <div className="space-y-8">
+                {(() => {
+                  // Group experiences by normalized job_title (case-insensitive, trimmed)
+                  // This ensures identical job titles are grouped together
+                  const groupedByTitle: Record<string, { title: string; experiences: any[] }> = {};
+                  
+                  experienceEntries.forEach((exp: any) => {
+                    const originalTitle = (exp.job_title || exp.role || 'Other').trim();
+                    // Normalize title for grouping (lowercase, trimmed)
+                    const normalizedTitle = originalTitle.toLowerCase().trim();
+                    
+                    if (!groupedByTitle[normalizedTitle]) {
+                      groupedByTitle[normalizedTitle] = {
+                        title: originalTitle, // Keep original title for display
+                        experiences: []
+                      };
+                    }
+                    groupedByTitle[normalizedTitle].experiences.push(exp);
+                  });
+
+                  return Object.values(groupedByTitle).map((group, groupIndex) => {
+                    const { title: jobTitle, experiences } = group;
+                    const displayTitle = !isEmpty(jobTitle) && jobTitle !== 'Other' ? jobTitle : null;
+                    
+                    return (
+                      <div key={`${jobTitle}-${groupIndex}`} className="space-y-4">
+                        {displayTitle && (
+                          <h3 className="text-xl font-bold text-gray-900 border-b-2 border-primary pb-2">
+                            {displayTitle}
+                          </h3>
                         )}
-                        {exp.location && (
-                          <p className="text-sm text-gray-500">{exp.location}</p>
-                        )}
-                        {exp.reasoning && (
-                          <p className="text-sm text-gray-600 mt-2">{exp.reasoning}</p>
-                        )}
-                        {exp.responsibilities && exp.responsibilities.length > 0 && (
-                          <ul className="list-disc list-inside text-sm text-gray-600 mt-2 space-y-1">
-                            {exp.responsibilities.map((resp: string, idx: number) => (
-                              <li key={idx}>{resp}</li>
-                            ))}
-                          </ul>
-                        )}
-                        {exp.extracted_skills && exp.extracted_skills.length > 0 && (
-                          <div className="mt-3">
-                            <p className="text-xs font-semibold text-gray-500 mb-1">Skills Extracted:</p>
-                            <div className="flex flex-wrap gap-2">
-                              {exp.extracted_skills.map((skill: string, idx: number) => (
-                                <span
-                                  key={idx}
-                                  className="px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium border border-blue-100"
-                                >
-                                  {skill}
-                                </span>
-                              ))}
+                        <div className="space-y-4 pl-4">
+                          {experiences.map((exp: any, expIndex: number) => (
+                            <div key={exp.id || `exp-${groupIndex}-${expIndex}`} className="border-l-4 border-secondary pl-4">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  {!isEmpty(exp.company) && (
+                                    <p className="text-sm font-medium text-gray-600">{exp.company}</p>
+                                  )}
+                                  {(exp.start_date || exp.end_date) && (
+                                    <p className="text-sm text-gray-500 mt-1">
+                                      {formatDate(exp.start_date) || ''}{' '}
+                                      {formatDate(exp.start_date) && formatDate(exp.end_date) && '- '}
+                                      {exp.is_currently_employed || exp.is_current
+                                        ? 'Present'
+                                        : formatDate(exp.end_date) || 'Present'}
+                                      {!isEmpty(exp.duration) && ` (${exp.duration})`}
+                                    </p>
+                                  )}
+                                  {!isEmpty(exp.location) && (
+                                    <p className="text-sm text-gray-500">{exp.location}</p>
+                                  )}
+                                  {!isEmpty(exp.reasoning) && (
+                                    <p className="text-sm text-gray-600 mt-2">{exp.reasoning}</p>
+                                  )}
+                                  {exp.responsibilities && exp.responsibilities.length > 0 && (
+                                    <ul className="list-disc list-inside text-sm text-gray-600 mt-2 space-y-1">
+                                      {exp.responsibilities.map((resp: string, idx: number) => (
+                                        <li key={idx}>{resp}</li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                  {exp.extracted_skills && exp.extracted_skills.length > 0 && (
+                                    <div className="mt-3">
+                                      <p className="text-xs font-semibold text-gray-500 mb-1">Skills Extracted:</p>
+                                      <div className="flex flex-wrap gap-2">
+                                        {exp.extracted_skills.map((skill: string, idx: number) => (
+                                          <span
+                                            key={idx}
+                                            className="px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium border border-blue-100"
+                                          >
+                                            {skill}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                ))}
+                    );
+                  });
+                })()}
               </div>
             </div>
           )}
@@ -660,11 +663,28 @@ export const CandidateDetail = () => {
               <div className="space-y-4">
                 {projects.map((project: any) => (
                   <div key={project.id} className="border-l-4 border-secondary pl-4">
-                    <h3 className="text-lg font-semibold text-gray-900">{project.name}</h3>
-                    {project.role && <p className="text-sm text-gray-600">Role: {project.role}</p>}
-                    {project.date && <p className="text-sm text-gray-500">{project.date}</p>}
-                    {project.description && <p className="text-sm text-gray-600 mt-2">{project.description}</p>}
-                    {project.link && (
+                    {!isEmpty(project.name) && (
+                      <h3 className="text-lg font-semibold text-gray-900">{project.name}</h3>
+                    )}
+                    {!isEmpty(project.role) && <p className="text-sm text-gray-600">Role: {project.role}</p>}
+                    {!isEmpty(project.date) && <p className="text-sm text-gray-500">{project.date}</p>}
+                    {project.technologies && Array.isArray(project.technologies) && project.technologies.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-xs font-semibold text-gray-600 mb-1">Technologies:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {project.technologies.map((tech: string, idx: number) => (
+                            <span
+                              key={idx}
+                              className="px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium border border-blue-100"
+                            >
+                              {tech}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {!isEmpty(project.description) && <p className="text-sm text-gray-600 mt-2">{project.description}</p>}
+                    {!isEmpty(project.link) && (
                       <a href={project.link} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline mt-1 block">
                         View Project
                       </a>
@@ -683,10 +703,12 @@ export const CandidateDetail = () => {
                 {awards.map((award: any) => (
                   <div key={award.id} className="flex items-start space-x-3">
                     <div className="flex-1">
-                      <h3 className="text-sm font-semibold text-gray-900">{award.title}</h3>
-                      {award.issuer && <p className="text-xs text-gray-600">{award.issuer}</p>}
-                      {award.rank && <p className="text-xs text-gray-500">{award.rank}</p>}
-                      {award.date && <p className="text-xs text-gray-500">{award.date}</p>}
+                      {!isEmpty(award.title) && (
+                        <h3 className="text-sm font-semibold text-gray-900">{award.title}</h3>
+                      )}
+                      {!isEmpty(award.issuer) && <p className="text-xs text-gray-600">{award.issuer}</p>}
+                      {!isEmpty(award.rank) && <p className="text-xs text-gray-500">{award.rank}</p>}
+                      {!isEmpty(award.date) && <p className="text-xs text-gray-500">{award.date}</p>}
                     </div>
                   </div>
                 ))}
@@ -698,12 +720,98 @@ export const CandidateDetail = () => {
           {languages.length > 0 && (
             <div className="card p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Languages</h2>
-              <div className="space-y-2">
+              <div className="space-y-4">
                 {languages.map((lang: any) => (
-                  <div key={lang.id} className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-900">{lang.language}</span>
-                    {lang.proficiency && (
-                      <span className="text-xs text-gray-600">{lang.proficiency}</span>
+                  <div key={lang.id} className="border-l-4 border-indigo-200 pl-4">
+                    {!isEmpty(lang.language) && (
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-semibold text-gray-900">{lang.language}</span>
+                        {!isEmpty(lang.proficiency) && (
+                          <span className="text-xs text-gray-600 bg-indigo-50 px-2 py-1 rounded-full">
+                            {lang.proficiency}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {lang.skills && typeof lang.skills === 'object' && Object.keys(lang.skills).length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        <p className="text-xs font-semibold text-gray-600 mb-1">Skills:</p>
+                        <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
+                          {lang.skills.speaking && (
+                            <div>Speaking: <span className="font-medium">{lang.skills.speaking}</span></div>
+                          )}
+                          {lang.skills.writing && (
+                            <div>Writing: <span className="font-medium">{lang.skills.writing}</span></div>
+                          )}
+                          {lang.skills.listening && (
+                            <div>Listening: <span className="font-medium">{lang.skills.listening}</span></div>
+                          )}
+                          {lang.skills.reading && (
+                            <div>Reading: <span className="font-medium">{lang.skills.reading}</span></div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {lang.certificates && Array.isArray(lang.certificates) && lang.certificates.length > 0 && (
+                      <div className="mt-3">
+                        <p className="text-xs font-semibold text-gray-600 mb-1">Certificates:</p>
+                        <div className="space-y-1">
+                          {lang.certificates.map((cert: any, idx: number) => (
+                            <div key={idx} className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                              {cert.test && <span className="font-medium">{cert.test}</span>}
+                              {cert.score && cert.test && ' - '}
+                              {cert.score && <span>Score: {cert.score}</span>}
+                              {cert.date && (cert.test || cert.score) && ' • '}
+                              {cert.date && <span>{cert.date}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Publications */}
+          {publications.length > 0 && (
+            <div className="card p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Publications</h2>
+              <div className="space-y-4">
+                {publications.map((pub: any) => (
+                  <div key={pub.id} className="border-l-4 border-purple-200 pl-4">
+                    {!isEmpty(pub.title) && (
+                      <h3 className="text-sm font-semibold text-gray-900">{pub.title}</h3>
+                    )}
+                    {pub.authors && Array.isArray(pub.authors) && pub.authors.length > 0 && (
+                      <p className="text-xs text-gray-600 mt-1">Authors: {pub.authors.join(', ')}</p>
+                    )}
+                    {(!isEmpty(pub.venue) || !isEmpty(pub.year)) && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        {pub.venue && pub.venue}
+                        {pub.venue && pub.year && ', '}
+                        {pub.year && pub.year}
+                      </p>
+                    )}
+                    {!isEmpty(pub.volume_pages) && (
+                      <p className="text-xs text-gray-500 mt-1">{pub.volume_pages}</p>
+                    )}
+                    {!isEmpty(pub.doi) && (
+                      <p className="text-xs text-gray-500 mt-1">DOI: {pub.doi}</p>
+                    )}
+                    {!isEmpty(pub.citations) && (
+                      <p className="text-xs text-gray-500 mt-1">Citations: {pub.citations}</p>
+                    )}
+                    {!isEmpty(pub.link) && (
+                      <a
+                        href={pub.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline mt-1 block"
+                      >
+                        View Publication
+                      </a>
                     )}
                   </div>
                 ))}
@@ -715,35 +823,170 @@ export const CandidateDetail = () => {
             <div className="card p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Learning & Certifications</h2>
               {courses.length > 0 && (
-                <div className="mb-4">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Courses</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {courses.map((course: string, idx: number) => (
-                      <span
-                        key={`course-${idx}-${course}`}
-                        className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium border border-blue-100"
-                      >
-                        {course}
-                      </span>
-                    ))}
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Courses</h3>
+                  <div className="space-y-4">
+                    {courses.map((course: any, idx: number) => {
+                      const courseName = typeof course === 'string' ? course : course?.name;
+                      if (isEmpty(courseName)) return null;
+                      return (
+                        <div key={`course-${idx}`} className="border-l-4 border-blue-200 pl-4">
+                          <h4 className="text-sm font-semibold text-gray-900">{courseName}</h4>
+                          {!isEmpty(course.provider) && (
+                            <p className="text-xs text-gray-600 mt-1">Provider: {course.provider}</p>
+                          )}
+                          {(!isEmpty(course.completion_date) || !isEmpty(course.duration)) && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              {course.completion_date && `Completed: ${course.completion_date}`}
+                              {course.completion_date && course.duration && ' • '}
+                              {course.duration && `Duration: ${course.duration}`}
+                            </p>
+                          )}
+                          {!isEmpty(course.instructor) && (
+                            <p className="text-xs text-gray-500 mt-1">Instructor: {course.instructor}</p>
+                          )}
+                          {!isEmpty(course.verification_link) && (
+                            <a
+                              href={course.verification_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-primary hover:underline mt-1 block"
+                            >
+                              View Certificate
+                            </a>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
               {certifications.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Certifications</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {certifications.map((cert: string, idx: number) => (
-                      <span
-                        key={`cert-${idx}-${cert}`}
-                        className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-sm font-medium border border-green-100"
-                      >
-                        {cert}
-                      </span>
-                    ))}
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Certifications</h3>
+                  <div className="space-y-4">
+                    {certifications.map((cert: any, idx: number) => {
+                      const certName = typeof cert === 'string' ? cert : cert?.name;
+                      if (isEmpty(certName)) return null;
+                      return (
+                        <div key={`cert-${idx}`} className="border-l-4 border-green-200 pl-4">
+                          <h4 className="text-sm font-semibold text-gray-900">{certName}</h4>
+                          {!isEmpty(cert.issuer) && (
+                            <p className="text-xs text-gray-600 mt-1">Issuer: {cert.issuer}</p>
+                          )}
+                          {!isEmpty(cert.date) && (
+                            <p className="text-xs text-gray-500 mt-1">Date: {cert.date}</p>
+                          )}
+                          {!isEmpty(cert.description) && (
+                            <p className="text-xs text-gray-600 mt-1">{cert.description}</p>
+                          )}
+                          {!isEmpty(cert.verification_link) && (
+                            <a
+                              href={cert.verification_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-primary hover:underline mt-1 block"
+                            >
+                              Verify Certificate
+                            </a>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Other Sections */}
+          {otherSections && Object.keys(otherSections).length > 0 && (
+            <div className="card p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Additional Information</h2>
+              <div className="space-y-4">
+                {otherSections.professional_summary && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-2">Professional Summary</h3>
+                    <p className="text-sm text-gray-600 leading-relaxed">{otherSections.professional_summary}</p>
+                  </div>
+                )}
+                {otherSections.career_objectives && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-2">Career Objectives</h3>
+                    <p className="text-sm text-gray-600 leading-relaxed">{otherSections.career_objectives}</p>
+                  </div>
+                )}
+                {otherSections.references && Array.isArray(otherSections.references) && otherSections.references.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-2">References</h3>
+                    <ul className="list-disc list-inside space-y-1 text-sm text-gray-600">
+                      {otherSections.references.map((ref: string, idx: number) => (
+                        <li key={idx}>{ref}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {otherSections.custom_sections && Array.isArray(otherSections.custom_sections) && otherSections.custom_sections.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-2">Custom Sections</h3>
+                    <div className="space-y-3">
+                      {otherSections.custom_sections.map((section: any, idx: number) => (
+                        <div key={idx} className="border-l-4 border-gray-200 pl-4">
+                          {section.title && (
+                            <h4 className="text-sm font-semibold text-gray-900 mb-1">{section.title}</h4>
+                          )}
+                          {section.content && (
+                            <p className="text-sm text-gray-600">{section.content}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Interests */}
+          {interests && Object.keys(interests).length > 0 && (
+            <div className="card p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Interests & Activities</h2>
+              <div className="space-y-4">
+                {Object.entries(interests).map(([key, value]) => {
+                  if (!value || (Array.isArray(value) && value.length === 0)) {
+                    return null;
+                  }
+                  return (
+                    <div key={key}>
+                      <h3 className="text-sm font-semibold text-gray-700 mb-2 capitalize">
+                        {key.replace(/_/g, ' ')}
+                      </h3>
+                      {Array.isArray(value) ? (
+                        <div className="flex flex-wrap gap-2">
+                          {value.map((item: string, idx: number) => (
+                            <span
+                              key={idx}
+                              className="px-3 py-1 bg-purple-50 text-purple-700 rounded-full text-sm font-medium border border-purple-100"
+                            >
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      ) : typeof value === 'object' ? (
+                        <div className="text-sm text-gray-600 space-y-1">
+                          {Object.entries(value as Record<string, any>).map(([subKey, subValue]) => (
+                            <div key={subKey}>
+                              <span className="font-medium">{subKey}:</span> {String(subValue)}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-600">{String(value)}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -820,7 +1063,7 @@ export const CandidateDetail = () => {
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Scoring Summary */}
-          {finalScores && (
+          {(finalScores && Object.keys(finalScores).length > 0) && (
             <div className="card p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Score Summary</h2>
               <div className="grid grid-cols-2 gap-4">
@@ -849,6 +1092,34 @@ export const CandidateDetail = () => {
                   </div>
                 )}
               </div>
+              {/* Detailed Calculations */}
+              {scoringDetails && Object.keys(scoringDetails).length > 0 && Object.keys(scoringDetails).some(key => key !== 'final_scores') && (
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                  <details className="group">
+                    <summary className="cursor-pointer text-sm font-semibold text-gray-700 hover:text-gray-900 flex items-center gap-2">
+                      <span>Detailed Calculations</span>
+                      <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+                    </summary>
+                    <div className="mt-4 space-y-3 text-xs text-gray-600">
+                      {Object.entries(scoringDetails).map(([key, value]) => {
+                        if (key === 'final_scores' || !value) return null;
+                        return (
+                          <div key={key} className="bg-gray-50 p-3 rounded-lg">
+                            <p className="font-semibold text-gray-700 mb-1 uppercase">{key.replace(/_/g, ' ')}</p>
+                            {typeof value === 'object' ? (
+                              <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
+                                {JSON.stringify(value, null, 2)}
+                              </pre>
+                            ) : (
+                              <p>{String(value)}</p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </details>
+                </div>
+              )}
             </div>
           )}
 
@@ -913,7 +1184,7 @@ export const CandidateDetail = () => {
             </dl>
           </div>
 
-          {interpretation && (
+          {interpretation && Object.keys(interpretation).length > 0 && (
             <div id={parsedResume?.ai_review ? 'ai-review-interpretation' : 'ai-review'} className="card p-6 space-y-5 scroll-mt-24">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-primary" />
@@ -995,6 +1266,76 @@ export const CandidateDetail = () => {
                   </ul>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Audit Trail */}
+          {auditTrail && Object.keys(auditTrail).length > 0 && (
+            <div className="card p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Audit Trail</h2>
+              <div className="space-y-4 text-sm text-gray-700">
+                {auditTrail.data_completeness && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-800 mb-2">Data Completeness</h3>
+                    <div className="bg-gray-50 p-3 rounded-lg space-y-1">
+                      {auditTrail.data_completeness.positions_complete !== undefined && (
+                        <p className="text-xs">
+                          Positions: {auditTrail.data_completeness.positions_complete} / {auditTrail.data_completeness.positions_total || 'N/A'}
+                        </p>
+                      )}
+                      {auditTrail.data_completeness.education_complete !== undefined && (
+                        <p className="text-xs">
+                          Education: {auditTrail.data_completeness.education_complete} / {auditTrail.data_completeness.education_total || 'N/A'}
+                        </p>
+                      )}
+                      {auditTrail.data_completeness.missing_fields && Array.isArray(auditTrail.data_completeness.missing_fields) && auditTrail.data_completeness.missing_fields.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-xs font-semibold text-gray-600 mb-1">Missing Fields:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {auditTrail.data_completeness.missing_fields.map((field: string, idx: number) => (
+                              <span key={idx} className="px-2 py-0.5 bg-yellow-50 text-yellow-700 rounded text-xs border border-yellow-200">
+                                {field}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {auditTrail.assumptions_made && Array.isArray(auditTrail.assumptions_made) && auditTrail.assumptions_made.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-800 mb-2">Assumptions Made</h3>
+                    <ul className="list-disc list-inside space-y-1 text-xs text-gray-600">
+                      {auditTrail.assumptions_made.map((assumption: string, idx: number) => (
+                        <li key={idx}>{assumption}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {auditTrail.edge_cases && Array.isArray(auditTrail.edge_cases) && auditTrail.edge_cases.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-800 mb-2">Edge Cases</h3>
+                    <ul className="list-disc list-inside space-y-1 text-xs text-gray-600">
+                      {auditTrail.edge_cases.map((edgeCase: string, idx: number) => (
+                        <li key={idx}>{edgeCase}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {auditTrail.warnings && Array.isArray(auditTrail.warnings) && auditTrail.warnings.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-800 mb-2">Warnings</h3>
+                    <div className="space-y-1">
+                      {auditTrail.warnings.map((warning: string, idx: number) => (
+                        <div key={idx} className="text-xs text-yellow-700 bg-yellow-50 p-2 rounded border border-yellow-200">
+                          {warning}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

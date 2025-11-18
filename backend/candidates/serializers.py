@@ -173,9 +173,9 @@ class ParsedResumeSerializer(serializers.ModelSerializer):
             "projects": ProjectSerializer(obj.projects.all(), many=True).data,
             "awards": AwardSerializer(obj.awards.all(), many=True).data,
             "languages": LanguageSerializer(obj.languages.all(), many=True).data,
-            # Return courses and certifications as string arrays (new format) to match new JSON structure
-            "courses": [course.name for course in obj.courses.all()],
-            "certifications": [cert.name for cert in obj.certifications.all()],
+            # Return courses and certifications as full objects with all fields
+            "courses": CourseSerializer(obj.courses.all(), many=True).data,
+            "certifications": CertificationSerializer(obj.certifications.all(), many=True).data,
             "publications": PublicationSerializer(obj.publications.all(), many=True).data,
             "interests": obj.interests or {},
             "other_sections": obj.other_sections or {},
@@ -192,10 +192,14 @@ class ParsedResumeSerializer(serializers.ModelSerializer):
             "seniority_match_score": self._format_score(obj.seniority_match_score),
         }
         other_sections = obj.scoring_details or {}
-        return {
+        result = {
             "final_scores": final_scores,
             **other_sections
         }
+        # Include interpretation in scoring_results if it exists (as per parse_resume.md)
+        if obj.interpretation:
+            result["interpretation"] = obj.interpretation
+        return result
 
     def get_interpretation(self, obj):
         return obj.interpretation or {}

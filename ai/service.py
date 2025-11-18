@@ -9,13 +9,8 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 import requests
 
-# Try to import PDF/DOCX text extraction libraries
-try:
-    from pypdf import PdfReader
-    HAS_PYPDF = True
-except ImportError:
-    HAS_PYPDF = False
-
+# Try to import DOCX text extraction library (for DOCX files only)
+# PDF files are sent directly to OpenRouter as base64 data URL
 try:
     from docx import Document
     HAS_DOCX = True
@@ -67,43 +62,30 @@ def _get_mime_type(file_path: str) -> str:
     return mime_types.get(ext, 'application/octet-stream')
 
 
-def _extract_text_from_file(file_path: str) -> str:
+def _extract_text_from_docx(file_path: str) -> str:
     """
-    Extract text from PDF or DOCX file
+    Extract text from DOCX file (PDF files are sent directly to OpenRouter)
     
     Args:
-        file_path: Path to the file
+        file_path: Path to the DOCX file
         
     Returns:
         Extracted text as string
     """
     file_ext = Path(file_path).suffix.lower()
     
-    if file_ext == '.pdf':
-        if not HAS_PYPDF:
-            raise ImportError("pypdf is required for PDF text extraction. Install it with: pip install pypdf")
-        try:
-            with open(file_path, 'rb') as file:
-                pdf_reader = PdfReader(file, strict=False)
-                text = ""
-                for page in pdf_reader.pages:
-                    text += (page.extract_text() or "") + "\n"
-                return text
-        except Exception as e:
-            raise ValueError(f"Error reading PDF: {str(e)}")
+    if file_ext not in ['.doc', '.docx']:
+        raise ValueError(f"Text extraction only supported for DOCX files. File type: {file_ext}")
     
-    elif file_ext in ['.doc', '.docx']:
-        if not HAS_DOCX:
-            raise ImportError("python-docx is required for DOCX text extraction. Install it with: pip install python-docx")
-        try:
-            doc = Document(file_path)
-            text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
-            return text
-        except Exception as e:
-            raise ValueError(f"Error reading DOCX: {str(e)}")
+    if not HAS_DOCX:
+        raise ImportError("python-docx is required for DOCX text extraction. Install it with: pip install python-docx")
     
-    else:
-        raise ValueError(f"Text extraction not supported for file type: {file_ext}")
+    try:
+        doc = Document(file_path)
+        text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
+        return text
+    except Exception as e:
+        raise ValueError(f"Error reading DOCX: {str(e)}")
 
 
 def _file_to_base64_data_url(file_path: str) -> str:
@@ -138,15 +120,17 @@ def process_file_with_prompt(
     file_path: str,
     prompt_name: str,
     model: str,
-    extract_text: bool = None,
     resume_text: str = None,
     prompt_override: Optional[str] = None,
-    use_pypdf: bool = False,
     pdf_engine: Optional[str] = None,
     **kwargs
 ) -> Dict[str, Any]:
     """
     Process a file with a prompt using OpenRouter API
+    
+    All files are sent directly to OpenRouter:
+    - PDF files: sent as base64 data URL (OpenRouter handles parsing)
+    - DOCX files: text is extracted and sent as text (OpenRouter doesn't support DOCX natively)
     
     Args:
         file_path: Path to the file (absolute or relative)
@@ -162,19 +146,13 @@ def process_file_with_prompt(
                - "meta-llama/llama-3-70b-instruct"
                - "mistralai/mistral-large"
                See https://openrouter.ai/models for full list
-        extract_text: DEPRECATED - Use use_pypdf instead. If True, extract text from PDF/DOCX and send as text instead of file.
-                     If None (default), auto-detect: try file first, fallback to text for PDFs.
-                     If False, always send as file (may fail for PDFs).
-        resume_text: Pre-extracted text from the resume. If provided, this will be used instead of extracting again.
+        resume_text: Pre-extracted text from the resume. If provided, this will be used for DOCX files.
         prompt_override: Optional custom prompt text to override the prompt file.
-        use_pypdf: If True, extract text using pypdf and send as text. If False (default), send file directly to OpenRouter.
-                  Default is False (send directly to OpenRouter).
-        pdf_engine: PDF processing engine for OpenRouter when sending files directly:
+        pdf_engine: PDF processing engine for OpenRouter:
                    - None (default): Use OpenRouter's default engine
                    - "pdf-text": Free, best for well-structured PDFs
                    - "mistral-ocr": Paid, best for scanned documents or PDFs with images
                    - "native": Use model's native file processing capabilities
-                   Only used when use_pypdf=False and file is PDF.
         **kwargs: Optional OpenRouter API parameters:
             - temperature (float): Controls randomness (0.0-2.0)
             - max_tokens (int): Maximum tokens to generate
@@ -204,139 +182,98 @@ def process_file_with_prompt(
     file_ext = Path(file_path).suffix.lower()
     is_pdf = file_ext == '.pdf'
     is_docx = file_ext in ['.docx', '.doc']
-    is_pdf_or_docx = is_pdf or is_docx
     
-    # Determine processing method
-    # Priority: resume_text > use_pypdf > extract_text (backward compatibility) > default (send directly)
-    if resume_text:
-        # If resume_text is provided, use text extraction method
-        use_pypdf = True
-        extract_text = True
-    elif extract_text is not None:
-        # Backward compatibility: if extract_text is explicitly set, use it
-        use_pypdf = extract_text
-    # else: use_pypdf defaults to False (send directly to OpenRouter)
-    
-    # For DOCX files, we must extract text (OpenRouter doesn't support DOCX natively)
-    if is_docx and not use_pypdf:
-        print("⚠️  Warning: DOCX files must be extracted. Switching to text extraction...")
-        use_pypdf = True
-    
-    # Log which method is being used
+    # Process files: PDF sent directly, DOCX text extracted
     if is_pdf:
-        if use_pypdf:
-            print("📄 Processing method: Using pypdf to extract text from PDF")
-        else:
-            print("📄 Processing method: Sending PDF directly to OpenRouter")
-    elif is_docx:
-        print("📄 Processing method: Extracting text from DOCX (OpenRouter doesn't support DOCX natively)")
+        # Send PDF directly to OpenRouter as base64 data URL
+        print("📄 Processing method: Sending PDF directly to OpenRouter")
+        file_data_url = _file_to_base64_data_url(file_path)
+        filename = Path(file_path).name
+        
+        messages = [
+            {
+                "role": "system",
+                "content": "You are an expert AI assistant specialized in parsing resumes. Extract all information from the provided PDF resume and return ONLY valid JSON. Do not include any explanatory text, only the JSON object."
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": prompt_template
+                    },
+                    {
+                        "type": "file",
+                        "file": {
+                            "filename": filename,
+                            "file_data": file_data_url
+                        }
+                    }
+                ]
+            }
+        ]
+        
+        # Configure PDF processing engine via plugins if specified
+        if pdf_engine:
+            # Get or initialize plugins list
+            if 'plugins' not in kwargs:
+                kwargs['plugins'] = []
+            elif not isinstance(kwargs['plugins'], list):
+                kwargs['plugins'] = [kwargs['plugins']]
+            
+            # Check if file-parser plugin already exists
+            file_parser_plugin = None
+            for i, plugin in enumerate(kwargs['plugins']):
+                if isinstance(plugin, dict) and plugin.get('id') == 'file-parser':
+                    file_parser_plugin = kwargs['plugins'][i]
+                    break
+            
+            # Add or update file-parser plugin
+            if file_parser_plugin:
+                file_parser_plugin['pdf'] = {'engine': pdf_engine}
+            else:
+                kwargs['plugins'].append({
+                    'id': 'file-parser',
+                    'pdf': {
+                        'engine': pdf_engine
+                    }
+                })
+            print(f"📄 Using PDF engine: {pdf_engine}")
     
-    # Prepare messages based on processing method
-    if use_pypdf and is_pdf_or_docx:
+    elif is_docx:
+        # Extract text from DOCX and send as text (OpenRouter doesn't support DOCX natively)
+        print("📄 Processing method: Extracting text from DOCX and sending to OpenRouter")
+        
         # Use pre-extracted text if provided, otherwise extract
         if resume_text:
             file_text = resume_text
         else:
-            # Extract text and send as text content
-            try:
-                file_text = _extract_text_from_file(file_path)
-            except (ImportError, ValueError) as e:
-                # If text extraction fails, fall back to file upload so AI can try to read it
-                print(f"⚠️  Warning: Text extraction failed ({e}), trying file upload instead for AI analysis...")
-                extract_text = False
+            file_text = _extract_text_from_docx(file_path)
         
-        # Check if we have valid text (either from pre-extraction or just extracted)
-        if extract_text and is_pdf_or_docx:
-            # Check if extracted text is empty or too short (might be scanned PDF or corrupted)
-            # If text is less than 50 characters, fallback to file upload so AI can analyze the file directly
-            # This allows AI to read scanned PDFs or corrupted files
-            if not file_text or len(file_text.strip()) < 50:
-                print(f"⚠️  Warning: Extracted text is empty or too short ({len(file_text.strip() if file_text else '')} chars), trying file upload instead for AI analysis...")
-                extract_text = False
-            else:
-                # Format prompt with extracted text (if prompt has {resume_text} placeholder)
-                if "{resume_text}" in prompt_template:
-                    full_prompt = prompt_template.format(resume_text=file_text)
-                else:
-                    # Append text to prompt
-                    full_prompt = f"{prompt_template}\n\nResume text:\n{file_text}"
-                
-                # Check prompt length and warn if too long
-                prompt_length = len(full_prompt)
-                print(f"DEBUG: Full prompt length: {prompt_length} characters")
-                if prompt_length > 200000:  # ~200k chars = ~50k tokens
-                    print(f"DEBUG: WARNING - Prompt is very long ({prompt_length} chars). This might cause issues.")
-                
-                messages = [
-                    {
-                        "role": "system",
-                        "content": "You are an expert AI assistant specialized in parsing resumes. Extract all information from the resume text and return ONLY valid JSON. Do not include any explanatory text, only the JSON object."
-                    },
-                    {
-                        "role": "user",
-                        "content": full_prompt
-                    }
-                ]
-    
-    if not use_pypdf:
-        # Send file directly to OpenRouter
-        file_data_url = _file_to_base64_data_url(file_path)
-        filename = Path(file_path).name
-        
-        if is_pdf:
-            # Send PDF using OpenRouter's file format
-            messages = [
-                {
-                    "role": "system",
-                    "content": "You are an expert AI assistant specialized in parsing resumes. Extract all information from the provided PDF resume and return ONLY valid JSON. Do not include any explanatory text, only the JSON object."
-                },
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": prompt_template
-                        },
-                        {
-                            "type": "file",
-                            "file": {
-                                "filename": filename,
-                                "file_data": file_data_url
-                            }
-                        }
-                    ]
-                }
-            ]
-            
-            # Configure PDF processing engine via plugins if specified
-            if pdf_engine:
-                # Get or initialize plugins list
-                if 'plugins' not in kwargs:
-                    kwargs['plugins'] = []
-                elif not isinstance(kwargs['plugins'], list):
-                    kwargs['plugins'] = [kwargs['plugins']]
-                
-                # Check if file-parser plugin already exists
-                file_parser_plugin = None
-                for i, plugin in enumerate(kwargs['plugins']):
-                    if isinstance(plugin, dict) and plugin.get('id') == 'file-parser':
-                        file_parser_plugin = kwargs['plugins'][i]
-                        break
-                
-                # Add or update file-parser plugin
-                if file_parser_plugin:
-                    file_parser_plugin['pdf'] = {'engine': pdf_engine}
-                else:
-                    kwargs['plugins'].append({
-                        'id': 'file-parser',
-                        'pdf': {
-                            'engine': pdf_engine
-                        }
-                    })
-                print(f"📄 Using PDF engine: {pdf_engine}")
+        # Format prompt with extracted text
+        if "{resume_text}" in prompt_template:
+            full_prompt = prompt_template.format(resume_text=file_text)
         else:
-            # For non-PDF files (shouldn't happen due to DOCX check above, but handle gracefully)
-            raise ValueError(f"Direct file upload to OpenRouter is only supported for PDF files. File type: {file_ext}. Use use_pypdf=True for other file types.")
+            full_prompt = f"{prompt_template}\n\nResume text:\n{file_text}"
+        
+        # Check prompt length and warn if too long
+        prompt_length = len(full_prompt)
+        if prompt_length > 200000:  # ~200k chars = ~50k tokens
+            print(f"⚠️  Warning: Prompt is very long ({prompt_length} chars). This might cause issues.")
+        
+        messages = [
+            {
+                "role": "system",
+                "content": "You are an expert AI assistant specialized in parsing resumes. Extract all information from the resume text and return ONLY valid JSON. Do not include any explanatory text, only the JSON object."
+            },
+            {
+                "role": "user",
+                "content": full_prompt
+            }
+        ]
+    
+    else:
+        raise ValueError(f"Unsupported file type: {file_ext}. Supported types: PDF, DOCX, DOC")
     
     # Prepare API request
     base_url = os.getenv('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1')
@@ -383,9 +320,8 @@ def process_file_with_prompt(
             'file_extension': file_ext,
             'file_size_kb': round(file_size_kb, 2),
             'model': model,
-            'use_pypdf': use_pypdf,
             'pdf_engine': pdf_engine if pdf_engine else 'default',
-            'processing_method': 'text_extraction' if use_pypdf else 'direct_file_upload',
+            'processing_method': 'direct_file_upload' if is_pdf else 'text_extraction',
             'url': url,
             'parameters': {
                 'temperature': kwargs.get('temperature'),
@@ -452,8 +388,39 @@ def process_file_with_prompt(
             try:
                 error_response = response.json()
                 error_detail = json.dumps(error_response, indent=2)
+                
+                # Check if error is about file upload not supported
+                error_message = ""
+                if isinstance(error_response, dict):
+                    error_obj = error_response.get('error', {})
+                    if isinstance(error_obj, dict):
+                        error_message = error_obj.get('message', '')
+                        # Check metadata for raw error
+                        metadata = error_obj.get('metadata', {})
+                        if isinstance(metadata, dict):
+                            raw_error = metadata.get('raw', '')
+                            if raw_error and 'does not support file' in raw_error:
+                                raise ValueError(
+                                    f"Model '{model}' does not support file uploads. "
+                                    f"Please use a model that supports file uploads such as: "
+                                    f"openai/gpt-4o, openai/gpt-4-turbo, anthropic/claude-3.5-sonnet, "
+                                    f"or anthropic/claude-3-opus. "
+                                    f"Current model: {model}"
+                                )
+                        elif 'does not support file' in error_message:
+                            raise ValueError(
+                                f"Model '{model}' does not support file uploads. "
+                                f"Please use a model that supports file uploads such as: "
+                                f"openai/gpt-4o, openai/gpt-4-turbo, anthropic/claude-3.5-sonnet, "
+                                f"or anthropic/claude-3-opus. "
+                                f"Current model: {model}"
+                            )
+            except ValueError:
+                # Re-raise ValueError for file upload errors
+                raise
             except:
                 error_detail = response.text
+            
             raise Exception(
                 f"OpenRouter API error ({response.status_code}): {response.reason}\n"
                 f"Response: {error_detail}\n"

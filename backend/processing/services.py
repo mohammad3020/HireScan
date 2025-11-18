@@ -23,14 +23,7 @@ from candidates.models import (
 from jobs.models import Job
 from .models import BatchUpload, FileItem
 
-# Optional imports for fallback text extraction (only used if AI service fails)
-try:
-    from pypdf import PdfReader
-    HAS_PYPDF = True
-except ImportError:
-    HAS_PYPDF = False
-    PdfReader = None
-
+# Optional import for DOCX text extraction (PDF files are sent directly to OpenRouter)
 try:
     from docx import Document
     HAS_DOCX = True
@@ -44,9 +37,12 @@ if str(ai_dir) not in sys.path:
     sys.path.insert(0, str(ai_dir))
 
 try:
-    from ai.service import process_file_with_prompt
+    from service import process_file_with_prompt
     HAS_AI_SERVICE = True
-except ImportError:
+except ImportError as e:
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.error(f"Failed to import AI service from {ai_dir}: {e}")
     HAS_AI_SERVICE = False
 
 
@@ -138,8 +134,8 @@ def _normalize_email(email):
     return email
 
 
-def extract_text_from_file(file_path):
-    """Extract text from PDF or DOCX file"""
+def extract_text_from_docx(file_path):
+    """Extract text from DOCX file (PDF files are sent directly to OpenRouter)"""
     import logging
     import time
     logger = logging.getLogger('processing.timing')
@@ -147,41 +143,23 @@ def extract_text_from_file(file_path):
     file_ext = Path(file_path).suffix.lower()
     start_time = time.time()
     
-    if file_ext == '.pdf':
-        if not HAS_PYPDF:
-            raise ImportError("pypdf is required for PDF text extraction. Install it with: pip install pypdf")
-        try:
-            logger.info(f"[TIMING] Starting PDF text extraction: {file_path}")
-            with open(file_path, 'rb') as file:
-                pdf_reader = PdfReader(file, strict=False)
-                text = ""
-                for page in pdf_reader.pages:
-                    text += (page.extract_text() or "") + "\n"
-            extraction_time = time.time() - start_time
-            logger.info(f"[TIMING] PDF text extraction completed in {extraction_time:.2f} seconds ({extraction_time*1000:.0f}ms) - Extracted {len(text)} characters")
-            return text
-        except Exception as e:
-            extraction_time = time.time() - start_time
-            logger.error(f"[TIMING] PDF text extraction failed after {extraction_time:.2f} seconds: {str(e)}")
-            raise ValueError(f"Error reading PDF: {str(e)}")
+    if file_ext not in ['.doc', '.docx']:
+        raise ValueError(f"Text extraction only supported for DOCX files. File type: {file_ext}")
     
-    elif file_ext in ['.doc', '.docx']:
-        if not HAS_DOCX:
-            raise ImportError("python-docx is required for DOCX text extraction. Install it with: pip install python-docx")
-        try:
-            logger.info(f"[TIMING] Starting DOCX text extraction: {file_path}")
-            doc = Document(file_path)
-            text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
-            extraction_time = time.time() - start_time
-            logger.info(f"[TIMING] DOCX text extraction completed in {extraction_time:.2f} seconds ({extraction_time*1000:.0f}ms) - Extracted {len(text)} characters")
-            return text
-        except Exception as e:
-            extraction_time = time.time() - start_time
-            logger.error(f"[TIMING] DOCX text extraction failed after {extraction_time:.2f} seconds: {str(e)}")
-            raise ValueError(f"Error reading DOCX: {str(e)}")
+    if not HAS_DOCX:
+        raise ImportError("python-docx is required for DOCX text extraction. Install it with: pip install python-docx")
     
-    else:
-        raise ValueError(f"Unsupported file type: {file_ext}")
+    try:
+        logger.info(f"[TIMING] Starting DOCX text extraction: {file_path}")
+        doc = Document(file_path)
+        text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
+        extraction_time = time.time() - start_time
+        logger.info(f"[TIMING] DOCX text extraction completed in {extraction_time:.2f} seconds ({extraction_time*1000:.0f}ms) - Extracted {len(text)} characters")
+        return text
+    except Exception as e:
+        extraction_time = time.time() - start_time
+        logger.error(f"[TIMING] DOCX text extraction failed after {extraction_time:.2f} seconds: {str(e)}")
+        raise ValueError(f"Error reading DOCX: {str(e)}")
 
 
 def load_prompt_template(template_name):
@@ -258,27 +236,37 @@ def _build_target_job_payload(job):
     return payload
 
 
-def _append_job_context_to_prompt(prompt_template, job):
-    """Append target job section to prompt and return payload for logging"""
+def _append_job_context_to_prompt(prompt_template, job, file_item_id=None):
+    """Append target job section and file_item_id to prompt and return payload for logging"""
     target_payload = _build_target_job_payload(job)
-    if not target_payload:
+    
+    # Build JSON payload with file_item_id and target_job
+    payload_data = {}
+    if file_item_id is not None:
+        payload_data['file_item_id'] = file_item_id
+    if target_payload:
+        payload_data['target_job'] = target_payload
+    
+    if not payload_data:
         return prompt_template, None
+    
     job_section = (
-        "\n\n### Target Job Input Parameters (Received from User)\n\n"
+        "\n\n### Input Parameters (Received from User)\n\n"
         "```json\n"
-        f"{json.dumps({'target_job': target_payload}, ensure_ascii=False, indent=2)}\n"
+        f"{json.dumps(payload_data, ensure_ascii=False, indent=2)}\n"
         "```\n"
     )
     return f"{prompt_template}\n{job_section}", target_payload
 
 
-def parse_resume_service(resume_instance, job=None):
+def parse_resume_service(resume_instance, job=None, file_item_id=None):
     """
     Parse a resume using OpenRouter API via AI service
     
     Args:
         resume_instance: Resume model instance
         job: Optional Job instance for contextual parsing
+        file_item_id: Optional file_item_id to include in prompt for tracking
         
     Returns:
         ParsedResume instance
@@ -312,9 +300,11 @@ def parse_resume_service(resume_instance, job=None):
             # Rate limiting: Wait if needed to maintain 500ms delay between API requests
             _api_rate_limiter.wait_if_needed()
             
-            # Load prompt template with job context
+            # Load prompt template with job context and file_item_id
             prompt_template = load_prompt_template('parse_resume')
-            prompt_template, target_job_payload = _append_job_context_to_prompt(prompt_template, job)
+            prompt_template, target_job_payload = _append_job_context_to_prompt(prompt_template, job, file_item_id=file_item_id)
+            if file_item_id:
+                logger.info(f"[RESUME {resume_id}] Included file_item_id {file_item_id} in prompt")
             if target_job_payload and job:
                 logger.info(f"[RESUME {resume_id}] Included target job context in prompt for job {job.id}")
             
@@ -323,11 +313,11 @@ def parse_resume_service(resume_instance, job=None):
             max_tokens = 16000  # Default, OpenRouter can handle larger files
             logger.info(f"[RESUME {resume_id}] Using max_tokens: {max_tokens} for direct file upload")
             
-            # Send file directly to OpenRouter (NO local text extraction with pypdf)
-            # For PDFs: sent directly to OpenRouter using file format (OpenRouter handles parsing)
+            # Send file directly to OpenRouter
+            # For PDFs: sent directly to OpenRouter as base64 data URL (OpenRouter handles parsing)
             # For DOCX: AI service will automatically extract text (OpenRouter doesn't support DOCX natively)
             file_ext = Path(file_path).suffix.lower()
-            logger.info(f"[RESUME {resume_id}] Using DIRECT FILE UPLOAD to OpenRouter (use_pypdf=False, file type: {file_ext})")
+            logger.info(f"[RESUME {resume_id}] Using DIRECT FILE UPLOAD to OpenRouter (file type: {file_ext})")
             logger.info(f"[RESUME {resume_id}] Sending file directly to OpenRouter API (model: {settings.OPENROUTER_MODEL}) at {time.strftime('%Y-%m-%d %H:%M:%S')}")
             api_request_start = time.time()
             
@@ -341,7 +331,6 @@ def parse_resume_service(resume_instance, job=None):
                 prompt_name='parse_resume',
                 prompt_override=prompt_template,
                 model=settings.OPENROUTER_MODEL,
-                use_pypdf=False,  # IMPORTANT: Direct file upload, NO pypdf text extraction
                 pdf_engine=pdf_engine,  # Optional PDF engine configuration
                 temperature=0.3,  # Lower temperature for more consistent JSON output
                 max_tokens=max_tokens,
@@ -369,71 +358,12 @@ def parse_resume_service(resume_instance, job=None):
                 # This is an API-level error, don't fallback
                 logger.error(f"OpenRouter API error: {error_str}")
                 raise ValueError(f"Resume parsing failed: {error_str}")
-            logger.warning(f"AI service failed: {error_str}, falling back to old method")
-            # Fallback to old method if AI service fails (old method requires text input)
-            try:
-                # Extract text for old method
-                resume_text = ""
-                try:
-                    resume_text = extract_text_from_file(file_path)
-                    # Validate extracted text
-                    if not resume_text or len(resume_text.strip()) < 50:
-                        raise ValueError("Text extraction returned empty or too short text")
-                    logger.info(f"Extracted {len(resume_text)} characters for fallback method")
-                except Exception as extract_error:
-                    error_msg = str(extract_error)
-                    logger.error(f"Text extraction failed for fallback: {error_msg}")
-                    # Don't proceed if text extraction failed
-                    raise ValueError(f"Failed to extract text from resume: {error_msg}")
-                
-                # Rate limiting: Wait if needed to maintain 500ms delay between API requests
-                _api_rate_limiter.wait_if_needed()
-                
-                client = OpenRouterClient()
-                prompt_template = load_prompt_template('parse_resume')
-                prompt_template, target_job_payload = _append_job_context_to_prompt(prompt_template, job)
-                if target_job_payload and job:
-                    logger.info(f"[RESUME {resume_id}] Included target job context in prompt for job {job.id}")
-                parsed_data = client.parse_resume(resume_text, prompt_template)
-            except Exception as fallback_error:
-                # If both methods fail, raise with clear error message
-                fallback_error_str = str(fallback_error)
-                logger.error(f"Fallback parsing also failed: {fallback_error_str}")
-                # Avoid double-wrapping error messages
-                if "Resume parsing failed" in fallback_error_str:
-                    raise ValueError(fallback_error_str)
-                # Extract actual error if it's wrapped
-                if "AI service returned error" in fallback_error_str:
-                    actual_error = fallback_error_str.replace("AI service returned error: ", "").replace("AI service returned error response: ", "")
-                    raise ValueError(f"Resume parsing failed: {actual_error}")
-                raise ValueError(f"Resume parsing failed: {fallback_error_str}")
-    else:
-        # Fallback to old method
-        logger.info("Using old method for parsing")
-        try:
-            # Extract text for old method (which requires text input)
-            resume_text = ""
-            try:
-                resume_text = extract_text_from_file(file_path)
-            except Exception as extract_error:
-                logger.warning(f"Text extraction failed: {str(extract_error)}")
-            
-            # Rate limiting: Wait if needed to maintain 500ms delay between API requests
-            _api_rate_limiter.wait_if_needed()
-            
-            client = OpenRouterClient()
-            prompt_template = load_prompt_template('parse_resume')
-            prompt_template, target_job_payload = _append_job_context_to_prompt(prompt_template, job)
-            if target_job_payload and job:
-                logger.info(f"[RESUME {resume_id}] Included target job context in prompt for job {job.id}")
-            parsed_data = client.parse_resume(resume_text, prompt_template)
-        except Exception as e:
-            error_str = str(e)
-            logger.error(f"Old method parsing failed: {error_str}")
-            # Avoid double-wrapping if error message already contains "Resume parsing failed"
-            if "Resume parsing failed" in error_str:
-                raise ValueError(error_str)
+            # No fallback - raise error directly
             raise ValueError(f"Resume parsing failed: {error_str}")
+    else:
+        # AI service not available
+        logger.error("AI service is not available. Please ensure ai/service.py is accessible.")
+        raise ValueError("Resume parsing failed: AI service is not available")
     
     # Validate parsed_data structure (similar to test_service.py validation)
     if parsed_data is None:
@@ -471,14 +401,17 @@ def parse_resume_service(resume_instance, job=None):
         logger.error(f"Parsing returned empty or invalid data: {list(parsed_data.keys())}")
         raise ValueError("Resume parsing failed: Empty or invalid data structure")
     
-    # Extract text for raw_text field (only if needed, after successful parsing)
+    # Extract text for raw_text field (only for DOCX, after successful parsing)
+    # PDF files are stored without raw_text extraction (already processed by OpenRouter)
     # This is for storage purposes only - AI service already processed the file
     raw_text = ""
-    try:
-        raw_text = extract_text_from_file(file_path)
-    except Exception as extract_error:
-        logger.debug(f"Could not extract raw text for storage: {str(extract_error)}")
-        raw_text = ""
+    file_ext = Path(file_path).suffix.lower()
+    if file_ext in ['.doc', '.docx']:
+        try:
+            raw_text = extract_text_from_docx(file_path)
+        except Exception as extract_error:
+            logger.debug(f"Could not extract raw text from DOCX for storage: {str(extract_error)}")
+            raw_text = ""
     
     # Create or update ParsedResume
     parsed_resume, created = ParsedResume.objects.get_or_create(
@@ -568,23 +501,45 @@ def parse_resume_service(resume_instance, job=None):
         scoring_payload = scoring_results.copy()
         scoring_payload.pop('final_scores', None)
     parsed_resume.scoring_details = scoring_payload or {}
-    parsed_resume.interpretation = parsed_data.get('interpretation', {}) or {}
+    # Get interpretation from scoring_results.interpretation first (as per parse_resume.md),
+    # then from root level interpretation
+    parsed_resume.interpretation = (
+        scoring_results.get('interpretation', {}) or 
+        parsed_data.get('interpretation', {}) or 
+        {}
+    )
     parsed_resume.audit_trail = parsed_data.get('audit_trail', {}) or {}
     
     parsed_resume.save()
     
+    # Find/update candidate using file_item_id
+    candidate = None
+    if file_item_id:
+        try:
+            # Find FileItem by file_item_id
+            file_item = FileItem.objects.get(id=file_item_id)
+            candidate = file_item.candidate
+            if candidate:
+                logger.info(f"[RESUME {resume_id}] Found candidate {candidate.id} using file_item_id {file_item_id}")
+            else:
+                logger.warning(f"[RESUME {resume_id}] FileItem {file_item_id} has no candidate, using resume_instance.candidate")
+                candidate = resume_instance.candidate
+        except FileItem.DoesNotExist:
+            logger.warning(f"[RESUME {resume_id}] FileItem {file_item_id} not found, using resume_instance.candidate")
+            candidate = resume_instance.candidate
+    else:
+        # Fallback to resume_instance.candidate if file_item_id not provided
+        candidate = resume_instance.candidate
+    
     # Update candidate information from parsed data
-    candidate = resume_instance.candidate
-    # Update name if we have a parsed name and candidate name is empty or still a placeholder
-    is_placeholder_name = (candidate.name and 
-                          candidate.name.startswith('Candidate ') and 
-                          candidate.name.replace('Candidate ', '').strip().isdigit())
-    if parsed_resume.full_name and (not candidate.name or is_placeholder_name):
+    # Update name if we have a parsed name and candidate name is empty
+    if parsed_resume.full_name and (not candidate.name or candidate.name.strip() == ''):
         old_name = candidate.name
         candidate.name = parsed_resume.full_name
-        logger.info(f"Updated candidate {candidate.id} name from '{old_name}' to '{parsed_resume.full_name}'")
-    # Fix: use parsed_resume.email (already set above) instead of parsed_resume.parsed_data
-    if parsed_resume.email and (not candidate.email or candidate.email.startswith('temp_') or candidate.email.endswith('@temp.com') or candidate.email.endswith('@example.com')):
+        logger.info(f"[RESUME {resume_id}] Updated candidate {candidate.id} name from '{old_name}' to '{parsed_resume.full_name}'")
+    
+    # Update email if we have a parsed email and candidate email is temporary
+    if parsed_resume.email and (candidate.email.startswith('temp_') or candidate.email.endswith('@temp.com') or candidate.email.endswith('@example.com')):
         old_email = candidate.email
         normalized_email = _normalize_email(parsed_resume.email)
         
@@ -599,7 +554,7 @@ def parse_resume_service(resume_instance, job=None):
             if existing_candidate:
                 # Another candidate with this email exists - link resume to existing candidate
                 logger.warning(
-                    f"Candidate {candidate.id} has email '{normalized_email}' that already exists for candidate {existing_candidate.id}. "
+                    f"[RESUME {resume_id}] Candidate {candidate.id} has email '{normalized_email}' that already exists for candidate {existing_candidate.id}. "
                     f"Linking resume to existing candidate {existing_candidate.id}."
                 )
                 # Update resume to point to existing candidate
@@ -609,28 +564,31 @@ def parse_resume_service(resume_instance, job=None):
             else:
                 # Email is unique, update candidate
                 candidate.email = normalized_email
-                logger.info(f"Updated candidate {candidate.id} email from '{old_email}' to '{normalized_email}'")
+                logger.info(f"[RESUME {resume_id}] Updated candidate {candidate.id} email from '{old_email}' to '{normalized_email}'")
         else:
-            logger.warning(f"Invalid email format extracted: '{parsed_resume.email}', skipping email update")
+            logger.warning(f"[RESUME {resume_id}] Invalid email format extracted: '{parsed_resume.email}', skipping email update")
     
     if parsed_resume.phone and not candidate.phone:
         candidate.phone = parsed_resume.phone
+        logger.info(f"[RESUME {resume_id}] Updated candidate {candidate.id} phone: {parsed_resume.phone}")
     if parsed_resume.linkedin_url and not candidate.linkedin_url:
         candidate.linkedin_url = parsed_resume.linkedin_url
+        logger.info(f"[RESUME {resume_id}] Updated candidate {candidate.id} linkedin_url: {parsed_resume.linkedin_url}")
     if parsed_resume.github_url and not candidate.github_url:
         candidate.github_url = parsed_resume.github_url
+        logger.info(f"[RESUME {resume_id}] Updated candidate {candidate.id} github_url: {parsed_resume.github_url}")
     
     try:
         candidate.save()
+        logger.info(f"[RESUME {resume_id}] Successfully saved candidate {candidate.id} to database: name='{candidate.name}', email='{candidate.email}'")
     except IntegrityError as exc:
         logger.error(
-            "Duplicate candidate email detected while saving parsed resume for candidate %s",
-            candidate.id,
+            f"[RESUME {resume_id}] Duplicate candidate email detected while saving parsed resume for candidate {candidate.id}",
             exc_info=True,
         )
         raise ValueError("Resume parsing failed: فایل رزومه تکراری ست") from exc
     
-    logger.info(f"Updated candidate {candidate.id}: {candidate.name}, {candidate.email}")
+    logger.info(f"[RESUME {resume_id}] Updated candidate {candidate.id}: {candidate.name}, {candidate.email}")
     
     # Delete existing related records
     Education.objects.filter(parsed_resume=parsed_resume).delete()
@@ -782,16 +740,25 @@ def parse_resume_service(resume_instance, job=None):
     if isinstance(skills_data, dict):
         technical_skills = skills_data.get('technical', []) or []
         for category_data in technical_skills:
-            # Format: {"category": "...", "items": [{"name": "..."}]}
+            # Format: {"category": "...", "items": [{"name": "..."}] or ["string", ...]}
             if isinstance(category_data, dict) and category_data.get('items'):
                 category = category_data.get('category', '')
                 for item in category_data.get('items', []):
-                    TechnicalSkill.objects.create(
-                        parsed_resume=parsed_resume,
-                        category=category or '',
-                        name=item.get('name', ''),
-                        level=item.get('level', '')
-                    )
+                    if isinstance(item, dict):
+                        TechnicalSkill.objects.create(
+                            parsed_resume=parsed_resume,
+                            category=category or '',
+                            name=item.get('name', ''),
+                            level=item.get('level', '')
+                        )
+                    elif isinstance(item, str):
+                        # If item is a string, use it as the name
+                        TechnicalSkill.objects.create(
+                            parsed_resume=parsed_resume,
+                            category=category or '',
+                            name=item,
+                            level=''
+                        )
                 continue
             
             # Format: {"name": "...", "level": "...", "category": "..."}
@@ -1482,17 +1449,17 @@ def _process_single_file_item(file_item, batch, counters, lock):
         timing_logger.info(f"[TIMING] Starting processing for file item {file_item.id}: {file_item.file.name}")
         logger.info(f"[FILE ITEM {file_item.id}] Starting processing at {time.strftime('%Y-%m-%d %H:%M:%S')}")
         
-        # Create or get candidate (based on email if available in filename or parse)
-        # For MVP, create a new candidate for each file
+        # Create temporary candidate with file_item_id (no email/name yet)
+        # Email will be set after parsing
         candidate, created = Candidate.objects.get_or_create(
-            email=f"candidate_{file_item.id}@example.com",  # Placeholder
-            defaults={'name': f"Candidate {file_item.id}"}
+            email=f"temp_file_item_{file_item.id}@temp.com",  # Temporary email with file_item_id
+            defaults={'name': ''}  # Empty name, will be set after parsing
         )
         
         if created:
-            logger.info(f"[FILE ITEM {file_item.id}] Created new candidate {candidate.id} for file item {file_item.id}")
+            logger.info(f"[FILE ITEM {file_item.id}] Created temporary candidate {candidate.id} for file item {file_item.id}")
         else:
-            logger.info(f"[FILE ITEM {file_item.id}] Using existing candidate {candidate.id} for file item {file_item.id}")
+            logger.info(f"[FILE ITEM {file_item.id}] Using existing temporary candidate {candidate.id} for file item {file_item.id}")
         
         # Create resume
         try:
@@ -1525,7 +1492,7 @@ def _process_single_file_item(file_item, batch, counters, lock):
         # Parse resume
         try:
             logger.info(f"[FILE ITEM {file_item.id}] Starting resume parsing for resume {resume_id} at {time.strftime('%Y-%m-%d %H:%M:%S')}")
-            parsed_resume = parse_resume_service(resume, job=job)
+            parsed_resume = parse_resume_service(resume, job=job, file_item_id=file_item.id)
             logger.info(f"[FILE ITEM {file_item.id}] Successfully parsed resume {resume_id} at {time.strftime('%Y-%m-%d %H:%M:%S')}")
         except Exception as parse_error:
             logger.error(f"[FILE ITEM {file_item.id}] Failed to parse resume {resume_id}: {str(parse_error)}", exc_info=True)
