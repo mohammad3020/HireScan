@@ -177,7 +177,6 @@ export const CandidateDetail = () => {
   ).filter(Boolean);
   const extractionNotes = extractedData?.extraction_notes || {};
   const interpretation = parsedResume?.interpretation;
-  const auditTrail = parsedResume?.audit_trail;
   const finalScores = parsedResume?.scoring_results?.final_scores;
   const timelineEvents: TimelineEvent[] = candidate.timeline_events ?? [];
   const uploadEvent = timelineEvents.find((event) => event.event_type === 'uploaded');
@@ -255,6 +254,61 @@ export const CandidateDetail = () => {
     }
   };
 
+  // Calculate age from date of birth
+  const calculateAge = (dateOfBirth?: string | null): number | null => {
+    if (!dateOfBirth) return null;
+    try {
+      // Try to parse various date formats
+      const date = new Date(dateOfBirth);
+      if (Number.isNaN(date.getTime())) {
+        // Try parsing Persian/Jalali dates or other formats
+        const yearMatch = dateOfBirth.match(/\d{4}/);
+        if (yearMatch) {
+          const year = parseInt(yearMatch[0]);
+          const currentYear = new Date().getFullYear();
+          // If it's a 4-digit year, assume it's a birth year
+          if (year > 1300 && year < 1500) {
+            // Likely Persian year (1300-1500 range)
+            return currentYear - year;
+          } else if (year > 1900 && year < 2100) {
+            // Likely Gregorian year
+            return currentYear - year;
+          }
+        }
+        return null;
+      }
+      const today = new Date();
+      let age = today.getFullYear() - date.getFullYear();
+      const monthDiff = today.getMonth() - date.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < date.getDate())) {
+        age--;
+      }
+      return age;
+    } catch {
+      return null;
+    }
+  };
+
+  // Extract gender from parsed_data if available
+  const extractGender = (): string | null => {
+    if (!parsedResume?.parsed_data) return null;
+    try {
+      const parsedData = parsedResume.parsed_data;
+      // Check in personal_info
+      const personalInfo = parsedData?.personal_info || parsedData?.extracted_resume_data?.personal_info;
+      if (personalInfo?.gender) {
+        return personalInfo.gender;
+      }
+      // Check in root level
+      if (parsedData?.gender) {
+        return parsedData.gender;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
   const handleAddNote = async () => {
     if (newNote.trim() && candidateId) {
       try {
@@ -322,8 +376,6 @@ export const CandidateDetail = () => {
                 // Show badge in header only if the related section doesn't exist
                 (rejectionBadgeInfo.section === 'experience' && experienceEntries.length === 0) ||
                 (rejectionBadgeInfo.section === 'education' && educationEntries.length === 0) ||
-                ((rejectionBadgeInfo.section === 'age' || rejectionBadgeInfo.section === 'military' || rejectionBadgeInfo.section === 'gender') && 
-                 !(personalInfo?.date_of_birth || personalInfo?.address || personalInfo?.marital_status || personalInfo?.military_service)) ||
                 rejectionBadgeInfo.section === 'general'
               ) && (
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-red-300 bg-red-50 px-3 py-1 text-sm font-semibold text-red-700">
@@ -763,75 +815,6 @@ export const CandidateDetail = () => {
               )}
             </div>
           )}
-
-          {auditTrail && (
-            <div className="card p-6 space-y-5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-primary" />
-                  <h2 className="text-lg font-semibold text-gray-900">Audit Trail</h2>
-                </div>
-              </div>
-              {auditTrail.data_completeness && (
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">Positions Coverage</p>
-                    <p className="mt-2 text-2xl font-semibold text-gray-900">
-                      {auditTrail.data_completeness.positions_complete}/
-                      {auditTrail.data_completeness.positions_total}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-                    <p className="text-xs font-semibold uppercase text-gray-500">Education Coverage</p>
-                    <p className="mt-2 text-2xl font-semibold text-gray-900">
-                      {auditTrail.data_completeness.education_complete}/
-                      {auditTrail.data_completeness.education_total}
-                    </p>
-                  </div>
-                </div>
-              )}
-              {auditTrail.data_completeness?.missing_fields?.length ? (
-                <div className="text-xs text-gray-600">
-                  Missing fields: {auditTrail.data_completeness.missing_fields.join(', ')}
-                </div>
-              ) : null}
-              {auditTrail.assumptions_made && auditTrail.assumptions_made.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-gray-800">Assumptions</p>
-                  <div className="flex flex-wrap gap-2">
-                    {auditTrail.assumptions_made.map((item, idx) => (
-                      <span
-                        key={`assumption-${idx}`}
-                        className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 border border-blue-100"
-                      >
-                        {item}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {auditTrail.edge_cases && auditTrail.edge_cases.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-gray-800">Edge Cases</p>
-                  <ul className="space-y-1 text-sm text-gray-600">
-                    {auditTrail.edge_cases.map((item, idx) => (
-                      <li key={`edge-${idx}`}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {auditTrail.warnings && auditTrail.warnings.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-red-600">Warnings</p>
-                  <ul className="space-y-1 text-sm text-red-600">
-                    {auditTrail.warnings.map((item, idx) => (
-                      <li key={`warning-${idx}`}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Sidebar */}
@@ -870,50 +853,65 @@ export const CandidateDetail = () => {
           )}
 
           {/* Basic Information */}
-          {(personalInfo?.date_of_birth ||
-            personalInfo?.address ||
-            personalInfo?.marital_status ||
-            personalInfo?.military_service) && (
-            <div className="card p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">Basic Information</h2>
-                {(rejectionBadgeInfo?.section === 'age' || 
-                  rejectionBadgeInfo?.section === 'military' || 
-                  rejectionBadgeInfo?.section === 'gender') && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-red-300 bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
-                    <AlertCircle className="h-3.5 w-3.5" />
-                    {rejectionBadgeInfo.text}
-                  </span>
-                )}
-              </div>
-              <dl className="space-y-2 text-sm text-gray-700">
-                {personalInfo?.date_of_birth && (
-                  <div className="flex justify-between">
-                    <dt className="font-medium text-gray-600">Date of Birth</dt>
-                    <dd>{personalInfo.date_of_birth}</dd>
-                  </div>
-                )}
-                {personalInfo?.address && (
-                  <div className="flex justify-between">
-                    <dt className="font-medium text-gray-600">Address</dt>
-                    <dd className="text-right max-w-xs">{personalInfo.address}</dd>
-                  </div>
-                )}
-                {personalInfo?.marital_status && (
-                  <div className="flex justify-between">
-                    <dt className="font-medium text-gray-600">Marital Status</dt>
-                    <dd>{personalInfo.marital_status}</dd>
-                  </div>
-                )}
-                {personalInfo?.military_service && (
-                  <div className="flex justify-between">
-                    <dt className="font-medium text-gray-600">Military Status</dt>
-                    <dd>{personalInfo.military_service}</dd>
-                  </div>
-                )}
-              </dl>
+          <div className="card p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Basic Information</h2>
+              {(rejectionBadgeInfo?.section === 'age' || 
+                rejectionBadgeInfo?.section === 'military' || 
+                rejectionBadgeInfo?.section === 'gender') && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-red-300 bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  {rejectionBadgeInfo.text}
+                </span>
+              )}
             </div>
-          )}
+            <dl className="space-y-3 text-sm text-gray-700">
+              {personalInfo?.date_of_birth && (
+                <div className="flex justify-between items-start">
+                  <dt className="font-medium text-gray-600 min-w-[140px]">تاریخ تولد</dt>
+                  <dd className="text-right flex-1">{personalInfo.date_of_birth}</dd>
+                </div>
+              )}
+              {(() => {
+                const age = calculateAge(personalInfo?.date_of_birth);
+                return age !== null ? (
+                  <div className="flex justify-between items-start">
+                    <dt className="font-medium text-gray-600 min-w-[140px]">سن</dt>
+                    <dd className="text-right flex-1">{age} سال</dd>
+                  </div>
+                ) : null;
+              })()}
+              {(() => {
+                const gender = extractGender();
+                return gender ? (
+                  <div className="flex justify-between items-start">
+                    <dt className="font-medium text-gray-600 min-w-[140px]">جنسیت</dt>
+                    <dd className="text-right flex-1">
+                      {gender === 'male' ? 'مرد' : gender === 'female' ? 'زن' : gender}
+                    </dd>
+                  </div>
+                ) : null;
+              })()}
+              {personalInfo?.military_service && (
+                <div className="flex justify-between items-start">
+                  <dt className="font-medium text-gray-600 min-w-[140px]">وضعیت سربازی</dt>
+                  <dd className="text-right flex-1">{personalInfo.military_service}</dd>
+                </div>
+              )}
+              {personalInfo?.marital_status && (
+                <div className="flex justify-between items-start">
+                  <dt className="font-medium text-gray-600 min-w-[140px]">وضعیت تأهل</dt>
+                  <dd className="text-right flex-1">{personalInfo.marital_status}</dd>
+                </div>
+              )}
+              {personalInfo?.address && (
+                <div className="flex justify-between items-start">
+                  <dt className="font-medium text-gray-600 min-w-[140px]">آدرس</dt>
+                  <dd className="text-right flex-1 max-w-xs break-words">{personalInfo.address}</dd>
+                </div>
+              )}
+            </dl>
+          </div>
 
           {interpretation && (
             <div id={parsedResume?.ai_review ? 'ai-review-interpretation' : 'ai-review'} className="card p-6 space-y-5 scroll-mt-24">
