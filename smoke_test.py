@@ -11,7 +11,6 @@ import requests
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 import tempfile
-from io import BytesIO
 
 # Fix encoding for Windows console
 if sys.platform == 'win32':
@@ -190,7 +189,7 @@ class SmokeTest:
                 'age_range_auto_reject': True,
                 'gender': 'any',
                 'gender_auto_reject': False,
-                'military_status': 'completed_or_full_exempt',
+                'military_status': 'exempt',
                 'military_auto_reject': True,
                 'education_level': 'bachelor',
                 'education_level_auto_reject': True,
@@ -305,18 +304,8 @@ class SmokeTest:
             return False
     
     # ========== Step 3: Upload Resumes ==========
-    def create_test_docx_bytes(self, filename: str, content: str = None) -> BytesIO:
-        """ایجاد یک فایل DOCX تستی ساده به صورت BytesIO"""
-        try:
-            from docx import Document
-            from docx.shared import Pt
-        except ImportError:
-            # اگر docx نصب نشده، از یک فایل متنی ساده استفاده کن
-            print("[WARNING] python-docx not installed, using text file instead")
-            file_bytes = BytesIO(content.encode('utf-8') if content else b'')
-            file_bytes.name = filename.replace('.docx', '.txt')
-            return file_bytes
-        
+    def create_test_pdf(self, filename: str, content: str = None) -> Path:
+        """ایجاد یک فایل PDF تستی ساده"""
         if content is None:
             content = f"""
             John Doe
@@ -340,22 +329,11 @@ class SmokeTest:
             - Python, Django, REST APIs, PostgreSQL, Docker, Git
             """
         
-        # ایجاد یک فایل DOCX واقعی
-        doc = Document()
-        
-        # اضافه کردن محتوا به سند
-        lines = content.strip().split('\n')
-        for line in lines:
-            if line.strip():
-                para = doc.add_paragraph(line.strip())
-                para.paragraph_format.space_after = Pt(6)
-        
-        # ذخیره به BytesIO
-        file_bytes = BytesIO()
-        doc.save(file_bytes)
-        file_bytes.seek(0)  # برگشت به ابتدای فایل
-        file_bytes.name = filename
-        return file_bytes
+        # ایجاد یک فایل متنی موقت (در واقعیت باید PDF باشد)
+        # برای تست، از یک فایل متنی ساده استفاده می‌کنیم
+        temp_file = Path(tempfile.gettempdir()) / filename
+        temp_file.write_text(content)
+        return temp_file
     
     def test_upload_resumes(self) -> bool:
         """تست آپلود چندین رزومه"""
@@ -431,37 +409,30 @@ class SmokeTest:
                 """
             ]
             
-            file_handles = []
             for i, content in enumerate(resume_contents):
-                # استفاده از DOCX به جای PDF چون ساخت PDF واقعی پیچیده است
-                filename = f"resume_{i+1}_test.docx"
-                file_bytes = self.create_test_docx_bytes(filename, content)
-                file_handles.append(file_bytes)
-                test_files.append(('files', (filename, file_bytes, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')))
+                filename = f"resume_{i+1}_test.pdf"
+                file_path = self.create_test_pdf(filename, content)
+                test_files.append(('files', (filename, file_path.open('rb'), 'application/pdf')))
                 print(f"[INFO] Created test file: {filename}")
             
             print(f"[INFO] Uploading {len(test_files)} resumes to job ID: {self.job_id}")
             
-            try:
-                # آپلود فایل‌ها
-                upload_data = {
-                    'job_id': str(self.job_id)
-                }
-                
-                response = self.session.post(
-                    f"{self.base_url}/candidates/upload-cv/",
-                    files=test_files,
-                    data=upload_data
-                )
-            finally:
-                # بستن فایل‌ها
-                for file_handle in file_handles:
-                    try:
-                        if hasattr(file_handle, 'close'):
-                            file_handle.close()
-                    except Exception as e:
-                        # اگر خطا در بستن فایل رخ داد، نادیده بگیر
-                        pass
+            # آپلود فایل‌ها
+            upload_data = {
+                'job_id': str(self.job_id)
+            }
+            
+            response = self.session.post(
+                f"{self.base_url}/candidates/upload-cv/",
+                files=test_files,
+                data=upload_data
+            )
+            
+            # پاک کردن فایل‌های موقت
+            for _, file_tuple in test_files:
+                file_path = Path(file_tuple[1].name)
+                if file_path.exists():
+                    file_path.unlink()
             
             if response.status_code == 200:
                 data = response.json()
