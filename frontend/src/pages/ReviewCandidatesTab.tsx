@@ -137,6 +137,7 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
   const updateCategory = useUpdateJobScoreCategory();
   const [activeBucket, setActiveBucket] = useState<ActiveBucket>('all');
   const initializedRef = useRef<number | null>(null);
+  const buttonRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
 
   // Fetch candidates from API
   const { data: reviewData, isLoading, error } = useReviewDashboard(jobId, { enabled: !!jobId });
@@ -189,6 +190,19 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
   }, [reviewData, jobId, favorites]);
 
   // No need to initialize store - category comes from backend
+
+  // Position dropdown when it opens
+  useEffect(() => {
+    if (openCategoryId !== null) {
+      const button = buttonRefs.current.get(openCategoryId);
+      const dropdown = document.getElementById(`category-dropdown-${openCategoryId}`);
+      if (button && dropdown) {
+        const rect = button.getBoundingClientRect();
+        dropdown.style.top = `${rect.top - dropdown.offsetHeight - 8}px`;
+        dropdown.style.left = `${rect.right - dropdown.offsetWidth}px`;
+      }
+    }
+  }, [openCategoryId]);
 
   useEffect(() => {
     const handleGlobalClick = () => {
@@ -463,8 +477,8 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
       </div>
 
       {/* Candidates Table */}
-      <div className="card p-0 overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="card p-0 overflow-hidden" style={{ overflowY: 'visible' }}>
+        <div className="overflow-x-auto" style={{ overflowY: 'visible' }}>
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr className="text-left text-xs uppercase tracking-wider text-gray-500">
@@ -643,6 +657,13 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
                     <td className="px-3 py-4 text-center">
                       <div className="relative flex justify-center">
                         <button
+                          ref={(el) => {
+                            if (el) {
+                              buttonRefs.current.set(candidate.id, el);
+                            } else {
+                              buttonRefs.current.delete(candidate.id);
+                            }
+                          }}
                           onClick={(e) => {
                             e.stopPropagation();
                             setOpenCategoryId((prev) => {
@@ -690,8 +711,9 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
                         </button>
                         {openCategoryId === candidate.id && (
                           <div
+                            id={`category-dropdown-${candidate.id}`}
                             onClick={(e) => e.stopPropagation()}
-                            className="absolute right-0 bottom-full z-20 mb-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg"
+                            className="fixed z-[9999] w-48 rounded-lg border border-gray-200 bg-white shadow-lg"
                           >
                             <div className="py-1">
                               {(['shortlisted', 'interview_scheduled', 'interviewed', 'offer_sent', 'hired'] as CandidateCategory[]).map((category) => (

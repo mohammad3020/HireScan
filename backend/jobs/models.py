@@ -55,6 +55,7 @@ class Job(models.Model):
     )
     
     EXPERIENCE_LEVEL_CHOICES = [
+        ('intern', 'Intern'),
         ('junior', 'Junior'),
         ('mid', 'Mid-level'),
         ('senior', 'Senior'),

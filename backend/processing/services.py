@@ -182,6 +182,7 @@ def _map_experience_level_to_seniority(experience_level, employment_type):
     if not experience_level and employment_type == 'internship':
         return "Intern"
     mapping = {
+        'intern': 'Intern',
         'junior': 'Junior',
         'mid': 'Mid-Level',
         'senior': 'Senior',

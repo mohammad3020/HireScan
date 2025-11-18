@@ -37,6 +37,7 @@ const employmentTypeOptions = [
 ];
 
 const experienceLevelOptions = [
+  { value: 'intern', label: 'Intern' },
   { value: 'junior', label: 'Junior' },
   { value: 'mid', label: 'Mid-level' },
   { value: 'senior', label: 'Senior' },
@@ -446,6 +447,10 @@ export const JobForm = () => {
         target_companies: jobData.target_companies || [],
       };
 
+      const salaryMin = jobData.salary_min?.toString() || '30';
+      const salaryMax = jobData.salary_max?.toString() || '80';
+      const isSalaryAny = !jobData.salary_min && !jobData.salary_max;
+      
       setFormData({
         title: jobData.title || '',
         description: jobData.description || '',
@@ -453,8 +458,8 @@ export const JobForm = () => {
         location: jobData.location || '',
         employment_type: jobData.employment_type || '',
         experience_level: jobData.experience_level || '',
-        salary_min: jobData.salary_min?.toString() || '30',
-        salary_max: jobData.salary_max?.toString() || '80',
+        salary_min: salaryMin,
+        salary_max: salaryMax,
         required_skills: skills,
         experience_min_years: jobData.experience_min_years?.toString() || '',
         experience_min_years_auto_reject: jobData.experience_min_years_auto_reject || false,
@@ -479,12 +484,23 @@ export const JobForm = () => {
           },
         },
       });
+      
+      setSalaryAny(isSalaryAny);
+      if (!isSalaryAny) {
+        setSalaryRange({
+          min: Number.isNaN(Number(salaryMin)) ? 30 : Number(salaryMin),
+          max: Number.isNaN(Number(salaryMax)) ? 80 : Number(salaryMax),
+        });
+      }
     }
   }, [isEdit, jobData]);
 
   const [skillInput, setSkillInput] = useState('');
   const [skillPriority, setSkillPriority] = useState<'Critical' | 'Important' | 'Nice-to-have'>('Important');
 
+  const [salaryAny, setSalaryAny] = useState(
+    !formData.salary_min && !formData.salary_max
+  );
   const [salaryRange, setSalaryRange] = useState({
     min: Number.isNaN(Number(formData.salary_min)) ? 30 : Number(formData.salary_min),
     max: Number.isNaN(Number(formData.salary_max)) ? 80 : Number(formData.salary_max),
@@ -561,6 +577,25 @@ export const JobForm = () => {
       applySalaryChange(type, value);
     };
 
+  const handleSalaryAnyChange = (checked: boolean) => {
+    setSalaryAny(checked);
+    if (checked) {
+      // Clear salary when "any" is selected
+      setFormData((prevData) => ({
+        ...prevData,
+        salary_min: '',
+        salary_max: '',
+      }));
+    } else {
+      // Restore default values when "any" is deselected
+      setFormData((prevData) => ({
+        ...prevData,
+        salary_min: salaryRange.min.toString(),
+        salary_max: salaryRange.max.toString(),
+      }));
+    }
+  };
+
   const salaryTrackPositions = {
     start: ((salaryRange.min - SALARY_MIN_BOUND) / (SALARY_MAX_BOUND - SALARY_MIN_BOUND)) * 100,
     end: ((salaryRange.max - SALARY_MIN_BOUND) / (SALARY_MAX_BOUND - SALARY_MIN_BOUND)) * 100,
@@ -577,8 +612,8 @@ export const JobForm = () => {
         location: formData.location,
         employment_type: formData.employment_type || undefined,
         experience_level: formData.experience_level || undefined,
-        salary_min: formData.salary_min ? Number(formData.salary_min) : null,
-        salary_max: formData.salary_max ? Number(formData.salary_max) : null,
+        salary_min: salaryAny ? null : (formData.salary_min ? Number(formData.salary_min) : null),
+        salary_max: salaryAny ? null : (formData.salary_max ? Number(formData.salary_max) : null),
         required_skills: formData.required_skills,
         experience_min_years: formData.experience_min_years ? Number(formData.experience_min_years) : null,
         experience_min_years_auto_reject: formData.experience_min_years_auto_reject,
@@ -772,82 +807,101 @@ export const JobForm = () => {
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h2>
           <div className="space-y-6">
             <div className="w-full max-w-2xl rounded-2xl border border-blue-300 bg-blue-50/40 p-6 space-y-6">
-                <div>
+                <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-blue-900">
                     Salary Range (Million Toman/Month)
                   </h3>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="range-slider">
-                    <div className="range-slider__track" />
-                    <div
-                      className="range-slider__range"
-                      style={{
-                        left: `${salaryTrackPositions.start}%`,
-                        right: `${100 - salaryTrackPositions.end}%`,
-                      }}
-                    />
+                  <label className="flex items-center gap-2 cursor-pointer">
                     <input
-                      type="range"
-                      min={SALARY_MIN_BOUND}
-                      max={SALARY_MAX_BOUND}
-                      step={SALARY_STEP}
-                      value={salaryRange.min}
-                      onChange={handleSalarySliderChange('min')}
-                      className="range-slider__input"
+                      type="checkbox"
+                      checked={salaryAny}
+                      onChange={(e) => handleSalaryAnyChange(e.target.checked)}
+                      className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
                     />
-                    <input
-                      type="range"
-                      min={SALARY_MIN_BOUND}
-                      max={SALARY_MAX_BOUND}
-                      step={SALARY_STEP}
-                      value={salaryRange.max}
-                      onChange={handleSalarySliderChange('max')}
-                      className="range-slider__input"
-                    />
-                  </div>
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>0</span>
-                    <span>100</span>
-                    <span>200+</span>
-                  </div>
+                    <span className="text-sm font-medium text-gray-700">Any</span>
+                  </label>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  <div className="max-w-xs space-y-2">
-                    <span className="text-sm font-semibold text-gray-700">Minimum</span>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="number"
-                        value={salaryRange.min}
-                        min={SALARY_MIN_BOUND}
-                        max={SALARY_MAX_BOUND}
-                        onChange={handleSalaryInputChange('min')}
-                        className="input-field max-w-[120px]"
-                      />
-                      <span className="text-sm font-medium text-gray-500">M</span>
+                {!salaryAny && (
+                  <>
+                    <div className="space-y-3">
+                      <div className="range-slider">
+                        <div className="range-slider__track" />
+                        <div
+                          className="range-slider__range"
+                          style={{
+                            left: `${salaryTrackPositions.start}%`,
+                            right: `${100 - salaryTrackPositions.end}%`,
+                          }}
+                        />
+                        <input
+                          type="range"
+                          min={SALARY_MIN_BOUND}
+                          max={SALARY_MAX_BOUND}
+                          step={SALARY_STEP}
+                          value={salaryRange.min}
+                          onChange={handleSalarySliderChange('min')}
+                          className="range-slider__input"
+                        />
+                        <input
+                          type="range"
+                          min={SALARY_MIN_BOUND}
+                          max={SALARY_MAX_BOUND}
+                          step={SALARY_STEP}
+                          value={salaryRange.max}
+                          onChange={handleSalarySliderChange('max')}
+                          className="range-slider__input"
+                        />
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-500">
+                        <span>0</span>
+                        <span>100</span>
+                        <span>200+</span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="max-w-xs space-y-2">
-                    <span className="text-sm font-semibold text-gray-700">Maximum</span>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="number"
-                        value={salaryRange.max}
-                        min={SALARY_MIN_BOUND}
-                        max={SALARY_MAX_BOUND}
-                        onChange={handleSalaryInputChange('max')}
-                        className="input-field max-w-[120px]"
-                      />
-                      <span className="text-sm font-medium text-gray-500">M</span>
-                    </div>
-                  </div>
-                </div>
 
-                <div className="rounded-xl bg-blue-100 px-4 py-3 text-center text-sm font-medium text-blue-900">
-                  Range: {salaryRange.min} - {salaryRange.max} Million Toman
-                </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      <div className="max-w-xs space-y-2">
+                        <span className="text-sm font-semibold text-gray-700">Minimum</span>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="number"
+                            value={salaryRange.min}
+                            min={SALARY_MIN_BOUND}
+                            max={SALARY_MAX_BOUND}
+                            onChange={handleSalaryInputChange('min')}
+                            className="input-field max-w-[120px]"
+                          />
+                          <span className="text-sm font-medium text-gray-500">M</span>
+                        </div>
+                      </div>
+                      <div className="max-w-xs space-y-2">
+                        <span className="text-sm font-semibold text-gray-700">Maximum</span>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="number"
+                            value={salaryRange.max}
+                            min={SALARY_MIN_BOUND}
+                            max={SALARY_MAX_BOUND}
+                            onChange={handleSalaryInputChange('max')}
+                            className="input-field max-w-[120px]"
+                          />
+                          <span className="text-sm font-medium text-gray-500">M</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl bg-blue-100 px-4 py-3 text-center text-sm font-medium text-blue-900">
+                      Range: {salaryRange.min} - {salaryRange.max} Million Toman
+                    </div>
+                  </>
+                )}
+
+                {salaryAny && (
+                  <div className="rounded-xl bg-gray-100 px-4 py-3 text-center text-sm font-medium text-gray-700">
+                    No salary restriction (Any)
+                  </div>
+                )}
             </div>
           </div>
         </div>

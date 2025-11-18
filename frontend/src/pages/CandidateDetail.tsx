@@ -1092,34 +1092,6 @@ export const CandidateDetail = () => {
                   </div>
                 )}
               </div>
-              {/* Detailed Calculations */}
-              {scoringDetails && Object.keys(scoringDetails).length > 0 && Object.keys(scoringDetails).some(key => key !== 'final_scores') && (
-                <div className="mt-6 pt-6 border-t border-gray-200">
-                  <details className="group">
-                    <summary className="cursor-pointer text-sm font-semibold text-gray-700 hover:text-gray-900 flex items-center gap-2">
-                      <span>Detailed Calculations</span>
-                      <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
-                    </summary>
-                    <div className="mt-4 space-y-3 text-xs text-gray-600">
-                      {Object.entries(scoringDetails).map(([key, value]) => {
-                        if (key === 'final_scores' || !value) return null;
-                        return (
-                          <div key={key} className="bg-gray-50 p-3 rounded-lg">
-                            <p className="font-semibold text-gray-700 mb-1 uppercase">{key.replace(/_/g, ' ')}</p>
-                            {typeof value === 'object' ? (
-                              <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
-                                {JSON.stringify(value, null, 2)}
-                              </pre>
-                            ) : (
-                              <p>{String(value)}</p>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </details>
-                </div>
-              )}
             </div>
           )}
 
@@ -1232,7 +1204,7 @@ export const CandidateDetail = () => {
               )}
               {interpretation.weaknesses && interpretation.weaknesses.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-sm font-semibold text-gray-800">Risks / Weaknesses</p>
+                  <p className="text-sm font-semibold text-gray-800">Weaknesses</p>
                   <div className="flex flex-wrap gap-2">
                     {interpretation.weaknesses.map((item, idx) => (
                       <span
