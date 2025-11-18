@@ -113,7 +113,7 @@ backend\venv\Scripts\activate
 cd ai
 ```
 
-**Use default model (anthropic/claude-3.5-sonnet):**
+**Use default model (anthropic/claude-3.5-sonnet) with direct file upload (default):**
 ```bash
 python test_service.py
 ```
@@ -124,6 +124,24 @@ python test_service.py "openai/gpt-4"
 python test_service.py "google/gemini-pro"
 python test_service.py "anthropic/claude-3-opus"
 python test_service.py "meta-llama/llama-3-70b-instruct"
+```
+
+**Use pypdf for text extraction instead of direct file upload:**
+```bash
+python test_service.py --use-pypdf
+python test_service.py "anthropic/claude-3.5-sonnet" --use-pypdf
+```
+
+**Specify PDF processing engine (only used when not using pypdf):**
+```bash
+# Use free pdf-text engine (default)
+python test_service.py --pdf-engine pdf-text
+
+# Use mistral-ocr for scanned documents (paid)
+python test_service.py --pdf-engine mistral-ocr
+
+# Use model's native file processing
+python test_service.py --pdf-engine native
 ```
 
 **Or as a one-liner from project root:**
@@ -137,10 +155,36 @@ The test script will:
 - Automatically load `.env` from the project root if it exists
 - Accept model name as command-line argument (or use default)
 - Process `Pe-CV2.pdf` with the `parse_resume` prompt
+- By default, sends PDF directly to OpenRouter (no local text extraction)
+- Use `--use-pypdf` flag to extract text locally using pypdf instead
 - Display results in the terminal
 - Save results to `test_output.json`
 
 ---
+
+## File Processing Methods
+
+The AI service supports two methods for processing PDF files:
+
+### 1. Direct File Upload to OpenRouter (Default)
+- **Default behavior**: PDFs are sent directly to OpenRouter without local text extraction
+- **Advantages**:
+  - Better handling of complex PDF layouts
+  - Support for scanned PDFs via OCR engines
+  - No dependency on pypdf for PDF processing
+  - OpenRouter handles PDF parsing with specialized engines
+- **PDF Engines**:
+  - `pdf-text` (default, free): Best for well-structured PDFs
+  - `mistral-ocr` (paid): Best for scanned documents or PDFs with images
+  - `native`: Use model's native file processing capabilities
+
+### 2. Local Text Extraction with pypdf
+- **Usage**: Set `use_pypdf=True` or use `--use-pypdf` flag in test script
+- **Advantages**:
+  - Full control over text extraction
+  - Can inspect extracted text before sending to API
+  - Useful for debugging or when you need the raw text
+- **Note**: DOCX files always use text extraction (OpenRouter doesn't support DOCX natively)
 
 ## Quick Reference
 

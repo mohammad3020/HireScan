@@ -201,6 +201,11 @@ LOGGING = {
             'style': '{',
             'datefmt': '%Y-%m-%d %H:%M:%S',
         },
+        'openrouter': {
+            'format': '{asctime} | {levelname} | {message}',
+            'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+        },
     },
     'handlers': {
         'file': {
@@ -214,6 +219,13 @@ LOGGING = {
             'class': 'logging.FileHandler',
             'filename': BASE_DIR / 'logs' / 'timing.log',
             'formatter': 'timing',
+            'mode': 'a',  # Append mode
+        },
+        'openrouter_file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'logs' / 'openrouter_api.log',
+            'formatter': 'openrouter',
             'mode': 'a',  # Append mode
         },
         'console': {
@@ -244,6 +256,16 @@ LOGGING = {
         },
         'processing.timing': {
             'handlers': ['timing_file', 'console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'openrouter.api': {
+            'handlers': ['openrouter_file', 'console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'ai.service': {
+            'handlers': ['openrouter_file', 'console'],
             'level': 'INFO',
             'propagate': False,
         },

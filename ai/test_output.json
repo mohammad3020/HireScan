@@ -1,113 +1,98 @@
 {
-  "personal_info": {
-    "full_name": "Marzieh Zamani",
-    "phone": "09122517303",
-    "email": "ms.maniz.amani@gmail.com",
-    "date_of_birth": "1364-03-18",
-    "marital_status": "Married",
-    "location": "Tehran - Babayi Highway, Hakimieh",
-    "links": {
-      "linkedin": "https://www.linkedin.com/in/mani-zamani/"
-    }
-  },
-  "education": [
-    {
-      "degree": "Masters",
-      "field": "Business Administration",
-      "institution": "University of Tehran",
-      "institution_category": "Top Iranian Universities",
-      "graduation_year": 1395
+  "extracted_resume_data": {
+    "personal_info": {
+      "full_name": "Marzieh Zamani",
+      "phone": "09122517303",
+      "email": "ms.manizamani@gmail.com",
+      "location": "Tehran - Babaei Highway, Hakimiyeh Town",
+      "birth_date": "June 8, 1985",
+      "marital_status": "Married",
+      "links": {
+        "linkedin": "https://www.linkedin.com/in/mani-zamani/"
+      }
     },
-    {
-      "degree": "Bachelors",
-      "field": "Computer Engineering",
-      "institution": "Islamic Azad University",
-      "institution_category": "Azad Universities",
-      "graduation_year": 1392
-    }
-  ],
-  "experience": [
-    {
-      "job_title": "Learning & Development Manager",
-      "company": "Avakatan Holding (Jeanswest, Banimode, DigiWash, Balcafe)",
-      "location": "Tehran",
-      "start_date": "1402-03",
-      "end_date": "1404-04",
-      "duration_months": 13,
-      "responsibilities": [
-        "Training needs assessment based on job requirements",
-        "Design of training programs aligned with career development",
-        "Implementation of training programs",
-        "Training effectiveness evaluation",
-        "Implementation of onboarding system",
-        "LMS implementation",
-        "Development of organizational learning strategies"
-      ]
-    },
-    {
-      "job_title": "Learning & Development Project Manager",
-      "company": "MAHAK",
-      "location": "Tehran",
-      "start_date": "1396-04",
-      "end_date": "1398-11",
-      "duration_months": 31,
-      "responsibilities": [
-        "Developing HR development strategy document",
-        "Job description documentation",
-        "Training needs assessment and implementation",
-        "LMS implementation"
-      ]
-    },
-    {
-      "job_title": "Learning & Development Manager",
-      "company": "Saman Insurance",
-      "location": "Tehran",
-      "start_date": "1391-12",
-      "end_date": "1395-03",
-      "duration_months": 39,
-      "responsibilities": [
-        "Planning and implementing training programs",
-        "E-learning content development",
-        "E-learning support"
-      ]
-    },
-    {
-      "job_title": "HR Specialist",
-      "company": "Raya Zeytoon",
-      "location": "Tehran",
-      "start_date": "1388-11",
-      "end_date": "1391-06",
-      "duration_months": 33,
-      "responsibilities": [
-        "Planning and implementing training programs",
-        "E-learning content development",
-        "E-learning support"
-      ]
-    }
-  ],
-  "skills": {
-    "technical": [
-      "Organizational training documentation",
-      "ISO 10015 implementation",
-      "LMS implementation",
-      "Training needs analysis",
-      "Project management",
-      "Photoshop"
+    "education": [
+      {
+        "degree": "Master's",
+        "field": "Business Administration",
+        "institution": "University of Tehran",
+        "institution_category": "Top Iranian Universities",
+        "graduation_year": 2016,
+        "details": "Faculty of Management"
+      },
+      {
+        "degree": "Bachelor's",
+        "field": "Computer Engineering",
+        "institution": "Islamic Azad University",
+        "institution_category": "Azad Universities",
+        "graduation_year": 2013
+      }
     ],
-    "soft": [
-      "Teamwork",
-      "Organizational behavior",
-      "Resilience"
+    "experience": [
+      {
+        "job_title": "HR Learning & Development Manager",
+        "company": "Avaktan Holding (Jeanswest, Banimode, DigiWash, Balcafe)",
+        "location": "Tehran",
+        "start_date": "2023-06",
+        "end_date": "Present",
+        "responsibilities": [
+          "Educational needs assessment based on job roles",
+          "Design training programs aligned with career development paths",
+          "Implementing onboarding system",
+          "LMS implementation",
+          "Training effectiveness evaluation",
+          "Organizational learning strategy development"
+        ]
+      },
+      {
+        "job_title": "Training Project Manager",
+        "company": "MAHAK Charity Organization",
+        "location": "Tehran",
+        "start_date": "2017-07",
+        "end_date": "2020-02",
+        "responsibilities": [
+          "Developing HR development strategy document",
+          "Creating job descriptions for staff positions",
+          "Training needs assessment and program implementation",
+          "LMS implementation"
+        ]
+      },
+      {
+        "job_title": "HR Learning & Development Specialist",
+        "company": "Saman Insurance",
+        "location": "Tehran",
+        "start_date": "2013-03",
+        "end_date": "2016-06",
+        "responsibilities": [
+          "Planning and executing training programs",
+          "E-learning content development",
+          "E-learning course support"
+        ]
+      }
+    ],
+    "skills": {
+      "technical": [
+        "ISO 10015 implementation",
+        "LMS implementation",
+        "Training needs analysis",
+        "Project management",
+        "Adobe Photoshop"
+      ],
+      "soft": [
+        "Teamwork",
+        "Resilience",
+        "Organizational behavior"
+      ],
+      "languages": [
+        "Persian (Native)",
+        "English",
+        "Turkish (Azerbaijani)"
+      ]
+    },
+    "certifications": [
+      "Training Effectiveness Evaluation Models",
+      "Leadership and Behavioral Skills",
+      "E-Learning Course"
     ]
-  },
-  "languages": [
-    "Persian",
-    "English",
-    "Azerbaijani Turkish"
-  ],
-  "certifications": [
-    "Leadership and behavioral skills",
-    "Training effectiveness evaluation models",
-    "E-Learning"
-  ]
+  }
 }

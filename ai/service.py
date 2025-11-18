@@ -141,6 +141,8 @@ def process_file_with_prompt(
     extract_text: bool = None,
     resume_text: str = None,
     prompt_override: Optional[str] = None,
+    use_pypdf: bool = False,
+    pdf_engine: Optional[str] = None,
     **kwargs
 ) -> Dict[str, Any]:
     """
@@ -160,10 +162,19 @@ def process_file_with_prompt(
                - "meta-llama/llama-3-70b-instruct"
                - "mistralai/mistral-large"
                See https://openrouter.ai/models for full list
-        extract_text: If True, extract text from PDF/DOCX and send as text instead of file.
+        extract_text: DEPRECATED - Use use_pypdf instead. If True, extract text from PDF/DOCX and send as text instead of file.
                      If None (default), auto-detect: try file first, fallback to text for PDFs.
                      If False, always send as file (may fail for PDFs).
         resume_text: Pre-extracted text from the resume. If provided, this will be used instead of extracting again.
+        prompt_override: Optional custom prompt text to override the prompt file.
+        use_pypdf: If True, extract text using pypdf and send as text. If False (default), send file directly to OpenRouter.
+                  Default is False (send directly to OpenRouter).
+        pdf_engine: PDF processing engine for OpenRouter when sending files directly:
+                   - None (default): Use OpenRouter's default engine
+                   - "pdf-text": Free, best for well-structured PDFs
+                   - "mistral-ocr": Paid, best for scanned documents or PDFs with images
+                   - "native": Use model's native file processing capabilities
+                   Only used when use_pypdf=False and file is PDF.
         **kwargs: Optional OpenRouter API parameters:
             - temperature (float): Controls randomness (0.0-2.0)
             - max_tokens (int): Maximum tokens to generate
@@ -171,6 +182,7 @@ def process_file_with_prompt(
             - top_p (float): Nucleus sampling parameter
             - stop (list): Stop sequences
             - timeout (int): Request timeout in seconds (default: 60)
+            - plugins (list): Additional plugins (will be merged with PDF plugin if pdf_engine is set)
     
     Returns:
         OpenRouter API response as dictionary (parsed JSON)
@@ -190,19 +202,37 @@ def process_file_with_prompt(
     
     # Check file type
     file_ext = Path(file_path).suffix.lower()
-    is_pdf_or_docx = file_ext in ['.pdf', '.docx', '.doc']
+    is_pdf = file_ext == '.pdf'
+    is_docx = file_ext in ['.docx', '.doc']
+    is_pdf_or_docx = is_pdf or is_docx
     
-    # If resume_text is provided, we should use text extraction method
+    # Determine processing method
+    # Priority: resume_text > use_pypdf > extract_text (backward compatibility) > default (send directly)
     if resume_text:
+        # If resume_text is provided, use text extraction method
+        use_pypdf = True
         extract_text = True
+    elif extract_text is not None:
+        # Backward compatibility: if extract_text is explicitly set, use it
+        use_pypdf = extract_text
+    # else: use_pypdf defaults to False (send directly to OpenRouter)
     
-    # Determine if we should extract text
-    if extract_text is None:
-        # Auto-detect: For PDFs, prefer text extraction (more reliable)
-        extract_text = is_pdf_or_docx
+    # For DOCX files, we must extract text (OpenRouter doesn't support DOCX natively)
+    if is_docx and not use_pypdf:
+        print("⚠️  Warning: DOCX files must be extracted. Switching to text extraction...")
+        use_pypdf = True
     
-    # Prepare messages based on extraction method
-    if extract_text and is_pdf_or_docx:
+    # Log which method is being used
+    if is_pdf:
+        if use_pypdf:
+            print("📄 Processing method: Using pypdf to extract text from PDF")
+        else:
+            print("📄 Processing method: Sending PDF directly to OpenRouter")
+    elif is_docx:
+        print("📄 Processing method: Extracting text from DOCX (OpenRouter doesn't support DOCX natively)")
+    
+    # Prepare messages based on processing method
+    if use_pypdf and is_pdf_or_docx:
         # Use pre-extracted text if provided, otherwise extract
         if resume_text:
             file_text = resume_text
@@ -248,31 +278,65 @@ def process_file_with_prompt(
                     }
                 ]
     
-    if not extract_text:
-        # Send file as base64 data URL
+    if not use_pypdf:
+        # Send file directly to OpenRouter
         file_data_url = _file_to_base64_data_url(file_path)
+        filename = Path(file_path).name
         
-        messages = [
-            {
-                "role": "system",
-                "content": "You are an expert AI assistant. Process the provided file according to the instructions and return valid JSON when requested."
-            },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": prompt_template
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": file_data_url
+        if is_pdf:
+            # Send PDF using OpenRouter's file format
+            messages = [
+                {
+                    "role": "system",
+                    "content": "You are an expert AI assistant specialized in parsing resumes. Extract all information from the provided PDF resume and return ONLY valid JSON. Do not include any explanatory text, only the JSON object."
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": prompt_template
+                        },
+                        {
+                            "type": "file",
+                            "file": {
+                                "filename": filename,
+                                "file_data": file_data_url
+                            }
                         }
-                    }
-                ]
-            }
-        ]
+                    ]
+                }
+            ]
+            
+            # Configure PDF processing engine via plugins if specified
+            if pdf_engine:
+                # Get or initialize plugins list
+                if 'plugins' not in kwargs:
+                    kwargs['plugins'] = []
+                elif not isinstance(kwargs['plugins'], list):
+                    kwargs['plugins'] = [kwargs['plugins']]
+                
+                # Check if file-parser plugin already exists
+                file_parser_plugin = None
+                for i, plugin in enumerate(kwargs['plugins']):
+                    if isinstance(plugin, dict) and plugin.get('id') == 'file-parser':
+                        file_parser_plugin = kwargs['plugins'][i]
+                        break
+                
+                # Add or update file-parser plugin
+                if file_parser_plugin:
+                    file_parser_plugin['pdf'] = {'engine': pdf_engine}
+                else:
+                    kwargs['plugins'].append({
+                        'id': 'file-parser',
+                        'pdf': {
+                            'engine': pdf_engine
+                        }
+                    })
+                print(f"📄 Using PDF engine: {pdf_engine}")
+        else:
+            # For non-PDF files (shouldn't happen due to DOCX check above, but handle gracefully)
+            raise ValueError(f"Direct file upload to OpenRouter is only supported for PDF files. File type: {file_ext}. Use use_pypdf=True for other file types.")
     
     # Prepare API request
     base_url = os.getenv('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1')
@@ -300,9 +364,40 @@ def process_file_with_prompt(
         import time
         import logging
         logger = logging.getLogger(__name__)
+        api_logger = logging.getLogger('openrouter.api')
         
         request_start_time = time.time()
         request_timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Log request details
+        file_ext = Path(file_path).suffix.lower()
+        file_size = Path(file_path).stat().st_size if Path(file_path).exists() else 0
+        file_size_kb = file_size / 1024
+        
+        # Prepare request log data (without full file content)
+        request_log_data = {
+            'timestamp': request_timestamp,
+            'action': 'SEND_REQUEST',
+            'file_path': str(file_path),
+            'file_name': Path(file_path).name,
+            'file_extension': file_ext,
+            'file_size_kb': round(file_size_kb, 2),
+            'model': model,
+            'use_pypdf': use_pypdf,
+            'pdf_engine': pdf_engine if pdf_engine else 'default',
+            'processing_method': 'text_extraction' if use_pypdf else 'direct_file_upload',
+            'url': url,
+            'parameters': {
+                'temperature': kwargs.get('temperature'),
+                'max_tokens': kwargs.get('max_tokens'),
+                'response_format': kwargs.get('response_format'),
+                'timeout': timeout,
+            },
+            'plugins': kwargs.get('plugins'),
+        }
+        
+        # Log request
+        api_logger.info(f"REQUEST | {json.dumps(request_log_data, indent=None, ensure_ascii=False)}")
         logger.info(f"[OPENROUTER API] Sending request to OpenRouter API at {request_timestamp} (model: {model})")
         print(f"[OPENROUTER API] Sending request to OpenRouter API at {request_timestamp} (model: {model})")
         
@@ -311,6 +406,43 @@ def process_file_with_prompt(
         request_end_time = time.time()
         request_duration = request_end_time - request_start_time
         response_timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Log response details
+        response_data = {}
+        try:
+            response_data = response.json() if response.ok else {}
+        except:
+            pass
+        
+        choice = response_data.get("choices", [{}])[0] if response_data.get("choices") else {}
+        message = choice.get("message", {}) if choice else {}
+        content = message.get("content", "")
+        content_length = len(content) if isinstance(content, str) else 0
+        usage = response_data.get("usage", {})
+        
+        response_log_data = {
+            'timestamp': response_timestamp,
+            'action': 'RECEIVE_RESPONSE',
+            'file_path': str(file_path),
+            'file_name': Path(file_path).name,
+            'model': model,
+            'status_code': response.status_code,
+            'request_duration_seconds': round(request_duration, 2),
+            'response_size': {
+                'content_length': content_length,
+                'content_length_kb': round(content_length / 1024, 2),
+            },
+            'usage': {
+                'prompt_tokens': usage.get('prompt_tokens'),
+                'completion_tokens': usage.get('completion_tokens'),
+                'total_tokens': usage.get('total_tokens'),
+            },
+            'finish_reason': choice.get('finish_reason'),
+            'success': response.ok,
+        }
+        
+        # Log response
+        api_logger.info(f"RESPONSE | {json.dumps(response_log_data, indent=None, ensure_ascii=False)}")
         logger.info(f"[OPENROUTER API] Received response from OpenRouter API at {response_timestamp} (request duration: {request_duration:.2f}s, status: {response.status_code})")
         print(f"[OPENROUTER API] Received response from OpenRouter API at {response_timestamp} (request duration: {request_duration:.2f}s, status: {response.status_code})")
         

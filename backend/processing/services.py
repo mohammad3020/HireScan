@@ -22,8 +22,21 @@ from candidates.models import (
 )
 from jobs.models import Job
 from .models import BatchUpload, FileItem
-from pypdf import PdfReader
-from docx import Document
+
+# Optional imports for fallback text extraction (only used if AI service fails)
+try:
+    from pypdf import PdfReader
+    HAS_PYPDF = True
+except ImportError:
+    HAS_PYPDF = False
+    PdfReader = None
+
+try:
+    from docx import Document
+    HAS_DOCX = True
+except ImportError:
+    HAS_DOCX = False
+    Document = None
 
 # Add ai directory to path to import service
 ai_dir = Path(settings.BASE_DIR).parent / 'ai'
@@ -95,6 +108,36 @@ def _to_decimal(value):
         return None
 
 
+def _normalize_email(email):
+    """
+    Normalize email address by removing spaces, converting to lowercase, and trimming.
+    
+    Args:
+        email: Email string (may contain spaces or other formatting issues)
+        
+    Returns:
+        Normalized email string or None if invalid
+    """
+    if not email or not isinstance(email, str):
+        return None
+    
+    # Remove all spaces
+    email = email.replace(' ', '').replace('\t', '').replace('\n', '')
+    
+    # Convert to lowercase and strip
+    email = email.lower().strip()
+    
+    # Basic validation - must contain @ and at least one character before and after
+    if '@' not in email or len(email.split('@')) != 2:
+        return None
+    
+    local, domain = email.split('@')
+    if not local or not domain:
+        return None
+    
+    return email
+
+
 def extract_text_from_file(file_path):
     """Extract text from PDF or DOCX file"""
     import logging
@@ -105,6 +148,8 @@ def extract_text_from_file(file_path):
     start_time = time.time()
     
     if file_ext == '.pdf':
+        if not HAS_PYPDF:
+            raise ImportError("pypdf is required for PDF text extraction. Install it with: pip install pypdf")
         try:
             logger.info(f"[TIMING] Starting PDF text extraction: {file_path}")
             with open(file_path, 'rb') as file:
@@ -121,6 +166,8 @@ def extract_text_from_file(file_path):
             raise ValueError(f"Error reading PDF: {str(e)}")
     
     elif file_ext in ['.doc', '.docx']:
+        if not HAS_DOCX:
+            raise ImportError("python-docx is required for DOCX text extraction. Install it with: pip install python-docx")
         try:
             logger.info(f"[TIMING] Starting DOCX text extraction: {file_path}")
             doc = Document(file_path)
@@ -256,46 +303,46 @@ def parse_resume_service(resume_instance, job=None):
     parsed_data = None
     if HAS_AI_SERVICE:
         try:
-            # Extract text using pypdf first (as requested)
-            # Timing is handled inside extract_text_from_file
-            resume_text = extract_text_from_file(file_path)
-            
-            # Process the file with the prompt - AI service will use extracted text
-            timing_logger.info(f"[RESUME {resume_id}] [TIMING] Starting AI processing with OpenRouter API...")
-            logger.info(f"[RESUME {resume_id}] Preparing to send request to OpenRouter API at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+            # Send file directly to OpenRouter (no local text extraction)
+            # OpenRouter will handle PDF parsing, and DOCX will be auto-extracted by AI service
+            timing_logger.info(f"[RESUME {resume_id}] [TIMING] Starting AI processing with OpenRouter API (direct file upload)...")
+            logger.info(f"[RESUME {resume_id}] Preparing to send file directly to OpenRouter API at {time.strftime('%Y-%m-%d %H:%M:%S')}")
             ai_start_time = time.time()
             
             # Rate limiting: Wait if needed to maintain 500ms delay between API requests
             _api_rate_limiter.wait_if_needed()
             
-            # Calculate approximate prompt length with job context
+            # Load prompt template with job context
             prompt_template = load_prompt_template('parse_resume')
             prompt_template, target_job_payload = _append_job_context_to_prompt(prompt_template, job)
             if target_job_payload and job:
                 logger.info(f"[RESUME {resume_id}] Included target job context in prompt for job {job.id}")
-            total_length = len(prompt_template) + len(resume_text)
-            logger.info(f"[RESUME {resume_id}] Total prompt + resume text length: {total_length} characters")
             
-            # Increase max_tokens for longer responses (JSON can be large)
-            # Estimate tokens: ~3 chars per token (conservative for mixed Persian/English)
-            estimated_input_tokens = int(total_length / 3)
-            # For JSON response, we need significant tokens
-            max_tokens = max(16000, int(estimated_input_tokens * 0.5) + 4000)
-            # Cap at reasonable maximum
-            max_tokens = min(max_tokens, 32000)
-            logger.info(f"[RESUME {resume_id}] Using max_tokens: {max_tokens} for total length: {total_length} chars (~{estimated_input_tokens} input tokens)")
+            # Use default max_tokens (OpenRouter will handle file size automatically)
+            # For direct file upload, we don't know the exact text length, so use a safe default
+            max_tokens = 16000  # Default, OpenRouter can handle larger files
+            logger.info(f"[RESUME {resume_id}] Using max_tokens: {max_tokens} for direct file upload")
             
-            # Pass extract_text=False since we already extracted the text above
-            # This prevents double extraction
-            logger.info(f"[RESUME {resume_id}] Sending request to OpenRouter API (model: {settings.OPENROUTER_MODEL}) at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+            # Send file directly to OpenRouter (NO local text extraction with pypdf)
+            # For PDFs: sent directly to OpenRouter using file format (OpenRouter handles parsing)
+            # For DOCX: AI service will automatically extract text (OpenRouter doesn't support DOCX natively)
+            file_ext = Path(file_path).suffix.lower()
+            logger.info(f"[RESUME {resume_id}] Using DIRECT FILE UPLOAD to OpenRouter (use_pypdf=False, file type: {file_ext})")
+            logger.info(f"[RESUME {resume_id}] Sending file directly to OpenRouter API (model: {settings.OPENROUTER_MODEL}) at {time.strftime('%Y-%m-%d %H:%M:%S')}")
             api_request_start = time.time()
+            
+            # Get PDF engine from settings if configured (optional)
+            pdf_engine = getattr(settings, 'OPENROUTER_PDF_ENGINE', None)
+            if pdf_engine:
+                logger.info(f"[RESUME {resume_id}] Using PDF engine: {pdf_engine}")
+            
             parsed_data = process_file_with_prompt(
                 file_path=str(file_path),
                 prompt_name='parse_resume',
                 prompt_override=prompt_template,
                 model=settings.OPENROUTER_MODEL,
-                extract_text=False,  # We already extracted text, don't extract again
-                resume_text=resume_text,  # Pass the already-extracted text
+                use_pypdf=False,  # IMPORTANT: Direct file upload, NO pypdf text extraction
+                pdf_engine=pdf_engine,  # Optional PDF engine configuration
                 temperature=0.3,  # Lower temperature for more consistent JSON output
                 max_tokens=max_tokens,
                 response_format={"type": "json_object"}
@@ -466,7 +513,9 @@ def parse_resume_service(resume_instance, job=None):
     # Update ParsedResume with personal information
     parsed_resume.full_name = personal_info.get('full_name', '') or ''
     parsed_resume.phone = personal_info.get('phone', '') or ''
-    parsed_resume.email = personal_info.get('email', '') or ''
+    # Normalize email (remove spaces, lowercase, etc.)
+    raw_email = personal_info.get('email', '') or ''
+    parsed_resume.email = _normalize_email(raw_email) or ''
     parsed_resume.address = personal_info.get('address', '') or ''
     parsed_resume.date_of_birth = personal_info.get('date_of_birth', '') or ''
     parsed_resume.marital_status = personal_info.get('marital_status', '') or ''
@@ -537,14 +586,40 @@ def parse_resume_service(resume_instance, job=None):
     # Fix: use parsed_resume.email (already set above) instead of parsed_resume.parsed_data
     if parsed_resume.email and (not candidate.email or candidate.email.startswith('temp_') or candidate.email.endswith('@temp.com') or candidate.email.endswith('@example.com')):
         old_email = candidate.email
-        candidate.email = parsed_resume.email
-        logger.info(f"Updated candidate {candidate.id} email from '{old_email}' to '{parsed_resume.email}'")
+        normalized_email = _normalize_email(parsed_resume.email)
+        
+        if normalized_email:
+            # Check if another candidate with this email already exists
+            existing_candidate = None
+            try:
+                existing_candidate = Candidate.objects.exclude(id=candidate.id).get(email=normalized_email)
+            except Candidate.DoesNotExist:
+                pass
+            
+            if existing_candidate:
+                # Another candidate with this email exists - link resume to existing candidate
+                logger.warning(
+                    f"Candidate {candidate.id} has email '{normalized_email}' that already exists for candidate {existing_candidate.id}. "
+                    f"Linking resume to existing candidate {existing_candidate.id}."
+                )
+                # Update resume to point to existing candidate
+                resume_instance.candidate = existing_candidate
+                resume_instance.save()
+                candidate = existing_candidate
+            else:
+                # Email is unique, update candidate
+                candidate.email = normalized_email
+                logger.info(f"Updated candidate {candidate.id} email from '{old_email}' to '{normalized_email}'")
+        else:
+            logger.warning(f"Invalid email format extracted: '{parsed_resume.email}', skipping email update")
+    
     if parsed_resume.phone and not candidate.phone:
         candidate.phone = parsed_resume.phone
     if parsed_resume.linkedin_url and not candidate.linkedin_url:
         candidate.linkedin_url = parsed_resume.linkedin_url
     if parsed_resume.github_url and not candidate.github_url:
         candidate.github_url = parsed_resume.github_url
+    
     try:
         candidate.save()
     except IntegrityError as exc:
@@ -1460,18 +1535,42 @@ def _process_single_file_item(file_item, batch, counters, lock):
         # But ensure it's updated if parsing succeeded
         if parsed_resume.email and (not candidate.email or candidate.email.startswith('temp_') or candidate.email.endswith('@temp.com') or candidate.email.endswith('@example.com')):
             old_email = candidate.email
-            candidate.email = parsed_resume.email
-            try:
-                candidate.save()
-            except IntegrityError as exc:
-                logger.error(
-                    "[RESUME %s] Duplicate candidate email detected while updating candidate %s",
-                    resume_id,
-                    candidate.id,
-                    exc_info=True,
-                )
-                raise ValueError("Resume parsing failed: فایل رزومه تکراری ست") from exc
-            logger.info(f"[RESUME {resume_id}] Updated candidate {candidate.id} email from {old_email} to {parsed_resume.email}")
+            normalized_email = _normalize_email(parsed_resume.email)
+            
+            if normalized_email:
+                # Check if another candidate with this email already exists
+                existing_candidate = None
+                try:
+                    existing_candidate = Candidate.objects.exclude(id=candidate.id).get(email=normalized_email)
+                except Candidate.DoesNotExist:
+                    pass
+                
+                if existing_candidate:
+                    # Another candidate with this email exists - link resume to existing candidate
+                    logger.warning(
+                        f"[RESUME {resume_id}] Candidate {candidate.id} has email '{normalized_email}' that already exists for candidate {existing_candidate.id}. "
+                        f"Linking resume to existing candidate {existing_candidate.id}."
+                    )
+                    # Update resume to point to existing candidate
+                    resume.candidate = existing_candidate
+                    resume.save()
+                    candidate = existing_candidate
+                else:
+                    # Email is unique, update candidate
+                    candidate.email = normalized_email
+                    try:
+                        candidate.save()
+                    except IntegrityError as exc:
+                        logger.error(
+                            "[RESUME %s] Duplicate candidate email detected while updating candidate %s",
+                            resume_id,
+                            candidate.id,
+                            exc_info=True,
+                        )
+                        raise ValueError("Resume parsing failed: فایل رزومه تکراری ست") from exc
+                    logger.info(f"[RESUME {resume_id}] Updated candidate {candidate.id} email from {old_email} to {normalized_email}")
+            else:
+                logger.warning(f"[RESUME {resume_id}] Invalid email format extracted: '{parsed_resume.email}', skipping email update")
         
         # If batch has a job, create JobScore and apply auto-reject rules
         if job:
