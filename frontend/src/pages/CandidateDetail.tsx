@@ -440,7 +440,7 @@ export const CandidateDetail = () => {
                   <p className="text-sm text-gray-600">Email</p>
                   <a
                     href={`mailto:${personalInfo?.email || candidate.email}`}
-                    className="text-sm font-medium text-gray-900"
+                    className="text-sm font-medium text-gray-900 hover:text-primary"
                   >
                     {personalInfo?.email || candidate.email}
                   </a>
@@ -455,6 +455,116 @@ export const CandidateDetail = () => {
                   </p>
                 </div>
               </div>
+              {(() => {
+                const links = personalInfo?.links || {};
+                const linkedin = links.linkedin || candidate.linkedin_url;
+                const github = links.github || candidate.github_url;
+                const portfolio = links.portfolio;
+                const website = links.website;
+                const otherLinks = links.other || [];
+                
+                if (!linkedin && !github && !portfolio && !website && otherLinks.length === 0) {
+                  return null;
+                }
+                
+                return (
+                  <>
+                    {linkedin && (
+                      <div className="flex items-center space-x-3">
+                        <Linkedin className="h-5 w-5 text-gray-400" />
+                        <div>
+                          <p className="text-sm text-gray-600">LinkedIn</p>
+                          <a
+                            href={linkedin}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-medium text-gray-900 hover:text-primary"
+                          >
+                            View Profile
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                    {github && (
+                      <div className="flex items-center space-x-3">
+                        <svg className="h-5 w-5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                          <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
+                        </svg>
+                        <div>
+                          <p className="text-sm text-gray-600">GitHub</p>
+                          <a
+                            href={github}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-medium text-gray-900 hover:text-primary"
+                          >
+                            View Profile
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                    {portfolio && (
+                      <div className="flex items-center space-x-3">
+                        <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                        </svg>
+                        <div>
+                          <p className="text-sm text-gray-600">Portfolio</p>
+                          <a
+                            href={portfolio}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-medium text-gray-900 hover:text-primary"
+                          >
+                            View Portfolio
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                    {website && (
+                      <div className="flex items-center space-x-3">
+                        <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                        </svg>
+                        <div>
+                          <p className="text-sm text-gray-600">Website</p>
+                          <a
+                            href={website}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-medium text-gray-900 hover:text-primary"
+                          >
+                            Visit Website
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                    {otherLinks.length > 0 && (
+                      <div className="flex items-center space-x-3">
+                        <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                        </svg>
+                        <div>
+                          <p className="text-sm text-gray-600">Other Links</p>
+                          <div className="flex flex-wrap gap-2 mt-1">
+                            {otherLinks.map((link: string, idx: number) => (
+                              <a
+                                key={idx}
+                                href={link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs font-medium text-primary hover:underline"
+                              >
+                                Link {idx + 1}
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           </div>
 
@@ -1187,44 +1297,125 @@ export const CandidateDetail = () => {
                   {interpretation.seniority_fit_analysis.explanation}
                 </p>
               )}
-              {interpretation.strengths && interpretation.strengths.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-gray-800">Strengths</p>
-                  <div className="flex flex-wrap gap-2">
-                    {interpretation.strengths.map((item, idx) => (
-                      <span
-                        key={`strength-${idx}`}
-                        className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 border border-emerald-100"
-                      >
-                        {item}
-                      </span>
-                    ))}
+              {(() => {
+                // Support both nested structure (analysis.strengths) and flat structure (strengths)
+                const strengths = interpretation.analysis?.strengths || interpretation.strengths || [];
+                if (strengths.length === 0) return null;
+                
+                return (
+                  <div className="space-y-3">
+                    <p className="text-sm font-semibold text-gray-800">Strengths</p>
+                    <div className="space-y-3">
+                      {strengths.map((item: any, idx: number) => {
+                        // Handle both object format (new) and string format (legacy)
+                        if (typeof item === 'string') {
+                          return (
+                            <span
+                              key={`strength-${idx}`}
+                              className="inline-block rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 border border-emerald-100 mr-2 mb-2"
+                            >
+                              {item}
+                            </span>
+                          );
+                        }
+                        // Object format with title, evidence, impact_level
+                        return (
+                          <div
+                            key={`strength-${idx}`}
+                            className="rounded-lg bg-emerald-50 border border-emerald-100 p-3"
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <h4 className="text-sm font-semibold text-emerald-900">{item.title || 'Strength'}</h4>
+                              {item.impact_level && (
+                                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                                  item.impact_level === 'high' ? 'bg-emerald-200 text-emerald-800' :
+                                  item.impact_level === 'medium' ? 'bg-emerald-100 text-emerald-700' :
+                                  'bg-emerald-50 text-emerald-600'
+                                }`}>
+                                  {item.impact_level}
+                                </span>
+                              )}
+                            </div>
+                            {item.evidence && (
+                              <p className="text-xs text-emerald-700 mt-1">{item.evidence}</p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
-              {interpretation.weaknesses && interpretation.weaknesses.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-gray-800">Weaknesses</p>
-                  <div className="flex flex-wrap gap-2">
-                    {interpretation.weaknesses.map((item, idx) => (
-                      <span
-                        key={`weakness-${idx}`}
-                        className="rounded-full bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700 border border-rose-100"
-                      >
-                        {item}
-                      </span>
-                    ))}
+                );
+              })()}
+              {(() => {
+                // Support both nested structure (analysis.weaknesses) and flat structure (weaknesses)
+                const weaknesses = interpretation.analysis?.weaknesses || interpretation.weaknesses || [];
+                if (weaknesses.length === 0) return null;
+                
+                return (
+                  <div className="space-y-3">
+                    <p className="text-sm font-semibold text-gray-800">Weaknesses</p>
+                    <div className="space-y-3">
+                      {weaknesses.map((item: any, idx: number) => {
+                        // Handle both object format (new) and string format (legacy)
+                        if (typeof item === 'string') {
+                          return (
+                            <span
+                              key={`weakness-${idx}`}
+                              className="inline-block rounded-full bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700 border border-rose-100 mr-2 mb-2"
+                            >
+                              {item}
+                            </span>
+                          );
+                        }
+                        // Object format with title, observation, suggestion, priority
+                        return (
+                          <div
+                            key={`weakness-${idx}`}
+                            className="rounded-lg bg-rose-50 border border-rose-100 p-3"
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <h4 className="text-sm font-semibold text-rose-900">{item.title || 'Weakness'}</h4>
+                              {item.priority && (
+                                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                                  item.priority === 'high' ? 'bg-rose-200 text-rose-800' :
+                                  item.priority === 'medium' ? 'bg-rose-100 text-rose-700' :
+                                  'bg-rose-50 text-rose-600'
+                                }`}>
+                                  {item.priority}
+                                </span>
+                              )}
+                            </div>
+                            {item.observation && (
+                              <p className="text-xs text-rose-700 mt-1 mb-1">
+                                <span className="font-medium">Observation:</span> {item.observation}
+                              </p>
+                            )}
+                            {item.suggestion && (
+                              <p className="text-xs text-rose-600 mt-1">
+                                <span className="font-medium">Suggestion:</span> {item.suggestion}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
-              {interpretation.overall_assessment && (
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-gray-800">Overall Assessment</p>
-                  <p className="text-sm text-gray-600 leading-6 bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                    {interpretation.overall_assessment}
-                  </p>
-                </div>
-              )}
+                );
+              })()}
+              {(() => {
+                // Support both nested structure (overall_analysis.narrative) and flat structure (overall_assessment)
+                const narrative = interpretation.overall_analysis?.narrative || interpretation.overall_assessment;
+                if (!narrative) return null;
+                
+                return (
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-gray-800">Overall Analysis</p>
+                    <p className="text-sm text-gray-600 leading-6 bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                      {narrative}
+                    </p>
+                  </div>
+                );
+              })()}
               {interpretation.recommendations && interpretation.recommendations.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-sm font-semibold text-gray-800">Recommendations</p>

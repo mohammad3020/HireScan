@@ -566,11 +566,6 @@ export const JobForm = () => {
     });
   };
 
-  const handleSalarySliderChange =
-    (type: 'min' | 'max') => (event: ChangeEvent<HTMLInputElement>) => {
-      applySalaryChange(type, Number(event.target.value));
-    };
-
   const handleSalaryInputChange =
     (type: 'min' | 'max') => (event: ChangeEvent<HTMLInputElement>) => {
       const value = event.target.value === '' ? SALARY_MIN_BOUND : Number(event.target.value);
@@ -594,11 +589,6 @@ export const JobForm = () => {
         salary_max: salaryRange.max.toString(),
       }));
     }
-  };
-
-  const salaryTrackPositions = {
-    start: ((salaryRange.min - SALARY_MIN_BOUND) / (SALARY_MAX_BOUND - SALARY_MIN_BOUND)) * 100,
-    end: ((salaryRange.max - SALARY_MIN_BOUND) / (SALARY_MAX_BOUND - SALARY_MIN_BOUND)) * 100,
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -824,42 +814,6 @@ export const JobForm = () => {
 
                 {!salaryAny && (
                   <>
-                    <div className="space-y-3">
-                      <div className="range-slider">
-                        <div className="range-slider__track" />
-                        <div
-                          className="range-slider__range"
-                          style={{
-                            left: `${salaryTrackPositions.start}%`,
-                            right: `${100 - salaryTrackPositions.end}%`,
-                          }}
-                        />
-                        <input
-                          type="range"
-                          min={SALARY_MIN_BOUND}
-                          max={SALARY_MAX_BOUND}
-                          step={SALARY_STEP}
-                          value={salaryRange.min}
-                          onChange={handleSalarySliderChange('min')}
-                          className="range-slider__input"
-                        />
-                        <input
-                          type="range"
-                          min={SALARY_MIN_BOUND}
-                          max={SALARY_MAX_BOUND}
-                          step={SALARY_STEP}
-                          value={salaryRange.max}
-                          onChange={handleSalarySliderChange('max')}
-                          className="range-slider__input"
-                        />
-                      </div>
-                      <div className="flex justify-between text-xs text-gray-500">
-                        <span>0</span>
-                        <span>100</span>
-                        <span>200+</span>
-                      </div>
-                    </div>
-
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                       <div className="max-w-xs space-y-2">
                         <span className="text-sm font-semibold text-gray-700">Minimum</span>

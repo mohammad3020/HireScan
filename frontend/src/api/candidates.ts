@@ -170,10 +170,31 @@ export interface SeniorityFitAnalysis {
   underqualified?: boolean;
 }
 
+export interface StrengthItem {
+  title: string;
+  evidence: string;
+  impact_level: 'high' | 'medium' | 'low';
+}
+
+export interface WeaknessItem {
+  title: string;
+  observation: string;
+  suggestion: string;
+  priority: 'high' | 'medium' | 'low';
+}
+
 export interface Interpretation {
   seniority_fit_analysis?: SeniorityFitAnalysis;
-  strengths?: string[];
-  weaknesses?: string[];
+  analysis?: {
+    strengths?: StrengthItem[];
+    weaknesses?: WeaknessItem[];
+  };
+  overall_analysis?: {
+    narrative?: string;
+  };
+  // Legacy support for flat structure
+  strengths?: string[] | StrengthItem[];
+  weaknesses?: string[] | WeaknessItem[];
   overall_assessment?: string;
   recommendations?: string[];
 }

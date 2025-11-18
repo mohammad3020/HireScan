@@ -25,7 +25,7 @@ HireScan streamlines the recruitment process by automatically parsing resumes, e
 - **Required Skills**: Define critical, important, and nice-to-have skills with priority levels
 
 #### Resume Processing
-- **Batch Upload**: Upload up to 100 resumes at once (supports PDF, DOC, DOCX formats)
+- **Batch Upload**: Upload up to 50 resumes at once (supports PDF, DOC, DOCX formats)
 - **AI-Powered Parsing**: Automatically extract structured candidate data including:
   - Personal information (name, contact, address, date of birth, marital status, military service)
   - Work experience with grouped job titles (identical titles grouped under single header)
@@ -267,10 +267,13 @@ HireScan/
 ├── frontend/                   # React frontend application
 │   ├── src/
 │   │   ├── api/               # API client functions
+│   │   │   ├── auth.ts        # Authentication hooks
+│   │   │   ├── batch.ts       # Batch upload API hooks
 │   │   │   ├── candidates.ts  # Candidate API hooks
+│   │   │   ├── client.ts      # Axios client configuration
+│   │   │   ├── dashboard.ts  # Dashboard API hooks
 │   │   │   ├── jobs.ts        # Job API hooks
-│   │   │   ├── review.ts      # Review dashboard hooks
-│   │   │   └── auth.ts        # Authentication hooks
+│   │   │   └── review.ts      # Review dashboard hooks
 │   │   ├── components/        # Reusable UI components
 │   │   │   ├── Layout.tsx     # Main layout component
 │   │   │   └── ...
@@ -309,6 +312,7 @@ HireScan/
 ├── PYTHON_VERSION_GUIDE.md    # Python version compatibility guide
 ├── API_CONNECTION_STATUS.md   # API connection status documentation
 ├── SMOKE_TEST.md              # Smoke test guide
+├── SMOKE_TEST_TROUBLESHOOTING.md # Smoke test troubleshooting guide
 └── .env.example               # Environment variables template
 ```
 
@@ -346,8 +350,11 @@ This will start both backend and frontend servers automatically.
 
 ### Authentication
 - `POST /api/auth/register/` - User registration
-- `POST /api/auth/login/` - User login
-- `POST /api/auth/refresh/` - Refresh JWT token
+- `POST /api/auth/token/` - User login (obtain JWT token)
+- `POST /api/auth/token/refresh/` - Refresh JWT token
+- `POST /api/auth/token/verify/` - Verify JWT token
+- `GET /api/auth/me/` - Get current user information
+- `GET /api/auth/dashboard/` - Get dashboard data
 
 ### Jobs
 - `GET /api/jobs/jobs/` - List all jobs
@@ -360,10 +367,14 @@ This will start both backend and frontend servers automatically.
 
 ### Candidates
 - `GET /api/candidates/candidates/` - List all candidates
-- `GET /api/candidates/candidates/{id}/detail/` - Get candidate details
+- `GET /api/candidates/candidates/{id}/` - Get candidate details
+- `GET /api/candidates/candidates/{id}/detail/` - Get candidate details (alias)
 - `POST /api/candidates/candidates/{id}/add_note/` - Add note to candidate
-- `DELETE /api/candidates/notes/{id}/` - Delete note
-- `PATCH /api/candidates/job-scores/{id}/category/` - Update candidate state
+- `DELETE /api/candidates/candidates/{id}/delete_note/{note_id}/` - Delete note
+- `GET /api/candidates/candidates/{id}/notes/` - Get candidate notes
+- `GET /api/candidates/candidates/{id}/timeline/` - Get candidate timeline events
+- `PATCH /api/candidates/job-scores/{id}/update-category/` - Update candidate state/category
+- `POST /api/candidates/upload-cv/` - Upload CV files for processing
 
 ### Batch Processing
 - `GET /api/batch/batches/` - List batch uploads
@@ -465,7 +476,7 @@ For comprehensive smoke tests and troubleshooting:
 
 - [Python Version Guide](./PYTHON_VERSION_GUIDE.md) - Python compatibility information
 - [API Connection Status](./API_CONNECTION_STATUS.md) - Current API connection status
-- [Smoke Test Guide](./SMOKE_TEST_GUIDE.md) - Testing instructions
+- [Smoke Test Guide](./SMOKE_TEST.md) - Testing instructions
 - [LOGGING_GUIDE.md](./backend/LOGGING_GUIDE.md) - Backend logging configuration
 
 ## 🗄 Database
