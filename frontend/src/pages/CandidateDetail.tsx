@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   Mail,
   Phone,
-  Linkedin,
   Calendar,
   Sparkles,
   Wallet,
@@ -31,8 +30,8 @@ const ScoreBadge = ({ value }: { value?: number | null }) => {
   const isNumber = typeof value === 'number' && !Number.isNaN(value);
   return (
     <div
-      className={`flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-semibold ${
-        isNumber ? scoreClasses(value as number) : 'border-gray-200 bg-gray-50 text-gray-500'
+      className={`flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-semibold backdrop-blur-md ${
+        isNumber ? scoreClasses(value as number) : 'border-gray-300/60 bg-gray-100/80 text-gray-600'
       }`}
     >
       {isNumber ? Math.round(value as number) : '--'}
@@ -375,35 +374,35 @@ export const CandidateDetail = () => {
         <div className="flex items-center gap-4 flex-1 min-w-0">
           <Link
             to="/review"
-            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 text-gray-700 hover:text-gray-900 hover:bg-white/20 backdrop-blur-md rounded-lg transition-colors border border-transparent hover:border-white/30"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-3xl font-bold text-gray-900 truncate">{candidate.name}</h1>
+              <h1 className="text-3xl font-bold text-gray-800 truncate">{candidate.name}</h1>
               {rejectionBadgeInfo && (
                 // Show badge in header only if the related section doesn't exist
                 (rejectionBadgeInfo.section === 'experience' && experienceEntries.length === 0) ||
                 (rejectionBadgeInfo.section === 'education' && educationEntries.length === 0) ||
                 rejectionBadgeInfo.section === 'general'
               ) && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-red-300 bg-red-50 px-3 py-1 text-sm font-semibold text-red-700">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-red-400/60 bg-red-100/80 backdrop-blur-md px-3 py-1 text-sm font-semibold text-red-800">
                   <AlertCircle className="h-4 w-4" />
                   {rejectionBadgeInfo.text}
                 </span>
               )}
             </div>
-            <p className="text-gray-600 mt-1">Candidate Profile & Details</p>
+            <p className="text-gray-700 mt-1">Candidate Profile & Details</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={toggleFavorite}
-            className={`rounded-full border p-2 transition ${
+            className={`rounded-full border p-2 transition backdrop-blur-md ${
               isFavorite
-                ? 'border-yellow-300 bg-yellow-100 text-yellow-500 hover:bg-yellow-200'
-                : 'border-gray-200 bg-white text-gray-400 hover:border-yellow-200 hover:bg-yellow-50 hover:text-yellow-500'
+                ? 'border-yellow-500/60 bg-yellow-200/80 text-yellow-800 hover:bg-yellow-300/90'
+                : 'border-white/40 bg-white/20 text-gray-600 hover:border-yellow-400/60 hover:bg-yellow-100/60 hover:text-yellow-700'
             }`}
             aria-label="Toggle favorite"
           >
@@ -432,7 +431,7 @@ export const CandidateDetail = () => {
         <div className="lg:col-span-2 space-y-6">
           {/* Contact Information */}
           <div className="card p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h2>
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">Contact Information</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex items-center space-x-3">
                 <Mail className="h-5 w-5 text-gray-400" />
@@ -440,7 +439,7 @@ export const CandidateDetail = () => {
                   <p className="text-sm text-gray-600">Email</p>
                   <a
                     href={`mailto:${personalInfo?.email || candidate.email}`}
-                    className="text-sm font-medium text-gray-900 hover:text-primary"
+                    className="text-sm font-medium text-gray-800 hover:text-primary"
                   >
                     {personalInfo?.email || candidate.email}
                   </a>
@@ -450,121 +449,11 @@ export const CandidateDetail = () => {
                 <Phone className="h-5 w-5 text-gray-400" />
                 <div>
                   <p className="text-sm text-gray-600">Phone</p>
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium text-gray-800">
                     {personalInfo?.phone || candidate.phone || '—'}
                   </p>
                 </div>
               </div>
-              {(() => {
-                const links = personalInfo?.links || {};
-                const linkedin = links.linkedin || candidate.linkedin_url;
-                const github = links.github || candidate.github_url;
-                const portfolio = links.portfolio;
-                const website = links.website;
-                const otherLinks = links.other || [];
-                
-                if (!linkedin && !github && !portfolio && !website && otherLinks.length === 0) {
-                  return null;
-                }
-                
-                return (
-                  <>
-                    {linkedin && (
-                      <div className="flex items-center space-x-3">
-                        <Linkedin className="h-5 w-5 text-gray-400" />
-                        <div>
-                          <p className="text-sm text-gray-600">LinkedIn</p>
-                          <a
-                            href={linkedin}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm font-medium text-gray-900 hover:text-primary"
-                          >
-                            View Profile
-                          </a>
-                        </div>
-                      </div>
-                    )}
-                    {github && (
-                      <div className="flex items-center space-x-3">
-                        <svg className="h-5 w-5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                          <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
-                        </svg>
-                        <div>
-                          <p className="text-sm text-gray-600">GitHub</p>
-                          <a
-                            href={github}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm font-medium text-gray-900 hover:text-primary"
-                          >
-                            View Profile
-                          </a>
-                        </div>
-                      </div>
-                    )}
-                    {portfolio && (
-                      <div className="flex items-center space-x-3">
-                        <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                        </svg>
-                        <div>
-                          <p className="text-sm text-gray-600">Portfolio</p>
-                          <a
-                            href={portfolio}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm font-medium text-gray-900 hover:text-primary"
-                          >
-                            View Portfolio
-                          </a>
-                        </div>
-                      </div>
-                    )}
-                    {website && (
-                      <div className="flex items-center space-x-3">
-                        <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                        </svg>
-                        <div>
-                          <p className="text-sm text-gray-600">Website</p>
-                          <a
-                            href={website}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm font-medium text-gray-900 hover:text-primary"
-                          >
-                            Visit Website
-                          </a>
-                        </div>
-                      </div>
-                    )}
-                    {otherLinks.length > 0 && (
-                      <div className="flex items-center space-x-3">
-                        <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                        </svg>
-                        <div>
-                          <p className="text-sm text-gray-600">Other Links</p>
-                          <div className="flex flex-wrap gap-2 mt-1">
-                            {otherLinks.map((link: string, idx: number) => (
-                              <a
-                                key={idx}
-                                href={link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-xs font-medium text-primary hover:underline"
-                              >
-                                Link {idx + 1}
-                              </a>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
             </div>
           </div>
 
@@ -572,7 +461,7 @@ export const CandidateDetail = () => {
           {educationEntries?.length > 0 && (
             <div className="card p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">Education</h2>
+                <h2 className="text-lg font-semibold text-gray-800">Education</h2>
                 {rejectionBadgeInfo?.section === 'education' && (
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-red-300 bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
                     <AlertCircle className="h-3.5 w-3.5" />
@@ -585,7 +474,7 @@ export const CandidateDetail = () => {
                   <div key={`education-${index}`} className="border-l-4 border-secondary pl-4">
                     <div className="flex flex-col gap-1">
                       {!isEmpty(edu.degree ?? edu.title) && (
-                        <h3 className="text-lg font-semibold text-gray-900">{edu.degree ?? edu.title}</h3>
+                        <h3 className="text-lg font-semibold text-gray-800">{edu.degree ?? edu.title}</h3>
                       )}
                       {!isEmpty(edu.institution ?? edu.school) && (
                         <p className="text-sm font-medium text-gray-600">{edu.institution ?? edu.school}</p>
@@ -619,7 +508,7 @@ export const CandidateDetail = () => {
           {experienceEntries.length > 0 && (
             <div className="card p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">Work Experience</h2>
+                <h2 className="text-lg font-semibold text-gray-800">Work Experience</h2>
                 {rejectionBadgeInfo?.section === 'experience' && (
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-red-300 bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
                     <AlertCircle className="h-3.5 w-3.5" />
@@ -654,7 +543,7 @@ export const CandidateDetail = () => {
                     return (
                       <div key={`${jobTitle}-${groupIndex}`} className="space-y-4">
                         {displayTitle && (
-                          <h3 className="text-xl font-bold text-gray-900 border-b-2 border-primary pb-2">
+                          <h3 className="text-xl font-bold text-gray-800 border-b-2 border-primary pb-2">
                             {displayTitle}
                           </h3>
                         )}
@@ -720,7 +609,7 @@ export const CandidateDetail = () => {
           {/* Skills */}
           {(technicalSkills.length > 0 || softSkills.length > 0 || mentionedSkills.length > 0) && (
             <div className="card p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Skills</h2>
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">Skills</h2>
               {technicalSkills.length > 0 && (
                 <div className="mb-4">
                   <h3 className="text-sm font-semibold text-gray-700 mb-2">Technical Skills</h3>
@@ -743,7 +632,7 @@ export const CandidateDetail = () => {
                     {softSkills.map((skill: string, idx: number) => (
                       <span
                         key={`soft-${idx}-${skill}`}
-                        className="px-3 py-1 bg-secondary text-gray-900 rounded-full text-sm font-medium"
+                        className="px-3 py-1 bg-secondary text-gray-800 rounded-full text-sm font-medium"
                       >
                         {skill}
                       </span>
@@ -756,7 +645,7 @@ export const CandidateDetail = () => {
                   <h3 className="text-sm font-semibold text-gray-700 mb-2">Mentioned in Roles</h3>
                   <div className="flex flex-wrap gap-2">
                     {mentionedSkills.map((skill: string) => (
-                      <span key={skill} className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm font-medium">
+                      <span key={skill} className="px-3 py-1 bg-white/40 backdrop-blur-md text-gray-800 rounded-full text-sm font-medium border border-white/50">
                         {skill}
                       </span>
                     ))}
@@ -769,12 +658,12 @@ export const CandidateDetail = () => {
           {/* Projects */}
           {projects.length > 0 && (
             <div className="card p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Projects</h2>
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">Projects</h2>
               <div className="space-y-4">
                 {projects.map((project: any) => (
                   <div key={project.id} className="border-l-4 border-secondary pl-4">
                     {!isEmpty(project.name) && (
-                      <h3 className="text-lg font-semibold text-gray-900">{project.name}</h3>
+                      <h3 className="text-lg font-semibold text-gray-800">{project.name}</h3>
                     )}
                     {!isEmpty(project.role) && <p className="text-sm text-gray-600">Role: {project.role}</p>}
                     {!isEmpty(project.date) && <p className="text-sm text-gray-500">{project.date}</p>}
@@ -808,13 +697,13 @@ export const CandidateDetail = () => {
           {/* Awards */}
           {awards.length > 0 && (
             <div className="card p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Awards & Honors</h2>
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">Awards & Honors</h2>
               <div className="space-y-3">
                 {awards.map((award: any) => (
                   <div key={award.id} className="flex items-start space-x-3">
                     <div className="flex-1">
                       {!isEmpty(award.title) && (
-                        <h3 className="text-sm font-semibold text-gray-900">{award.title}</h3>
+                        <h3 className="text-sm font-semibold text-gray-800">{award.title}</h3>
                       )}
                       {!isEmpty(award.issuer) && <p className="text-xs text-gray-600">{award.issuer}</p>}
                       {!isEmpty(award.rank) && <p className="text-xs text-gray-500">{award.rank}</p>}
@@ -867,7 +756,7 @@ export const CandidateDetail = () => {
                         <p className="text-xs font-semibold text-gray-600 mb-1">Certificates:</p>
                         <div className="space-y-1">
                           {lang.certificates.map((cert: any, idx: number) => (
-                            <div key={idx} className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                            <div key={idx} className="text-xs text-gray-700 bg-white/40 backdrop-blur-md p-2 rounded border border-white/50">
                               {cert.test && <span className="font-medium">{cert.test}</span>}
                               {cert.score && cert.test && ' - '}
                               {cert.score && <span>Score: {cert.score}</span>}
@@ -1041,12 +930,12 @@ export const CandidateDetail = () => {
                     <h3 className="text-sm font-semibold text-gray-700 mb-2">Custom Sections</h3>
                     <div className="space-y-3">
                       {otherSections.custom_sections.map((section: any, idx: number) => (
-                        <div key={idx} className="border-l-4 border-gray-200 pl-4">
+                        <div key={idx} className="border-l-4 border-white/40 pl-4">
                           {section.title && (
-                            <h4 className="text-sm font-semibold text-gray-900 mb-1">{section.title}</h4>
+                            <h4 className="text-sm font-semibold text-gray-800 mb-1">{section.title}</h4>
                           )}
                           {section.content && (
-                            <p className="text-sm text-gray-600">{section.content}</p>
+                            <p className="text-sm text-gray-700">{section.content}</p>
                           )}
                         </div>
                       ))}
@@ -1131,14 +1020,14 @@ export const CandidateDetail = () => {
           {shouldShowTimelineCard && (
             <div className="card p-6 space-y-6">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">Timeline</h2>
+                <h2 className="text-lg font-semibold text-gray-800">Timeline</h2>
               </div>
               {timelineHighlights.length > 0 && (
                 <div className="grid gap-4 md:grid-cols-2">
                   {timelineHighlights.map((highlight) => (
-                    <div key={highlight.label} className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-                      <p className="text-xs font-semibold uppercase text-gray-500">{highlight.label}</p>
-                      <p className="mt-2 text-2xl font-semibold text-gray-900">{highlight.value}</p>
+                    <div key={highlight.label} className="card p-4">
+                      <p className="text-xs font-semibold uppercase text-gray-600">{highlight.label}</p>
+                      <p className="mt-2 text-2xl font-semibold text-gray-800">{highlight.value}</p>
                     </div>
                   ))}
                 </div>
@@ -1153,7 +1042,7 @@ export const CandidateDetail = () => {
                           <Calendar className="h-4 w-4 text-primary" />
                         </div>
                         <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-900">{event.description}</p>
+                          <p className="text-sm font-medium text-gray-800">{event.description}</p>
                           <p className="text-xs text-gray-500 mt-1">
                             {new Date(event.created_at).toLocaleString()}
                           </p>
@@ -1293,7 +1182,7 @@ export const CandidateDetail = () => {
                 )}
               </div>
               {interpretation.seniority_fit_analysis?.explanation && (
-                <p className="text-sm text-gray-600 leading-6 bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                <p className="text-sm text-gray-700 leading-6 card p-4">
                   {interpretation.seniority_fit_analysis.explanation}
                 </p>
               )}
@@ -1410,7 +1299,7 @@ export const CandidateDetail = () => {
                 return (
                   <div className="space-y-2">
                     <p className="text-sm font-semibold text-gray-800">Overall Analysis</p>
-                    <p className="text-sm text-gray-600 leading-6 bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                    <p className="text-sm text-gray-700 leading-6 card p-4">
                       {narrative}
                     </p>
                   </div>
@@ -1435,12 +1324,12 @@ export const CandidateDetail = () => {
           {/* Audit Trail */}
           {auditTrail && Object.keys(auditTrail).length > 0 && (
             <div className="card p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Audit Trail</h2>
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">Audit Trail</h2>
               <div className="space-y-4 text-sm text-gray-700">
                 {auditTrail.data_completeness && (
                   <div>
                     <h3 className="text-sm font-semibold text-gray-800 mb-2">Data Completeness</h3>
-                    <div className="bg-gray-50 p-3 rounded-lg space-y-1">
+                    <div className="bg-white/40 backdrop-blur-md p-3 rounded-lg space-y-1 border border-white/50">
                       {auditTrail.data_completeness.positions_complete !== undefined && (
                         <p className="text-xs">
                           Positions: {auditTrail.data_completeness.positions_complete} / {auditTrail.data_completeness.positions_total || 'N/A'}
@@ -1504,16 +1393,16 @@ export const CandidateDetail = () => {
 
           {/* Notes */}
           <div id="notes" className="card p-6 scroll-mt-24">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Notes</h2>
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">Notes</h2>
 
             {candidate.notes && candidate.notes.length > 0 && (
               <div className="space-y-4 mb-4">
                 {candidate.notes.map((note: any) => (
-                  <div key={note.id} className="p-4 bg-gray-50 rounded-lg relative group">
+                  <div key={note.id} className="card p-4 relative group">
                     <div className="flex items-start justify-between mb-2">
-                      <p className="text-sm font-medium text-gray-900">{note.user_email || 'Unknown User'}</p>
+                      <p className="text-sm font-medium text-gray-800">{note.user_email || 'Unknown User'}</p>
                       <div className="flex items-center gap-2">
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-gray-600">
                           {new Date(note.created_at).toLocaleDateString()}
                         </p>
                         <button

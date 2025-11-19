@@ -68,6 +68,7 @@ class ParsedResume(models.Model):
     resume = models.OneToOneField(Resume, on_delete=models.CASCADE, related_name='parsed_data')
     raw_text = models.TextField(blank=True, help_text="Extracted raw text from CV file")
     parsed_data = models.JSONField(default=default_dict, help_text="Complete structured data from AI parsing (backup)")
+    raw_json_response = models.JSONField(default=default_dict, blank=True, help_text="Raw JSON response from AI before any processing (for debugging - admin only)")
     parsed_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

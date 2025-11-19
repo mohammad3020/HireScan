@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCandidatesStore } from '../store/candidates';
 import type { SkillsSummary } from '../api/candidates';
@@ -12,6 +12,7 @@ import {
   ChevronDown,
   Loader,
   AlertCircle,
+  X,
 } from 'lucide-react';
 import { useReviewDashboard } from '../api/review';
 import { useUpdateJobScoreCategory } from '../api/candidates';
@@ -132,12 +133,10 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [openNotesId, setOpenNotesId] = useState<number | null>(null);
   const [openAiId, setOpenAiId] = useState<number | null>(null);
-  const [openCategoryId, setOpenCategoryId] = useState<number | null>(null);
+  const [categoryModalCandidate, setCategoryModalCandidate] = useState<Candidate | null>(null);
   const { favorites, setFavorite } = useCandidatesStore();
   const updateCategory = useUpdateJobScoreCategory();
   const [activeBucket, setActiveBucket] = useState<ActiveBucket>('all');
-  const initializedRef = useRef<number | null>(null);
-  const buttonRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
 
   // Fetch candidates from API
   const { data: reviewData, isLoading, error } = useReviewDashboard(jobId, { enabled: !!jobId });
@@ -191,28 +190,31 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
 
   // No need to initialize store - category comes from backend
 
-  // Position dropdown when it opens
+  // Close dropdowns on outside click
   useEffect(() => {
-    if (openCategoryId !== null) {
-      const button = buttonRefs.current.get(openCategoryId);
-      const dropdown = document.getElementById(`category-dropdown-${openCategoryId}`);
-      if (button && dropdown) {
-        const rect = button.getBoundingClientRect();
-        dropdown.style.top = `${rect.top - dropdown.offsetHeight - 8}px`;
-        dropdown.style.left = `${rect.right - dropdown.offsetWidth}px`;
-      }
+    if (openNotesId === null && openAiId === null) {
+      return;
     }
-  }, [openCategoryId]);
-
-  useEffect(() => {
+    
     const handleGlobalClick = () => {
-      setOpenNotesId(null);
-      setOpenAiId(null);
-      setOpenCategoryId(null);
+      if (openNotesId !== null) {
+        setOpenNotesId(null);
+      }
+      if (openAiId !== null) {
+        setOpenAiId(null);
+      }
     };
-    document.addEventListener('click', handleGlobalClick);
-    return () => document.removeEventListener('click', handleGlobalClick);
-  }, []);
+    
+    // Add event listener with a small delay to allow state update
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('click', handleGlobalClick);
+    }, 0);
+    
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener('click', handleGlobalClick);
+    };
+  }, [openNotesId, openAiId]);
 
   const totalResumes = jobCandidates.length;
 
@@ -657,23 +659,12 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
                     <td className="px-3 py-4 text-center">
                       <div className="relative flex justify-center">
                         <button
-                          ref={(el) => {
-                            if (el) {
-                              buttonRefs.current.set(candidate.id, el);
-                            } else {
-                              buttonRefs.current.delete(candidate.id);
-                            }
-                          }}
                           onClick={(e) => {
+                            e.preventDefault();
                             e.stopPropagation();
-                            setOpenCategoryId((prev) => {
-                              const next = prev === candidate.id ? null : candidate.id;
-                              if (next !== null) {
-                                setOpenNotesId(null);
-                                setOpenAiId(null);
-                              }
-                              return next;
-                            });
+                            setOpenNotesId(null);
+                            setOpenAiId(null);
+                            setCategoryModalCandidate(candidate);
                           }}
                           className={`inline-flex h-9 items-center gap-1 rounded-lg border px-3 text-xs font-medium transition ${
                             candidate.category === 'shortlisted'
@@ -709,68 +700,6 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
                           </span>
                           <ChevronDown className="h-3 w-3" />
                         </button>
-                        {openCategoryId === candidate.id && (
-                          <div
-                            id={`category-dropdown-${candidate.id}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="fixed z-[9999] w-48 rounded-lg border border-gray-200 bg-white shadow-lg"
-                          >
-                            <div className="py-1">
-                              {(['shortlisted', 'interview_scheduled', 'interviewed', 'offer_sent', 'hired'] as CandidateCategory[]).map((category) => (
-                                <button
-                                  key={category}
-                                  onClick={async () => {
-                                    if (candidate.jobScoreId) {
-                                      try {
-                                        await updateCategory.mutateAsync({
-                                          jobScoreId: candidate.jobScoreId,
-                                          category: category,
-                                        });
-                                        setOpenCategoryId(null);
-                                      } catch (error) {
-                                        console.error('Failed to update category:', error);
-                                        alert('Failed to update status. Please try again.');
-                                      }
-                                    } else {
-                                      alert('Unable to update status. Job score not found.');
-                                    }
-                                  }}
-                                  className={`w-full px-4 py-2 text-left text-xs transition hover:bg-gray-50 ${
-                                    candidate.category === category
-                                      ? 'bg-gray-50 font-medium text-gray-900'
-                                      : 'text-gray-700'
-                                  }`}
-                                >
-                                  <span className={`capitalize ${
-                                    category === 'shortlisted'
-                                      ? 'text-green-700'
-                                      : category === 'interview_scheduled'
-                                      ? 'text-purple-700'
-                                      : category === 'interviewed'
-                                      ? 'text-indigo-700'
-                                      : category === 'offer_sent'
-                                      ? 'text-orange-700'
-                                      : category === 'hired'
-                                      ? 'text-emerald-700'
-                                      : ''
-                                  }`}>
-                                    {category === 'shortlisted'
-                                      ? 'Short Listed'
-                                      : category === 'interview_scheduled'
-                                      ? 'Interview Scheduled'
-                                      : category === 'interviewed'
-                                      ? 'Interviewed'
-                                      : category === 'offer_sent'
-                                      ? 'Offer Sent'
-                                      : category === 'hired'
-                                      ? 'Hired'
-                                      : ''}
-                                  </span>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </td>
                   </tr>
@@ -780,6 +709,97 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
           </table>
         </div>
       </div>
+
+      {/* Category Selection Modal */}
+      {categoryModalCandidate && (
+        <div 
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setCategoryModalCandidate(null);
+            }
+          }}
+        >
+          <div 
+            className="card p-6 w-full max-w-md mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">
+                Change Candidate Status
+              </h3>
+              <button
+                onClick={() => setCategoryModalCandidate(null)}
+                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-white/20 backdrop-blur-md rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <p className="text-sm text-gray-700">
+                <span className="font-medium">Candidate:</span> {categoryModalCandidate.name}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              {(['shortlisted', 'interview_scheduled', 'interviewed', 'offer_sent', 'hired'] as CandidateCategory[]).map((category) => (
+                <button
+                  key={category}
+                  onClick={async () => {
+                    if (categoryModalCandidate.jobScoreId) {
+                      try {
+                        await updateCategory.mutateAsync({
+                          jobScoreId: categoryModalCandidate.jobScoreId,
+                          category: category,
+                        });
+                        setCategoryModalCandidate(null);
+                      } catch (error) {
+                        console.error('Failed to update category:', error);
+                        alert('Failed to update status. Please try again.');
+                      }
+                    } else {
+                      alert('Unable to update status. Job score not found.');
+                    }
+                  }}
+                  disabled={updateCategory.isPending}
+                  className={`w-full px-4 py-3 text-left rounded-lg border transition ${
+                    categoryModalCandidate.category === category
+                      ? 'bg-primary/20 border-primary/60 text-primary font-medium'
+                      : 'bg-white/30 backdrop-blur-md border-white/40 text-gray-800 hover:bg-white/40 hover:border-white/50'
+                  } ${updateCategory.isPending ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="capitalize">
+                      {category === 'shortlisted'
+                        ? 'Short Listed'
+                        : category === 'interview_scheduled'
+                        ? 'Interview Scheduled'
+                        : category === 'interviewed'
+                        ? 'Interviewed'
+                        : category === 'offer_sent'
+                        ? 'Offer Sent'
+                        : category === 'hired'
+                        ? 'Hired'
+                        : ''}
+                    </span>
+                    {categoryModalCandidate.category === category && (
+                      <span className="text-primary">✓</span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {updateCategory.isPending && (
+              <div className="mt-4 flex items-center justify-center">
+                <Loader className="h-5 w-5 animate-spin text-primary" />
+                <span className="ml-2 text-sm text-gray-700">Updating status...</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

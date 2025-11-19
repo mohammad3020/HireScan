@@ -98,7 +98,7 @@ class ParsedResumeAdmin(admin.ModelAdmin):
     ]
     fieldsets = (
         ('Resume', {
-            'fields': ('resume', 'raw_text', 'parsed_data')
+            'fields': ('resume', 'raw_text', 'parsed_data', 'raw_json_response')
         }),
         ('Personal Information', {
             'fields': (

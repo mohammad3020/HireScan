@@ -74,12 +74,12 @@ export const Jobs = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Job Positions</h1>
-            <p className="text-gray-600 mt-1">Manage your job postings and requirements</p>
+            <h1 className="text-3xl font-bold text-gray-800">Job Positions</h1>
+            <p className="text-gray-700 mt-1">Manage your job postings and requirements</p>
           </div>
         </div>
         <div className="card p-12 text-center">
-          <p className="text-gray-600">Loading jobs...</p>
+          <p className="text-gray-700">Loading jobs...</p>
         </div>
       </div>
     );
@@ -93,12 +93,12 @@ export const Jobs = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Job Positions</h1>
-            <p className="text-gray-600 mt-1">Manage your job postings and requirements</p>
+            <h1 className="text-3xl font-bold text-gray-800">Job Positions</h1>
+            <p className="text-gray-700 mt-1">Manage your job postings and requirements</p>
           </div>
         </div>
-        <div className="card p-12 text-center">
-          <p className="text-red-600 mb-4">{errorMessage}</p>
+        <div className="card p-12 text-center bg-red-100/80 backdrop-blur-md border border-red-300/60">
+          <p className="text-red-800 mb-4">{errorMessage}</p>
           <button
             onClick={() => window.location.reload()}
             className="btn-primary"
@@ -115,8 +115,8 @@ export const Jobs = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Job Positions</h1>
-          <p className="text-gray-600 mt-1">Manage your job postings and requirements</p>
+          <h1 className="text-3xl font-bold text-gray-800">Job Positions</h1>
+          <p className="text-gray-700 mt-1">Manage your job postings and requirements</p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -154,7 +154,7 @@ export const Jobs = () => {
             <select
               value={filterDepartment}
               onChange={(e) => setFilterDepartment(e.target.value)}
-              className="input-field pl-10 appearance-none bg-white"
+              className="input-field pl-10 appearance-none"
             >
               {departments.map((dept) => (
                 <option key={dept} value={dept}>
@@ -171,37 +171,37 @@ export const Jobs = () => {
         {filteredJobs.length === 0 ? (
           <div className="col-span-full">
             <div className="card p-12 text-center">
-              <Briefcase className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No jobs found</p>
+              <Briefcase className="h-12 w-12 text-gray-500 mx-auto mb-4" />
+              <p className="text-gray-700">No jobs found</p>
             </div>
           </div>
         ) : (
           filteredJobs.map((job) => (
             <div
               key={job.id}
-              className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition hover:shadow-md"
+              className="card p-6 card-hover"
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100">
-                    <Briefcase className="h-6 w-6 text-gray-500" />
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/40 backdrop-blur-md border border-white/50">
+                    <Briefcase className="h-6 w-6 text-gray-800" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{job.title}</h3>
-                    <p className="text-sm text-gray-500">{job.department_name || 'No Department'}</p>
+                    <h3 className="text-lg font-semibold text-gray-800">{job.title}</h3>
+                    <p className="text-sm text-gray-600">{job.department_name || 'No Department'}</p>
                   </div>
                 </div>
                 <div className="flex space-x-1">
                   <Link
                     to={`/jobs/${job.id}`}
-                    className="p-2 text-gray-500 hover:text-primary focus:outline-none"
+                    className="p-2 text-gray-700 hover:text-gray-900 focus:outline-none transition-colors"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <Edit className="h-4 w-4" />
                   </Link>
                   <button
                     onClick={(e) => handleDelete(job.id, e)}
-                    className="p-2 text-gray-500 hover:text-red-500 focus:outline-none"
+                    className="p-2 text-gray-700 hover:text-red-700 focus:outline-none transition-colors"
                     disabled={deleteJobMutation.isPending}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -209,12 +209,12 @@ export const Jobs = () => {
                 </div>
               </div>
 
-              <div className="mt-4 flex items-center space-x-4 text-sm text-gray-600">
+              <div className="mt-4 flex items-center space-x-4 text-sm text-gray-700">
                 <span className="flex items-center space-x-1">
-                  <span className="h-2 w-2 rounded-full bg-gray-400" />
+                  <span className="h-2 w-2 rounded-full bg-gray-600" />
                   <span>{job.location || 'N/A'}</span>
                 </span>
-                <span className="flex items-center rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700">
+                <span className="flex items-center rounded-full bg-green-100/80 backdrop-blur-md px-2.5 py-1 text-xs font-semibold text-green-800 border border-green-300/60">
                   Active
                 </span>
               </div>
@@ -222,7 +222,7 @@ export const Jobs = () => {
               <div className="mt-6">
                 <Link
                   to={`/jobs/${job.id}/profile`}
-                  className="block w-full rounded-lg border border-gray-200 px-4 py-2 text-center text-sm font-medium text-gray-700 transition hover:border-primary hover:text-primary"
+                  className="block w-full rounded-lg border border-white/50 backdrop-blur-md bg-white/30 px-4 py-2 text-center text-sm font-medium text-gray-800 transition hover:bg-white/40 hover:border-white/60"
                   onClick={(e) => e.stopPropagation()}
                 >
                   View Details
@@ -235,17 +235,17 @@ export const Jobs = () => {
 
       {/* Create Department Modal */}
       {isDepartmentModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">Create New Department</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="card w-full max-w-md mx-4">
+            <div className="flex items-center justify-between p-6 border-b border-white/20">
+              <h2 className="text-xl font-semibold text-gray-800">Create New Department</h2>
               <button
                 onClick={() => {
                   setIsDepartmentModalOpen(false);
                   setNewDepartmentName('');
                   setNewDepartmentDescription('');
                 }}
-                className="text-gray-400 hover:text-gray-600 transition"
+                className="text-gray-700 hover:text-gray-900 transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -253,8 +253,8 @@ export const Jobs = () => {
             
             <div className="p-6 space-y-4">
               <div>
-                <label htmlFor="department-name" className="block text-sm font-medium text-gray-700 mb-2">
-                  Department Name <span className="text-red-500">*</span>
+                <label htmlFor="department-name" className="block text-sm font-medium text-gray-800 mb-2">
+                  Department Name <span className="text-red-600">*</span>
                 </label>
                 <input
                   id="department-name"
@@ -268,7 +268,7 @@ export const Jobs = () => {
               </div>
               
               <div>
-                <label htmlFor="department-description" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="department-description" className="block text-sm font-medium text-gray-800 mb-2">
                   Description (Optional)
                 </label>
                 <textarea
@@ -282,7 +282,7 @@ export const Jobs = () => {
               </div>
             </div>
             
-            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-white/20">
               <button
                 onClick={() => {
                   setIsDepartmentModalOpen(false);

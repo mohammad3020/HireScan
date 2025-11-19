@@ -402,6 +402,10 @@ def parse_resume_service(resume_instance, job=None, file_item_id=None):
         logger.error(f"Parsing returned empty or invalid data: {list(parsed_data.keys())}")
         raise ValueError("Resume parsing failed: Empty or invalid data structure")
     
+    # Save raw JSON response before any processing (for debugging in admin)
+    raw_json_response_copy = json.loads(json.dumps(parsed_data, default=str))
+    logger.info(f"[RESUME {resume_id}] Raw JSON response saved (keys: {list(raw_json_response_copy.keys())})")
+    
     # Extract text for raw_text field (only for DOCX, after successful parsing)
     # PDF files are stored without raw_text extraction (already processed by OpenRouter)
     # This is for storage purposes only - AI service already processed the file
@@ -419,13 +423,15 @@ def parse_resume_service(resume_instance, job=None, file_item_id=None):
         resume=resume_instance,
         defaults={
             'raw_text': raw_text,
-            'parsed_data': parsed_data
+            'parsed_data': parsed_data,
+            'raw_json_response': raw_json_response_copy
         }
     )
     
     if not created:
         parsed_resume.raw_text = raw_text
         parsed_resume.parsed_data = parsed_data
+        parsed_resume.raw_json_response = raw_json_response_copy
         parsed_resume.save()
     
     # Extract resume data sections (new structure nests under extracted_resume_data)
@@ -442,10 +448,24 @@ def parse_resume_service(resume_instance, job=None, file_item_id=None):
     if not personal_info:
         personal_info = parsed_data
     
+    # Log personal_info structure for debugging
+    logger.info(f"[RESUME {resume_id}] Personal info keys: {list(personal_info.keys()) if isinstance(personal_info, dict) else 'Not a dict'}")
+    if isinstance(personal_info, dict):
+        full_name_in_personal_info = personal_info.get('full_name', 'NOT_FOUND')
+        logger.info(f"[RESUME {resume_id}] full_name from personal_info: '{full_name_in_personal_info}' (type: {type(full_name_in_personal_info)})")
+    else:
+        logger.warning(f"[RESUME {resume_id}] personal_info is not a dict: {type(personal_info)}")
+    
     links = personal_info.get('links', {}) if isinstance(personal_info, dict) else {}
     
     # Update ParsedResume with personal information
-    parsed_resume.full_name = personal_info.get('full_name', '') or ''
+    full_name_raw = personal_info.get('full_name', '') or ''
+    logger.info(f"[RESUME {resume_id}] full_name_raw extracted: '{full_name_raw}' (type: {type(full_name_raw)}, len: {len(str(full_name_raw))})")
+    
+    # Ignore "unknown" values from AI parsing
+    full_name_normalized = full_name_raw.strip().lower()
+    parsed_resume.full_name = '' if full_name_normalized == 'unknown' else full_name_raw
+    logger.info(f"[RESUME {resume_id}] parsed_resume.full_name set to: '{parsed_resume.full_name}' (normalized was: '{full_name_normalized}')")
     parsed_resume.phone = personal_info.get('phone', '') or ''
     # Normalize email (remove spaces, lowercase, etc.)
     raw_email = personal_info.get('email', '') or ''
@@ -533,11 +553,29 @@ def parse_resume_service(resume_instance, job=None, file_item_id=None):
         candidate = resume_instance.candidate
     
     # Update candidate information from parsed data
-    # Update name if we have a parsed name and candidate name is empty
-    if parsed_resume.full_name and (not candidate.name or candidate.name.strip() == ''):
+    # Update name if we have a parsed name and candidate name is empty or "unknown"
+    candidate_name_normalized = (candidate.name or '').strip().lower()
+    parsed_full_name_normalized = (parsed_resume.full_name or '').strip().lower()
+    
+    logger.info(f"[RESUME {resume_id}] Candidate update check - candidate.name: '{candidate.name}', candidate_name_normalized: '{candidate_name_normalized}'")
+    logger.info(f"[RESUME {resume_id}] Candidate update check - parsed_resume.full_name: '{parsed_resume.full_name}', parsed_full_name_normalized: '{parsed_full_name_normalized}'")
+    
+    # Only update if parsed name exists, is not "unknown", and candidate name is empty/unknown
+    should_update = (
+        parsed_resume.full_name and 
+        parsed_full_name_normalized != 'unknown' and
+        parsed_full_name_normalized != '' and
+        (not candidate.name or candidate_name_normalized == '' or candidate_name_normalized == 'unknown')
+    )
+    
+    logger.info(f"[RESUME {resume_id}] Should update candidate name: {should_update}")
+    
+    if should_update:
         old_name = candidate.name
         candidate.name = parsed_resume.full_name
         logger.info(f"[RESUME {resume_id}] Updated candidate {candidate.id} name from '{old_name}' to '{parsed_resume.full_name}'")
+    else:
+        logger.info(f"[RESUME {resume_id}] Skipped updating candidate name - conditions not met")
     
     # Update email if we have a parsed email and candidate email is temporary
     if parsed_resume.email and (candidate.email.startswith('temp_') or candidate.email.endswith('@temp.com') or candidate.email.endswith('@example.com')):
@@ -590,6 +628,57 @@ def parse_resume_service(resume_instance, job=None, file_item_id=None):
         raise ValueError("Resume parsing failed: فایل رزومه تکراری ست") from exc
     
     logger.info(f"[RESUME {resume_id}] Updated candidate {candidate.id}: {candidate.name}, {candidate.email}")
+    
+    # Extract full_name from raw_json_response and update candidate name
+    # This is an additional step to ensure we get the name directly from the raw JSON response
+    if parsed_resume.raw_json_response:
+        try:
+            raw_json = parsed_resume.raw_json_response
+            # Try different paths to find full_name in the JSON structure
+            full_name_from_raw = None
+            
+            # Path 1: extracted_resume_data.personal_info.full_name
+            extracted_data = raw_json.get('extracted_resume_data', {})
+            if isinstance(extracted_data, dict):
+                personal_info = extracted_data.get('personal_info', {})
+                if isinstance(personal_info, dict):
+                    full_name_from_raw = personal_info.get('full_name')
+            
+            # Path 2: personal_info.full_name (flat structure)
+            if not full_name_from_raw:
+                personal_info = raw_json.get('personal_info', {})
+                if isinstance(personal_info, dict):
+                    full_name_from_raw = personal_info.get('full_name')
+            
+            # Path 3: full_name at root level
+            if not full_name_from_raw:
+                full_name_from_raw = raw_json.get('full_name')
+            
+            # Update candidate name if we found a valid full_name
+            if full_name_from_raw:
+                full_name_str = str(full_name_from_raw).strip()
+                full_name_normalized = full_name_str.lower()
+                
+                # Ignore "unknown" values
+                if full_name_str and full_name_normalized != 'unknown' and full_name_normalized != '':
+                    old_candidate_name = candidate.name
+                    candidate.name = full_name_str
+                    candidate.save()
+                    logger.info(
+                        f"[RESUME {resume_id}] Updated candidate {candidate.id} name from raw_json_response: "
+                        f"'{old_candidate_name}' -> '{full_name_str}'"
+                    )
+                else:
+                    logger.debug(
+                        f"[RESUME {resume_id}] full_name from raw_json_response is empty or 'unknown': '{full_name_str}'"
+                    )
+            else:
+                logger.debug(f"[RESUME {resume_id}] full_name not found in raw_json_response")
+        except Exception as e:
+            logger.warning(
+                f"[RESUME {resume_id}] Error extracting full_name from raw_json_response: {str(e)}",
+                exc_info=True
+            )
     
     # Delete existing related records
     Education.objects.filter(parsed_resume=parsed_resume).delete()

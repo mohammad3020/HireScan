@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useJobs } from '../api/jobs';
 import { useReviewDashboard, useRefreshRanking } from '../api/review';
@@ -17,6 +17,7 @@ import {
   ChevronDown,
   Loader,
   AlertCircle,
+  X,
 } from 'lucide-react';
 
 type CandidateStatus = 'qualified' | 'in_process' | 'new';
@@ -684,24 +685,37 @@ export const Review = () => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [openNotesId, setOpenNotesId] = useState<number | null>(null);
   const [openAiId, setOpenAiId] = useState<number | null>(null);
-  const [openCategoryId, setOpenCategoryId] = useState<number | null>(null);
+  const [categoryModalCandidate, setCategoryModalCandidate] = useState<Candidate | null>(null);
   const { favorites, setFavorite } = useCandidatesStore();
   const updateCategory = useUpdateJobScoreCategory();
   const [activeBucket, setActiveBucket] = useState<ActiveBucket>('all');
-  const buttonRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
 
-  // Position dropdown when it opens
+  // Close dropdowns on outside click
   useEffect(() => {
-    if (openCategoryId !== null) {
-      const button = buttonRefs.current.get(openCategoryId);
-      const dropdown = document.getElementById(`category-dropdown-${openCategoryId}`);
-      if (button && dropdown) {
-        const rect = button.getBoundingClientRect();
-        dropdown.style.top = `${rect.top - dropdown.offsetHeight - 8}px`;
-        dropdown.style.left = `${rect.right - dropdown.offsetWidth}px`;
-      }
+    if (openNotesId === null && openAiId === null) {
+      return;
     }
-  }, [openCategoryId]);
+    
+    const handleGlobalClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (openNotesId !== null) {
+        setOpenNotesId(null);
+      }
+      if (openAiId !== null) {
+        setOpenAiId(null);
+      }
+    };
+    
+    // Add event listener with a small delay to allow state update
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('click', handleGlobalClick);
+    }, 0);
+    
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener('click', handleGlobalClick);
+    };
+  }, [openNotesId, openAiId]);
 
   // Update selectedJob when query parameter changes
   useEffect(() => {
@@ -731,16 +745,6 @@ export const Review = () => {
       console.error('Failed to refresh ranking:', error);
     }
   };
-
-  useEffect(() => {
-    const handleGlobalClick = () => {
-      setOpenNotesId(null);
-      setOpenAiId(null);
-      setOpenCategoryId(null);
-    };
-    document.addEventListener('click', handleGlobalClick);
-    return () => document.removeEventListener('click', handleGlobalClick);
-  }, []);
 
   // Transform API candidates to match component structure
   const jobCandidates = useMemo<Candidate[]>(() => {
@@ -942,7 +946,7 @@ export const Review = () => {
     <button
       type="button"
       onClick={() => handleSort(columnKey)}
-      className="group inline-flex items-center space-x-1 text-sm font-semibold text-gray-600 hover:text-primary"
+      className="group inline-flex items-center space-x-1 text-sm font-semibold text-gray-600 hover:text-primary transition-colors"
     >
       <span>{label}</span>
       <ArrowUpDown
@@ -957,7 +961,7 @@ export const Review = () => {
   if (jobsLoading || (selectedJob && reviewLoading)) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Loader className="h-8 w-8 animate-spin text-primary" />
+        <Loader className="h-8 w-8 animate-spin text-gray-800" />
       </div>
     );
   }
@@ -966,12 +970,12 @@ export const Review = () => {
   if (reviewError) {
     return (
       <div className="space-y-6">
-        <div className="card p-6 bg-red-50 border border-red-200">
+        <div className="card p-6 bg-red-100/80 backdrop-blur-md border border-red-300/60">
           <div className="flex items-center space-x-2">
-            <AlertCircle className="h-5 w-5 text-red-600" />
+            <AlertCircle className="h-5 w-5 text-red-700" />
             <div>
               <p className="text-sm font-medium text-red-800">Error loading review data</p>
-              <p className="text-xs text-red-600 mt-1">
+              <p className="text-xs text-red-700 mt-1">
                 {reviewError instanceof Error ? reviewError.message : 'Unknown error'}
               </p>
             </div>
@@ -985,8 +989,8 @@ export const Review = () => {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Review Candidates Dashboard</h1>
-          <p className="mt-1 text-gray-600">
+          <h1 className="text-3xl font-bold text-gray-800">Review Candidates Dashboard</h1>
+          <p className="mt-1 text-gray-700">
             No jobs available. Please create a job first.
           </p>
         </div>
@@ -997,26 +1001,26 @@ export const Review = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Review Candidates Dashboard</h1>
-        <p className="mt-1 text-gray-600">
+        <h1 className="text-3xl font-bold text-gray-800">Review Candidates Dashboard</h1>
+        <p className="mt-1 text-gray-700">
           Monitor candidate progress, compare scores, and take quick actions for each applicant.
         </p>
       </div>
       {/* Header */}
-      <div className="card border border-gray-200 p-6">
+      <div className="card p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-800 mb-2">
               Select Job Position
             </label>
             <select
               value={selectedJob}
               onChange={(e) => setSelectedJob(Number(e.target.value))}
-              className="input-field h-12 w-full md:w-96 text-base font-medium text-gray-800"
+              className="input-field h-12 w-full md:w-96 text-base font-medium"
               disabled={jobsLoading}
             >
               {jobOptions.map((option) => (
-                <option key={option.id} value={option.id}>
+                <option key={option.id} value={option.id} style={{ background: 'rgba(255,255,255,0.9)', color: '#1f2937' }}>
                   {option.title}
                 </option>
               ))}
@@ -1028,66 +1032,66 @@ export const Review = () => {
         <div className="mt-6 grid gap-4 md:grid-cols-4 lg:grid-cols-7">
           <div
             onClick={() => setActiveBucket('all')}
-            className={`cursor-pointer rounded-2xl border border-gray-200 bg-white p-4 transition ${
-              activeBucket === 'all' ? 'ring-2 ring-primary/40' : ''
+            className={`cursor-pointer card p-4 transition ${
+              activeBucket === 'all' ? 'ring-2 ring-white/40 bg-white/20' : ''
             }`}
           >
-            <p className="text-xs font-medium uppercase text-gray-500">Total Resumes</p>
-            <p className="mt-2 text-2xl font-semibold text-gray-900">{totalResumes}</p>
+            <p className="text-xs font-medium uppercase text-gray-600">Total Resumes</p>
+            <p className="mt-2 text-2xl font-semibold text-gray-800">{totalResumes}</p>
           </div>
           <div
             onClick={() => setActiveBucket('shortlisted')}
-            className={`cursor-pointer rounded-2xl border border-green-200 bg-green-50 p-4 transition ${
-              activeBucket === 'shortlisted' ? 'ring-2 ring-green-300' : ''
+            className={`cursor-pointer card p-4 transition bg-green-100/60 backdrop-blur-md border-green-300/50 ${
+              activeBucket === 'shortlisted' ? 'ring-2 ring-green-400/50 bg-green-200/70' : ''
             }`}
           >
-            <p className="text-xs font-medium uppercase text-gray-500">Short Listed</p>
-            <p className="mt-2 text-2xl font-semibold text-green-700">{shortListedCount}</p>
+            <p className="text-xs font-medium uppercase text-gray-700">Short Listed</p>
+            <p className="mt-2 text-2xl font-semibold text-green-800">{shortListedCount}</p>
           </div>
           <div
             onClick={() => setActiveBucket('favorite')}
-            className={`cursor-pointer rounded-2xl border border-blue-200 bg-blue-50 p-4 transition ${
-              activeBucket === 'favorite' ? 'ring-2 ring-blue-300' : ''
+            className={`cursor-pointer card p-4 transition bg-blue-100/60 backdrop-blur-md border-blue-300/50 ${
+              activeBucket === 'favorite' ? 'ring-2 ring-blue-400/50 bg-blue-200/70' : ''
             }`}
           >
-            <p className="text-xs font-medium uppercase text-gray-500">Favorite</p>
-            <p className="mt-2 text-2xl font-semibold text-blue-700">{favoriteCount}</p>
+            <p className="text-xs font-medium uppercase text-gray-700">Favorite</p>
+            <p className="mt-2 text-2xl font-semibold text-blue-800">{favoriteCount}</p>
           </div>
           <div
             onClick={() => setActiveBucket('interview_scheduled')}
-            className={`cursor-pointer rounded-2xl border border-purple-200 bg-purple-50 p-4 transition ${
-              activeBucket === 'interview_scheduled' ? 'ring-2 ring-purple-300' : ''
+            className={`cursor-pointer card p-4 transition bg-purple-100/60 backdrop-blur-md border-purple-300/50 ${
+              activeBucket === 'interview_scheduled' ? 'ring-2 ring-purple-400/50 bg-purple-200/70' : ''
             }`}
           >
-            <p className="text-xs font-medium uppercase text-gray-500">Interview Scheduled</p>
-            <p className="mt-2 text-2xl font-semibold text-purple-700">{interviewScheduledCount}</p>
+            <p className="text-xs font-medium uppercase text-gray-700">Interview Scheduled</p>
+            <p className="mt-2 text-2xl font-semibold text-purple-800">{interviewScheduledCount}</p>
           </div>
           <div
             onClick={() => setActiveBucket('interviewed')}
-            className={`cursor-pointer rounded-2xl border border-indigo-200 bg-indigo-50 p-4 transition ${
-              activeBucket === 'interviewed' ? 'ring-2 ring-indigo-300' : ''
+            className={`cursor-pointer card p-4 transition bg-indigo-100/60 backdrop-blur-md border-indigo-300/50 ${
+              activeBucket === 'interviewed' ? 'ring-2 ring-indigo-400/50 bg-indigo-200/70' : ''
             }`}
           >
-            <p className="text-xs font-medium uppercase text-gray-500">Interviewed</p>
-            <p className="mt-2 text-2xl font-semibold text-indigo-700">{interviewedCount}</p>
+            <p className="text-xs font-medium uppercase text-gray-700">Interviewed</p>
+            <p className="mt-2 text-2xl font-semibold text-indigo-800">{interviewedCount}</p>
           </div>
           <div
             onClick={() => setActiveBucket('offer_sent')}
-            className={`cursor-pointer rounded-2xl border border-orange-200 bg-orange-50 p-4 transition ${
-              activeBucket === 'offer_sent' ? 'ring-2 ring-orange-300' : ''
+            className={`cursor-pointer card p-4 transition bg-orange-100/60 backdrop-blur-md border-orange-300/50 ${
+              activeBucket === 'offer_sent' ? 'ring-2 ring-orange-400/50 bg-orange-200/70' : ''
             }`}
           >
-            <p className="text-xs font-medium uppercase text-gray-500">Offer Sent</p>
-            <p className="mt-2 text-2xl font-semibold text-orange-700">{offerSentCount}</p>
+            <p className="text-xs font-medium uppercase text-gray-700">Offer Sent</p>
+            <p className="mt-2 text-2xl font-semibold text-orange-800">{offerSentCount}</p>
           </div>
           <div
             onClick={() => setActiveBucket('hired')}
-            className={`cursor-pointer rounded-2xl border border-emerald-200 bg-emerald-50 p-4 transition ${
-              activeBucket === 'hired' ? 'ring-2 ring-emerald-300' : ''
+            className={`cursor-pointer card p-4 transition bg-emerald-100/60 backdrop-blur-md border-emerald-300/50 ${
+              activeBucket === 'hired' ? 'ring-2 ring-emerald-400/50 bg-emerald-200/70' : ''
             }`}
           >
-            <p className="text-xs font-medium uppercase text-gray-500">Hired</p>
-            <p className="mt-2 text-2xl font-semibold text-emerald-700">{hiredCount}</p>
+            <p className="text-xs font-medium uppercase text-gray-700">Hired</p>
+            <p className="mt-2 text-2xl font-semibold text-emerald-800">{hiredCount}</p>
           </div>
         </div>
       </div>
@@ -1095,7 +1099,7 @@ export const Review = () => {
       {/* Search */}
       <div className="card p-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
           <input
             type="text"
             placeholder="Search by name, email, or skill..."
@@ -1140,8 +1144,15 @@ export const Review = () => {
             <tbody className="divide-y divide-gray-100 bg-white">
               {sortedCandidates.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-sm text-gray-500">
-                    No candidates found for this job.
+                  <td colSpan={9} className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center space-y-2">
+                      <p className="text-sm font-medium text-gray-700">No candidates found for this job</p>
+                      <p className="text-xs text-gray-500">
+                        {reviewData?.kpis?.total_candidates === 0 
+                          ? "Upload CVs using the 'Upload Resumes' tab to see candidates here."
+                          : "Try adjusting your search or filter criteria."}
+                      </p>
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -1161,7 +1172,7 @@ export const Review = () => {
                         >
                           <Star className={`h-3.5 w-3.5 ${favorites[candidate.id] ? 'fill-current' : ''}`} />
                         </button>
-                        <Link to={`/candidates/${candidate.id}`} className="hover:text-primary">
+                        <Link to={`/candidates/${candidate.id}`} className="hover:text-primary transition-colors text-gray-900">
                           {candidate.name || 'Unknown'}
                         </Link>
                       </div>
@@ -1228,7 +1239,7 @@ export const Review = () => {
                               return next;
                             });
                           }}
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-yellow-300 bg-yellow-50 text-yellow-600 hover:bg-yellow-100"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-yellow-300 bg-yellow-50 text-yellow-600 hover:bg-yellow-100 transition-colors"
                         >
                           <StickyNote className="h-4 w-4" />
                         </button>
@@ -1258,7 +1269,7 @@ export const Review = () => {
                               return next;
                             });
                           }}
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-purple-300 bg-purple-50 text-purple-600 hover:bg-purple-100"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-purple-300 bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors"
                         >
                           <Sparkles className="h-4 w-4" />
                         </button>
@@ -1280,23 +1291,12 @@ export const Review = () => {
                     <td className="px-3 py-4 text-center">
                       <div className="relative flex justify-center">
                         <button
-                          ref={(el) => {
-                            if (el) {
-                              buttonRefs.current.set(candidate.id, el);
-                            } else {
-                              buttonRefs.current.delete(candidate.id);
-                            }
-                          }}
                           onClick={(e) => {
+                            e.preventDefault();
                             e.stopPropagation();
-                            setOpenCategoryId((prev) => {
-                              const next = prev === candidate.id ? null : candidate.id;
-                              if (next !== null) {
-                                setOpenNotesId(null);
-                                setOpenAiId(null);
-                              }
-                              return next;
-                            });
+                            setOpenNotesId(null);
+                            setOpenAiId(null);
+                            setCategoryModalCandidate(candidate);
                           }}
                           className={`inline-flex h-9 items-center gap-1 rounded-lg border px-3 text-xs font-medium transition ${
                             candidate.category === 'shortlisted'
@@ -1332,68 +1332,6 @@ export const Review = () => {
                           </span>
                           <ChevronDown className="h-3 w-3" />
                         </button>
-                        {openCategoryId === candidate.id && (
-                          <div
-                            id={`category-dropdown-${candidate.id}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="fixed z-[9999] w-48 rounded-lg border border-gray-200 bg-white shadow-lg"
-                          >
-                            <div className="py-1">
-                              {(['shortlisted', 'interview_scheduled', 'interviewed', 'offer_sent', 'hired'] as CandidateCategory[]).map((category) => (
-                                <button
-                                  key={category}
-                                  onClick={async () => {
-                                    if (candidate.jobScoreId) {
-                                      try {
-                                        await updateCategory.mutateAsync({
-                                          jobScoreId: candidate.jobScoreId,
-                                          category: category,
-                                        });
-                                        setOpenCategoryId(null);
-                                      } catch (error) {
-                                        console.error('Failed to update category:', error);
-                                        alert('Failed to update status. Please try again.');
-                                      }
-                                    } else {
-                                      alert('Unable to update status. Job score not found.');
-                                    }
-                                  }}
-                                  className={`w-full px-4 py-2 text-left text-xs transition hover:bg-gray-50 ${
-                                    candidate.category === category
-                                      ? 'bg-gray-50 font-medium text-gray-900'
-                                      : 'text-gray-700'
-                                  }`}
-                                >
-                                  <span className={`capitalize ${
-                                    category === 'shortlisted'
-                                      ? 'text-green-700'
-                                      : category === 'interview_scheduled'
-                                      ? 'text-purple-700'
-                                      : category === 'interviewed'
-                                      ? 'text-indigo-700'
-                                      : category === 'offer_sent'
-                                      ? 'text-orange-700'
-                                      : category === 'hired'
-                                      ? 'text-emerald-700'
-                                      : ''
-                                  }`}>
-                                    {category === 'shortlisted'
-                                      ? 'Short Listed'
-                                      : category === 'interview_scheduled'
-                                      ? 'Interview Scheduled'
-                                      : category === 'interviewed'
-                                      ? 'Interviewed'
-                                      : category === 'offer_sent'
-                                      ? 'Offer Sent'
-                                      : category === 'hired'
-                                      ? 'Hired'
-                                      : ''}
-                                  </span>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </td>
                   </tr>
@@ -1418,11 +1356,98 @@ export const Review = () => {
           )}
           Refresh Ranking
         </button>
-        <button className="btn-primary flex items-center gap-2">
-          <Download className="h-4 w-4" />
-          Export Report
-        </button>
       </div>
+
+      {/* Category Selection Modal */}
+      {categoryModalCandidate && (
+        <div 
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setCategoryModalCandidate(null);
+            }
+          }}
+        >
+          <div 
+            className="card p-6 w-full max-w-md mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">
+                Change Candidate Status
+              </h3>
+              <button
+                onClick={() => setCategoryModalCandidate(null)}
+                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-white/20 backdrop-blur-md rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <p className="text-sm text-gray-700">
+                <span className="font-medium">Candidate:</span> {categoryModalCandidate.name}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              {(['shortlisted', 'interview_scheduled', 'interviewed', 'offer_sent', 'hired'] as CandidateCategory[]).map((category) => (
+                <button
+                  key={category}
+                  onClick={async () => {
+                    if (categoryModalCandidate.jobScoreId) {
+                      try {
+                        await updateCategory.mutateAsync({
+                          jobScoreId: categoryModalCandidate.jobScoreId,
+                          category: category,
+                        });
+                        setCategoryModalCandidate(null);
+                      } catch (error) {
+                        console.error('Failed to update category:', error);
+                        alert('Failed to update status. Please try again.');
+                      }
+                    } else {
+                      alert('Unable to update status. Job score not found.');
+                    }
+                  }}
+                  disabled={updateCategory.isPending}
+                  className={`w-full px-4 py-3 text-left rounded-lg border transition ${
+                    categoryModalCandidate.category === category
+                      ? 'bg-primary/20 border-primary/60 text-primary font-medium'
+                      : 'bg-white/30 backdrop-blur-md border-white/40 text-gray-800 hover:bg-white/40 hover:border-white/50'
+                  } ${updateCategory.isPending ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="capitalize">
+                      {category === 'shortlisted'
+                        ? 'Short Listed'
+                        : category === 'interview_scheduled'
+                        ? 'Interview Scheduled'
+                        : category === 'interviewed'
+                        ? 'Interviewed'
+                        : category === 'offer_sent'
+                        ? 'Offer Sent'
+                        : category === 'hired'
+                        ? 'Hired'
+                        : ''}
+                    </span>
+                    {categoryModalCandidate.category === category && (
+                      <span className="text-primary">✓</span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {updateCategory.isPending && (
+              <div className="mt-4 flex items-center justify-center">
+                <Loader className="h-5 w-5 animate-spin text-primary" />
+                <span className="ml-2 text-sm text-gray-700">Updating status...</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

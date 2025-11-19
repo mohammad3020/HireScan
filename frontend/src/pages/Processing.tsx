@@ -1,12 +1,16 @@
 import { useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle, XCircle, Loader, File, AlertCircle } from 'lucide-react';
 import { useBatchUpload } from '../api/batch';
 
 export const Processing = () => {
   const { batchId } = useParams<{ batchId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const batchIdNum = batchId ? Number(batchId) : 0;
+  
+  // Get jobId from query parameter (passed from Upload page)
+  const jobId = searchParams.get('jobId') ? Number(searchParams.get('jobId')) : null;
   
   const { data: batch, isLoading, error } = useBatchUpload(batchIdNum);
 
@@ -165,12 +169,21 @@ export const Processing = () => {
       {/* Actions */}
       {batch.status === 'completed' && (
         <div className="flex items-center justify-end space-x-4">
-          <Link
-            to="/review"
-            className="btn-primary"
-          >
-            View Results
-          </Link>
+          {jobId ? (
+            <Link
+              to={`/jobs/${jobId}/profile?tab=review`}
+              className="btn-primary"
+            >
+              View Results
+            </Link>
+          ) : (
+            <Link
+              to="/review"
+              className="btn-primary"
+            >
+              View Results
+            </Link>
+          )}
         </div>
       )}
     </div>

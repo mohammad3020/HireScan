@@ -40,22 +40,22 @@ export const Layout = ({ children }: LayoutProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen flex">
       {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out ${
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 glass-nav transform transition-transform duration-300 ease-in-out ${
         mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
       } lg:translate-x-0 lg:static lg:inset-0 flex flex-col`}>
         {/* Logo */}
-        <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 flex-shrink-0">
+        <div className="flex items-center justify-between h-16 px-6 border-b border-white/20 flex-shrink-0">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <Briefcase className="h-5 w-5 text-white" />
+            <div className="w-8 h-8 bg-white/40 backdrop-blur-md rounded-lg flex items-center justify-center border border-white/50">
+              <Briefcase className="h-5 w-5 text-gray-800" />
             </div>
-            <h1 className="text-xl font-bold text-primary">HireScan</h1>
+            <h1 className="text-xl font-bold text-gray-800">HireScan</h1>
           </div>
           <button
             onClick={() => setMobileMenuOpen(false)}
-            className="lg:hidden text-gray-600 hover:text-gray-900"
+            className="lg:hidden text-gray-700 hover:text-gray-900 transition-colors"
           >
             <X className="h-6 w-6" />
           </button>
@@ -73,8 +73,8 @@ export const Layout = ({ children }: LayoutProps) => {
                 onClick={() => setMobileMenuOpen(false)}
                 className={`flex items-center px-4 py-3 rounded-lg transition-all duration-200 ${
                   active
-                    ? 'bg-primary text-white font-medium shadow-sm'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    ? 'bg-white/40 backdrop-blur-md text-gray-800 font-medium shadow-lg border border-white/50'
+                    : 'text-gray-700 hover:bg-white/20 hover:text-gray-900 border border-transparent'
                 }`}
               >
                 <Icon className="h-5 w-5 mr-3" />
@@ -85,22 +85,22 @@ export const Layout = ({ children }: LayoutProps) => {
         </nav>
 
         {/* User info and logout */}
-        <div className="px-4 py-4 border-t border-gray-200 flex-shrink-0">
+        <div className="px-4 py-4 border-t border-white/20 flex-shrink-0">
           <div className="mb-3 px-4 py-2 text-sm">
             {user?.first_name || user?.last_name ? (
               <div>
-                <div className="font-medium text-gray-900">
+                <div className="font-medium text-gray-800">
                   {[user.first_name, user.last_name].filter(Boolean).join(' ') || user.email}
                 </div>
-                <div className="text-xs text-gray-500 mt-0.5">{user.email}</div>
+                <div className="text-xs text-gray-600 mt-0.5">{user.email}</div>
               </div>
             ) : (
-              <div className="font-medium text-gray-900">{user?.email}</div>
+              <div className="font-medium text-gray-800">{user?.email}</div>
             )}
           </div>
           <button
             onClick={handleLogout}
-            className="flex items-center w-full px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+            className="flex items-center w-full px-4 py-3 rounded-lg text-gray-700 hover:bg-white/20 hover:text-gray-900 transition-all border border-transparent hover:border-white/30"
           >
             <LogOut className="h-5 w-5 mr-3" />
             Logout
@@ -111,7 +111,7 @@ export const Layout = ({ children }: LayoutProps) => {
       {/* Mobile menu overlay */}
       {mobileMenuOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
@@ -119,16 +119,16 @@ export const Layout = ({ children }: LayoutProps) => {
       {/* Main content */}
       <div className="flex-1 min-h-screen">
         {/* Mobile header */}
-        <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-200 h-16 flex items-center justify-between px-4 shadow-sm">
+        <div className="lg:hidden fixed top-0 left-0 right-0 z-40 glass-nav border-b border-white/20 h-16 flex items-center justify-between px-4">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <Briefcase className="h-5 w-5 text-white" />
+            <div className="w-8 h-8 bg-white/40 backdrop-blur-md rounded-lg flex items-center justify-center border border-white/50">
+              <Briefcase className="h-5 w-5 text-gray-800" />
             </div>
-            <h1 className="text-xl font-bold text-primary">HireScan</h1>
+            <h1 className="text-xl font-bold text-gray-800">HireScan</h1>
           </div>
           <button
             onClick={() => setMobileMenuOpen(true)}
-            className="text-gray-600 hover:text-gray-900 p-2 hover:bg-gray-100 rounded-lg"
+            className="text-gray-700 hover:text-gray-900 p-2 hover:bg-white/20 rounded-lg transition-colors"
           >
             <Menu className="h-6 w-6" />
           </button>

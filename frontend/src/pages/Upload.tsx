@@ -169,7 +169,10 @@ export const Upload = () => {
       // Navigate to processing page if batch_id exists
       if (result.batch_id) {
         setTimeout(() => {
-          navigate(`/processing/${result.batch_id}`);
+          const url = jobId 
+            ? `/processing/${result.batch_id}?jobId=${jobId}`
+            : `/processing/${result.batch_id}`;
+          navigate(url);
         }, 1500);
       } else {
         setUploadError('Batch ID not returned. Please check the upload status.');
@@ -204,8 +207,8 @@ export const Upload = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Upload Resumes</h1>
-        <p className="text-gray-600 mt-1">Upload resumes in batch (PDF, DOC, DOCX - Max 50 files)</p>
+        <h1 className="text-3xl font-bold text-gray-800">Upload Resumes</h1>
+        <p className="text-gray-700 mt-1">Upload resumes in batch (PDF, DOC, DOCX - Max 50 files)</p>
       </div>
 
       {/* Upload Area */}
@@ -214,17 +217,17 @@ export const Upload = () => {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`border-2 border-dashed rounded-card p-12 text-center transition-colors ${
+        className={`border-2 border-dashed rounded-card p-12 text-center transition-colors backdrop-blur-md ${
           isDragging
-            ? 'border-secondary bg-secondary/10'
-            : 'border-gray-300 bg-white hover:border-primary hover:bg-gray-50'
+            ? 'border-secondary/60 bg-secondary/20 backdrop-blur-lg'
+            : 'border-white/40 bg-white/30 hover:border-white/60 hover:bg-white/40'
         }`}
       >
-        <UploadIcon className={`h-12 w-12 mx-auto mb-4 ${isDragging ? 'text-secondary' : 'text-gray-400'}`} />
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+        <UploadIcon className={`h-12 w-12 mx-auto mb-4 ${isDragging ? 'text-secondary' : 'text-gray-700'}`} />
+        <h3 className="text-lg font-semibold text-gray-800 mb-2">
           {isDragging ? 'Drop files here' : 'Drag and drop files here'}
         </h3>
-        <p className="text-gray-600 mb-4">or</p>
+        <p className="text-gray-700 mb-4">or</p>
         <label className="btn-primary inline-flex items-center cursor-pointer">
           <UploadIcon className="h-5 w-5 mr-2" />
           Select Files
@@ -236,25 +239,25 @@ export const Upload = () => {
             className="hidden"
           />
         </label>
-        <p className="text-sm text-gray-500 mt-4">
+        <p className="text-sm text-gray-600 mt-4">
           Supported formats: PDF, DOC, DOCX (Max 50 files)
         </p>
       </div>
 
       {/* Success/Error Messages */}
       {uploadSuccess && (
-        <div className="card p-4 bg-green-50 border border-green-200">
+        <div className="card p-4 bg-green-100/80 backdrop-blur-md border border-green-300/60">
           <div className="flex items-center space-x-2">
-            <CheckCircle className="h-5 w-5 text-green-600" />
+            <CheckCircle className="h-5 w-5 text-green-700" />
             <p className="text-sm font-medium text-green-800">{uploadSuccess}</p>
           </div>
         </div>
       )}
 
       {uploadError && (
-        <div className="card p-4 bg-red-50 border border-red-200">
+        <div className="card p-4 bg-red-100/80 backdrop-blur-md border border-red-300/60">
           <div className="flex items-center space-x-2">
-            <AlertCircle className="h-5 w-5 text-red-600" />
+            <AlertCircle className="h-5 w-5 text-red-700" />
             <p className="text-sm font-medium text-red-800">{uploadError}</p>
           </div>
         </div>
@@ -263,14 +266,14 @@ export const Upload = () => {
       {/* Files List */}
       {files.length > 0 && (
         <div className="card">
-          <div className="p-6 border-b border-gray-200">
+          <div className="p-6 border-b border-white/30">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">
+                <h2 className="text-lg font-semibold text-gray-800">
                   Selected Files ({files.length}/50)
                 </h2>
                 {jobId && (
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-sm text-gray-600 mt-1">
                     Job ID: {jobId}
                   </p>
                 )}
@@ -291,49 +294,49 @@ export const Upload = () => {
               </button>
             </div>
           </div>
-          <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+          <div className="divide-y divide-white/20 max-h-96 overflow-y-auto">
             {files.map((file, index) => (
-              <div key={index} className="p-4 flex items-center justify-between hover:bg-gray-50">
+              <div key={index} className="p-4 flex items-center justify-between hover:bg-white/20 transition-colors">
                 <div className="flex items-center space-x-4 flex-1">
-                  <div className="p-2 bg-gray-100 rounded-lg">
-                    <FileIcon className="h-5 w-5 text-gray-600" />
+                  <div className="p-2 bg-white/40 backdrop-blur-md rounded-lg border border-white/50">
+                    <FileIcon className="h-5 w-5 text-gray-700" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate max-w-xs">{file.name}</p>
+                    <p className="text-sm font-medium text-gray-800 truncate max-w-xs">{file.name}</p>
                     <div className="flex items-center gap-2 mt-1">
-                      <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                      <p className="text-xs text-gray-600">{formatFileSize(file.size)}</p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
                     {/* نمایش وضعیت آپلود */}
                     {file.status === 'pending' && (
-                      <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
+                      <span className="px-2 py-1 text-xs font-medium bg-yellow-100/80 backdrop-blur-md text-yellow-800 rounded-full border border-yellow-300/50">
                         در انتظار
                       </span>
                     )}
                     {file.status === 'processing' && (
                       <div className="flex items-center space-x-2">
-                        <Loader className="h-4 w-4 text-blue-600 animate-spin" />
-                        <span className="text-xs text-blue-600">در حال پردازش...</span>
+                        <Loader className="h-4 w-4 text-blue-700 animate-spin" />
+                        <span className="text-xs text-blue-700">در حال پردازش...</span>
                       </div>
                     )}
                     {file.status === 'completed' && (
                       <div className="flex items-center space-x-2">
-                        <CheckCircle className="h-5 w-5 text-green-600" />
-                        <span className="text-xs text-green-600">تکمیل شد</span>
+                        <CheckCircle className="h-5 w-5 text-green-700" />
+                        <span className="text-xs text-green-700">تکمیل شد</span>
                       </div>
                     )}
                     {file.status === 'failed' && (
                       <div className="flex items-center space-x-2">
-                        <AlertCircle className="h-5 w-5 text-red-600" />
-                        <span className="text-xs text-red-600">ناموفق</span>
+                        <AlertCircle className="h-5 w-5 text-red-700" />
+                        <span className="text-xs text-red-700">ناموفق</span>
                       </div>
                     )}
                   </div>
                 </div>
                 <button
                   onClick={() => removeFile(index)}
-                  className="ml-4 p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  className="ml-4 p-2 text-gray-600 hover:text-red-700 hover:bg-red-100/60 backdrop-blur-md rounded-lg transition-colors border border-transparent hover:border-red-300/50"
                 >
                   <X className="h-5 w-5" />
                 </button>

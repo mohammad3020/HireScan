@@ -642,7 +642,7 @@ export const JobForm = () => {
     return (
       <div className="space-y-6">
         <div className="card p-12 text-center">
-          <p className="text-gray-600">Loading job data...</p>
+          <p className="text-gray-700">Loading job data...</p>
         </div>
       </div>
     );
@@ -672,15 +672,15 @@ export const JobForm = () => {
       <div className="flex items-center space-x-4">
         <button
           onClick={() => navigate('/jobs')}
-          className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+          className="p-2 text-gray-700 hover:text-gray-900 hover:bg-white/20 backdrop-blur-md rounded-lg transition-colors border border-transparent hover:border-white/30"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">
+          <h1 className="text-3xl font-bold text-gray-800">
             {isEdit ? 'Edit Job' : 'Create New Job'}
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-gray-700 mt-1">
             {isEdit ? 'Update job description and requirements' : 'Add a new job posting'}
           </p>
         </div>
@@ -689,11 +689,11 @@ export const JobForm = () => {
       {/* Form */}
       <form onSubmit={handleSubmit} className="card p-6 space-y-6">
         {/* Job Overview */}
-        <div className="rounded-2xl border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Job Overview</h2>
+        <div className="card p-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Job Overview</h2>
           <div className="space-y-5">
             <div className="max-w-2xl">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Job Title *</label>
+              <label className="block text-sm font-medium text-gray-800 mb-2">Job Title *</label>
               <input
                 type="text"
                 value={formData.title}
@@ -705,7 +705,7 @@ export const JobForm = () => {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-x-6 max-w-3xl">
               <div className="max-w-xs md:max-w-sm">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
+                <label className="block text-sm font-medium text-gray-800 mb-2">Department</label>
                 <select
                   value={formData.department}
                   onChange={(e) => setFormData({ ...formData, department: e.target.value })}
@@ -720,7 +720,7 @@ export const JobForm = () => {
                 </select>
               </div>
               <div className="max-w-xs md:max-w-sm">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                <label className="block text-sm font-medium text-gray-800 mb-2">Location</label>
                 <input
                   type="text"
                   value={formData.location}
@@ -732,7 +732,7 @@ export const JobForm = () => {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-x-6 max-w-3xl">
               <div className="max-w-xs md:max-w-sm">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Employment Type</label>
+                <label className="block text-sm font-medium text-gray-800 mb-2">Employment Type</label>
                 <select
                   value={formData.employment_type}
                   onChange={(e) => setFormData({ ...formData, employment_type: e.target.value })}
@@ -746,7 +746,7 @@ export const JobForm = () => {
                 </select>
               </div>
               <div className="max-w-xs md:max-w-sm">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Experience Level</label>
+                <label className="block text-sm font-medium text-gray-800 mb-2">Experience Level</label>
                 <select
                   value={formData.experience_level}
                   onChange={(e) => setFormData({ ...formData, experience_level: e.target.value })}
@@ -765,10 +765,10 @@ export const JobForm = () => {
                 <label className="block text-sm font-medium text-gray-700">
                   Minimum Years of Experience
                 </label>
-                <label className="inline-flex items-center text-xs text-gray-600">
+                <label className="inline-flex items-center text-xs text-gray-700">
                   <input
                     type="checkbox"
-                    className="mr-2 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    className="mr-2 h-4 w-4 rounded border-white/50 text-primary focus:ring-primary bg-white/30 backdrop-blur-md"
                     checked={formData.experience_min_years_auto_reject}
                     onChange={(e) =>
                       setFormData({
@@ -794,11 +794,11 @@ export const JobForm = () => {
 
         {/* Basic Information */}
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h2>
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Basic Information</h2>
           <div className="space-y-6">
-            <div className="w-full max-w-2xl rounded-2xl border border-blue-300 bg-blue-50/40 p-6 space-y-6">
+            <div className="w-full max-w-2xl card p-6 space-y-6 bg-blue-100/40 backdrop-blur-md border-blue-300/50">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-blue-900">
+                  <h3 className="text-lg font-semibold text-blue-800">
                     Salary Range (Million Toman/Month)
                   </h3>
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -806,9 +806,9 @@ export const JobForm = () => {
                       type="checkbox"
                       checked={salaryAny}
                       onChange={(e) => handleSalaryAnyChange(e.target.checked)}
-                      className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                      className="w-4 h-4 text-primary border-white/50 rounded focus:ring-primary bg-white/30"
                     />
-                    <span className="text-sm font-medium text-gray-700">Any</span>
+                    <span className="text-sm font-medium text-gray-800">Any</span>
                   </label>
                 </div>
 
@@ -816,7 +816,7 @@ export const JobForm = () => {
                   <>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                       <div className="max-w-xs space-y-2">
-                        <span className="text-sm font-semibold text-gray-700">Minimum</span>
+                        <span className="text-sm font-semibold text-gray-800">Minimum</span>
                         <div className="flex items-center space-x-2">
                           <input
                             type="number"
@@ -826,7 +826,7 @@ export const JobForm = () => {
                             onChange={handleSalaryInputChange('min')}
                             className="input-field max-w-[120px]"
                           />
-                          <span className="text-sm font-medium text-gray-500">M</span>
+                          <span className="text-sm font-medium text-gray-700">M</span>
                         </div>
                       </div>
                       <div className="max-w-xs space-y-2">
@@ -840,7 +840,7 @@ export const JobForm = () => {
                             onChange={handleSalaryInputChange('max')}
                             className="input-field max-w-[120px]"
                           />
-                          <span className="text-sm font-medium text-gray-500">M</span>
+                          <span className="text-sm font-medium text-gray-700">M</span>
                         </div>
                       </div>
                     </div>
@@ -852,7 +852,7 @@ export const JobForm = () => {
                 )}
 
                 {salaryAny && (
-                  <div className="rounded-xl bg-gray-100 px-4 py-3 text-center text-sm font-medium text-gray-700">
+                  <div className="rounded-xl bg-white/40 backdrop-blur-md px-4 py-3 text-center text-sm font-medium text-gray-800 border border-white/50">
                     No salary restriction (Any)
                   </div>
                 )}
@@ -862,7 +862,7 @@ export const JobForm = () => {
 
         {/* Required Skills */}
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Required Skills</h2>
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Required Skills</h2>
           <div className="space-y-4">
             <div className="flex items-start gap-0">
               <div className="relative">
@@ -897,7 +897,7 @@ export const JobForm = () => {
                   className="input-field max-w-[200px] rounded-r-none"
                 />
                 {showSkillSuggestions && skillInput.trim() && (
-                  <div className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+                  <div className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-white/50 bg-white/40 backdrop-blur-xl shadow-glass">
                     {availableSkills
                       .filter((skill: string) =>
                         skill.toLowerCase().includes(skillInput.toLowerCase()) &&
@@ -908,7 +908,7 @@ export const JobForm = () => {
                         <button
                           key={index}
                           type="button"
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-primary/10 hover:text-primary transition-colors"
+                          className="w-full px-4 py-2 text-left text-sm text-gray-800 hover:bg-primary/20 hover:text-primary transition-colors backdrop-blur-md"
                           onClick={() => {
                             if (!formData.required_skills.some(s => s.name.toLowerCase() === skill.toLowerCase())) {
                               setFormData({
@@ -982,15 +982,15 @@ export const JobForm = () => {
 
         {/* Demographic Requirements */}
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Demographic Requirements</h2>
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Demographic Requirements</h2>
           <div className="space-y-5">
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-4">
                 <label className="block text-sm font-medium text-gray-700">Age Range</label>
-                <label className="inline-flex items-center text-xs text-gray-600">
+                <label className="inline-flex items-center text-xs text-gray-700">
                   <input
                     type="checkbox"
-                    className="mr-2 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    className="mr-2 h-4 w-4 rounded border-white/50 text-primary focus:ring-primary bg-white/30 backdrop-blur-md"
                     checked={formData.demographic_requirements.age_range.auto_reject}
                     onChange={(e) =>
                       setFormData({
@@ -1028,7 +1028,7 @@ export const JobForm = () => {
                   className="input-field max-w-[120px]"
                   min={0}
                 />
-                <span className="text-sm text-gray-500">to</span>
+                <span className="text-sm text-gray-700">to</span>
                 <input
                   type="number"
                   placeholder="Max"
@@ -1048,17 +1048,17 @@ export const JobForm = () => {
                   className="input-field max-w-[120px]"
                   min={0}
                 />
-                <span className="text-sm text-gray-500">years old</span>
+                <span className="text-sm text-gray-700">years old</span>
               </div>
             </div>
 
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-4">
                 <label className="block text-sm font-medium text-gray-700">Gender</label>
-                <label className="inline-flex items-center text-xs text-gray-600">
+                <label className="inline-flex items-center text-xs text-gray-700">
                   <input
                     type="checkbox"
-                    className="mr-2 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    className="mr-2 h-4 w-4 rounded border-white/50 text-primary focus:ring-primary bg-white/30 backdrop-blur-md"
                     checked={formData.demographic_requirements.gender_auto_reject}
                     onChange={(e) =>
                       setFormData({
@@ -1099,10 +1099,10 @@ export const JobForm = () => {
                 <label className="block text-sm font-medium text-gray-700">
                   Military Status
                 </label>
-                <label className="inline-flex items-center text-xs text-gray-600">
+                <label className="inline-flex items-center text-xs text-gray-700">
                   <input
                     type="checkbox"
-                    className="mr-2 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    className="mr-2 h-4 w-4 rounded border-white/50 text-primary focus:ring-primary bg-white/30 backdrop-blur-md"
                     checked={formData.demographic_requirements.military_auto_reject}
                     onChange={(e) =>
                       setFormData({
@@ -1117,15 +1117,15 @@ export const JobForm = () => {
                   Auto reject if not
                 </label>
               </div>
-              <div className="space-y-3 rounded-lg border border-gray-200 p-4 max-w-3xl">
+              <div className="space-y-3 card p-4 max-w-3xl">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {militaryStatusOptions.map((option) => (
                     <label
                       key={option.value}
-                      className={`flex items-center rounded-md border px-3 py-2 text-sm transition hover:border-primary/60 ${
+                      className={`flex items-center rounded-md border px-3 py-2 text-sm transition backdrop-blur-md hover:border-primary/60 ${
                         formData.demographic_requirements.military_status === option.value
-                          ? 'border-primary bg-primary/5 text-primary'
-                          : 'border-gray-200 text-gray-700'
+                          ? 'border-primary/60 bg-primary/20 text-primary'
+                          : 'border-white/40 bg-white/20 text-gray-800'
                       }`}
                     >
                       <input
@@ -1134,7 +1134,7 @@ export const JobForm = () => {
                         value={option.value}
                         checked={formData.demographic_requirements.military_status === option.value}
                         onChange={() => handleMilitaryStatusChange(option.value)}
-                        className="mr-3 h-4 w-4 border-gray-300 text-primary focus:ring-primary"
+                        className="mr-3 h-4 w-4 border-white/50 text-primary focus:ring-primary bg-white/30 backdrop-blur-md"
                       />
                       {option.label}
                     </label>
@@ -1146,10 +1146,10 @@ export const JobForm = () => {
             <div>
               <div className="flex flex-wrap items-center gap-4 mb-2">
                 <label className="block text-sm font-medium text-gray-700">Minimum Educational Level</label>
-                <label className="inline-flex items-center text-xs text-gray-600">
+                <label className="inline-flex items-center text-xs text-gray-700">
                   <input
                     type="checkbox"
-                    className="mr-2 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    className="mr-2 h-4 w-4 rounded border-white/50 text-primary focus:ring-primary bg-white/30 backdrop-blur-md"
                     checked={formData.demographic_requirements.education_level_auto_reject}
                     onChange={(e) =>
                       setFormData({
@@ -1188,10 +1188,10 @@ export const JobForm = () => {
             <div>
               <div className="flex flex-wrap items-center gap-4 mb-2">
                 <label className="block text-sm font-medium text-gray-700">University Major</label>
-                <label className="inline-flex items-center text-xs text-gray-600">
+                <label className="inline-flex items-center text-xs text-gray-700">
                   <input
                     type="checkbox"
-                    className="mr-2 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    className="mr-2 h-4 w-4 rounded border-white/50 text-primary focus:ring-primary bg-white/30 backdrop-blur-md"
                     checked={formData.demographic_requirements.education_major_auto_reject}
                     onChange={(e) =>
                       setFormData({
@@ -1260,7 +1260,7 @@ export const JobForm = () => {
                     Add
                   </button>
                   {showMajorSuggestions && (
-                    <div className="absolute z-50 top-full mt-1 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+                    <div className="absolute z-50 top-full mt-1 max-h-60 w-full overflow-auto rounded-lg border border-white/50 bg-white/40 backdrop-blur-xl shadow-glass">
                     {universityMajors
                       .filter((major) =>
                         major.toLowerCase().includes(majorInput.toLowerCase()) &&
@@ -1271,7 +1271,7 @@ export const JobForm = () => {
                         <button
                           key={index}
                           type="button"
-                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-primary/10 hover:text-primary transition-colors"
+                          className="w-full px-4 py-2 text-left text-sm text-gray-800 hover:bg-primary/20 hover:text-primary transition-colors backdrop-blur-md"
                           onClick={() => {
                             if (!formData.demographic_requirements.education_major.includes(major)) {
                               setFormData({
@@ -1331,10 +1331,10 @@ export const JobForm = () => {
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-4">
                 <label className="block text-sm font-medium text-gray-700">Target Universities</label>
-                <label className="inline-flex items-center text-xs text-gray-600">
+                <label className="inline-flex items-center text-xs text-gray-700">
                   <input
                     type="checkbox"
-                    className="mr-2 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    className="mr-2 h-4 w-4 rounded border-white/50 text-primary focus:ring-primary bg-white/30 backdrop-blur-md"
                     checked={formData.demographic_requirements.preferred_universities_auto_reject}
                     onChange={(e) =>
                       setFormData({
@@ -1371,8 +1371,8 @@ export const JobForm = () => {
               </label>
 
               {formData.demographic_requirements.preferred_universities_enabled && (
-                <div className="rounded-lg border border-gray-200 p-4 max-w-3xl">
-                  <p className="mb-3 text-xs text-gray-500">
+                <div className="card p-4 max-w-3xl">
+                  <p className="mb-3 text-xs text-gray-600">
                     Select one or more university categories that you prefer candidates to have attended.
                   </p>
                   <div className="grid grid-cols-1 gap-3">
@@ -1381,17 +1381,17 @@ export const JobForm = () => {
                       return (
                         <label
                           key={category.id}
-                          className={`flex items-start rounded-md border px-3 py-3 text-sm transition hover:border-primary/60 ${isSelected ? 'border-primary bg-primary/5 text-primary' : 'border-gray-200 text-gray-700'}`}
+                          className={`flex items-start rounded-md border px-3 py-3 text-sm transition backdrop-blur-md hover:border-primary/60 ${isSelected ? 'border-primary/60 bg-primary/20 text-primary' : 'border-white/40 bg-white/20 text-gray-800'}`}
                         >
                           <input
                             type="checkbox"
                             checked={isSelected}
                             onChange={() => togglePreferredUniversity(category.id)}
-                            className="mt-0.5 mr-3 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary flex-shrink-0"
+                            className="mt-0.5 mr-3 h-4 w-4 rounded border-white/50 text-primary focus:ring-primary flex-shrink-0 bg-white/30 backdrop-blur-md"
                           />
                           <div className="flex-1">
                             <div className="font-medium">{category.label}</div>
-                            <div className="text-xs text-gray-500 mt-0.5">{category.description}</div>
+                            <div className="text-xs text-gray-600 mt-0.5">{category.description}</div>
                           </div>
                         </label>
                       );
@@ -1502,8 +1502,8 @@ export const JobForm = () => {
               )}
             </div>
 
-            <div className="max-w-3xl border-t border-gray-200 pt-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="max-w-3xl border-t border-white/30 pt-6">
+                <label className="block text-sm font-medium text-gray-800 mb-2">
                 Description *
               </label>
               <textarea
@@ -1518,7 +1518,7 @@ export const JobForm = () => {
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-end space-x-4 pt-4 border-t border-gray-200">
+        <div className="flex items-center justify-end space-x-4 pt-4 border-t border-white/30">
             <button
               type="button"
               onClick={() => navigate('/jobs')}

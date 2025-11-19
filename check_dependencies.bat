@@ -207,6 +207,12 @@ if exist "%ROOT%frontend\node_modules" (
             echo     [ERROR] TailwindCSS not found
             set /a ERRORS+=1
         )
+        if exist "%ROOT%frontend\node_modules\lucide-react" (
+            echo     Lucide React: OK
+        ) else (
+            echo     [ERROR] lucide-react not found
+            set /a ERRORS+=1
+        )
     )
     popd >nul
 ) else (
