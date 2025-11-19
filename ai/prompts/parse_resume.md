@@ -374,36 +374,61 @@ URL:
 System receives TWO JSON objects: `resume_data` and `target_job`
 
 
-{
-  "resume_data": {
-    "work_experience": [],
-    "education": [],
-    "certifications": [],
-    "courses": []
-  },
-  "target_job": {
-    "job_title": "",
-    "seniority_level": "",
-    "required_skills": [
-      {"skill_name": "", "importance": "Critical/Important/Nice-to-have"}
-    ],
-    "target_companies": [],
-    "target_universities": [],
-    "reputable_companies": [
-      "Digikala",
-      "Snapp",
-      "Saba Idea",
-      "Snapp pay",
-      "Tapsi",
-      "Okala",
-      "Azki",
-      "Bimeh Bazar",
-      "Divar",
-      "Hezar Dastan",
-      "Cafe Bazar"
-    ]
-  }
-}
+## A. RESUME DATA
+
+### A.1 Work Experience (Optional, can be empty array)
+- job_title: string (required) - e.g. "Senior Backend Engineer"
+- company_name: string (required) - e.g. "Google", "Digikala"
+- location: string (required) - e.g. "Tehran, Iran", "Remote"
+- start_date: string (required) - format: YYYY-MM, e.g. "2020-06"
+- end_date: string (required) - format: YYYY-MM or "Present", e.g. "2023-12"
+- duration: string (required) - format: MMM, e.g. "6", "16", "120"
+
+### A.2 Education (Optional, can be empty array)
+- degree_type: string (required) - enum: "PhD" | "Master" | "Bachelor" | "Associate"
+- field_of_study: string (required) - e.g. "Computer Science"
+- university_name: string (required) - e.g. "MIT", "Sharif University"
+- graduation_year: integer (required) - format: YYYY, e.g. 2020
+
+### A.3 Certifications (Optional, can be empty array)
+- cert_name: string (required if entry exists)
+
+### A.4 Courses (Optional, can be empty array)
+- course_name: string (required if entry exists)
+
+
+## B. TARGET JOB
+
+### B.1 Job Title (Required)
+- job_title: string (required)
+
+### B.2 Required Skills (Required, min 1 entry)
+- skill_name: string (required) - e.g. "Python", "Django"
+- importance: string (required) - enum: "Critical" | "Important" | "Nice-to-have"
+
+### B.3 Target Company (Optional, can be empty array)
+- target_company: string (required) - e.g. "Google", "Digikala"
+
+### B.4 Target University (Optional, can be empty array)
+- target_university: string (required) - e.g. "MIT", "Sharif University"
+
+### B.5 Reputable Company 
+   {
+         1. Digikala
+         2. Snapp
+         3. Saba Idea
+         4. Snapp pay
+         5. Tapsi
+         6. Okala
+         7. Azki
+         8. Bimeh Bazar
+         9. Divar
+         10. Hezar Dastan
+         11. Cafe Bazar
+     }
+
+### B.6 Experience Level (Required, min 1 entry)
+
 ### Calculation Formulas
 
 #### EDS (Experience Depth Score)
@@ -740,6 +765,7 @@ json
 }
 ]
   },
+}
   
   "scoring_results": {
 "final_scores": {
@@ -747,10 +773,11 @@ json
 "education_level_score": "number (2 decimal)",
 "overall_weighted_score": "number (2 decimal)",
 "seniority_match_score": "number (2 decimal)"
-  }
   },
-  
+
+
   "interpretation": {
+{
   "analysis": {
     "strengths": [
       {"title": "...", "evidence": "...", "impact_level": "high/medium/low"}
@@ -758,11 +785,13 @@ json
     "weaknesses": [
       {"title": "...", "observation": "...", "suggestion": "...", "priority": "high/medium/low"}
     ]
-  },
+  }
+}
+{
   "overall_analysis": {
     "narrative": "متن تحلیلی کامل به صورت پاراگراف‌های پیوسته و روان، شامل ارزیابی جامع رزومه با رعایت تمام الزامات بالا"
   }
-  }
+}
 }
 
 

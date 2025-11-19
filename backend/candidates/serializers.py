@@ -149,14 +149,31 @@ class ParsedResumeSerializer(serializers.ModelSerializer):
             }
         }
 
-        # Convert technical skills to string array (new format) or object array (legacy)
+        # Convert technical skills to grouped format by category (as per parse_resume.md structure)
         technical_skills_raw = obj.technical_skills.all()
+        technical_skills_grouped = []
         if technical_skills_raw.exists():
-            # Check if we should return as string array (new format) or object array (legacy)
-            # For now, return as string array to match new JSON structure
-            technical_skills = [skill.name for skill in technical_skills_raw]
+            # Group skills by category
+            skills_by_category = {}
+            for skill in technical_skills_raw:
+                category = skill.category or 'Other'
+                if category not in skills_by_category:
+                    skills_by_category[category] = []
+                # Add skill as object with name and level if level exists
+                skill_item = skill.name
+                if skill.level:
+                    skill_item = {"name": skill.name, "level": skill.level}
+                skills_by_category[category].append(skill_item)
+            
+            # Convert to the expected format: [{"category": "...", "items": [...]}]
+            for category, items in skills_by_category.items():
+                technical_skills_grouped.append({
+                    "category": category,
+                    "items": items
+                })
         else:
-            technical_skills = []
+            # If no skills, return empty array
+            technical_skills_grouped = []
         
         soft_skills = [skill.name for skill in obj.soft_skills.all()]
         mentioned_skills = [skill.name for skill in obj.skills_mentioned_in_job_title.all()]
@@ -166,7 +183,7 @@ class ParsedResumeSerializer(serializers.ModelSerializer):
             "education": EducationSerializer(obj.educations.all(), many=True).data,
             "experience": ExperienceSerializer(obj.experiences.all(), many=True).data,
             "skills": {
-                "technical": technical_skills,
+                "technical": technical_skills_grouped,
                 "soft": soft_skills,
                 "skills_mentioned_in_job_title": mentioned_skills
             },

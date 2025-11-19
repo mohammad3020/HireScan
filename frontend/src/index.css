@@ -15,7 +15,7 @@
     overflow-x: hidden;
   }
 
-  /* Technological Animated Background with Corporate Colors */
+  /* Fun & Cool Animated Background with Vibrant Colors */
   body::before {
     content: '';
     position: fixed;
@@ -25,12 +25,13 @@
     height: 100%;
     z-index: -1;
     background: linear-gradient(135deg, 
-      #667eea 0%, 
-      #764ba2 20%, 
-      #f093fb 40%, 
-      #4facfe 60%, 
-      #00f2fe 80%, 
-      #43e97b 100%);
+      #FF6B6B 0%, 
+      #FF8E53 16%, 
+      #FFD93D 33%, 
+      #6BCB77 50%, 
+      #4ECDC4 66%, 
+      #81C7E5 83%, 
+      #FF6B6B 100%);
     background-size: 400% 400%;
     animation: gradientShift 20s ease infinite;
   }
@@ -46,11 +47,11 @@
     z-index: -1;
     background-image: 
       /* Main grid lines */
-      linear-gradient(rgba(102, 126, 234, 0.1) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(102, 126, 234, 0.1) 1px, transparent 1px),
+      linear-gradient(rgba(255, 107, 107, 0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 107, 107, 0.08) 1px, transparent 1px),
       /* Diagonal lines */
-      linear-gradient(45deg, rgba(118, 75, 162, 0.1) 1px, transparent 1px),
-      linear-gradient(-45deg, rgba(240, 147, 251, 0.1) 1px, transparent 1px);
+      linear-gradient(45deg, rgba(255, 142, 83, 0.08) 1px, transparent 1px),
+      linear-gradient(-45deg, rgba(107, 203, 119, 0.08) 1px, transparent 1px);
     background-size: 
       60px 60px,
       60px 60px,
@@ -91,13 +92,13 @@
     height: 100%;
     z-index: -1;
     background-image: 
-      /* Radial gradients with corporate colors */
-      radial-gradient(circle at 15% 30%, rgba(102, 126, 234, 0.1) 0%, transparent 40%),
-      radial-gradient(circle at 85% 70%, rgba(118, 75, 162, 0.1) 0%, transparent 40%),
-      radial-gradient(circle at 50% 50%, rgba(240, 147, 251, 0.1) 0%, transparent 50%),
-      radial-gradient(circle at 30% 80%, rgba(79, 172, 254, 0.1) 0%, transparent 40%),
-      radial-gradient(circle at 70% 20%, rgba(0, 242, 254, 0.1) 0%, transparent 40%),
-      radial-gradient(circle at 90% 50%, rgba(67, 233, 123, 0.1) 0%, transparent 40%);
+      /* Radial gradients with vibrant colors */
+      radial-gradient(circle at 15% 30%, rgba(255, 107, 107, 0.08) 0%, transparent 40%),
+      radial-gradient(circle at 85% 70%, rgba(255, 142, 83, 0.08) 0%, transparent 40%),
+      radial-gradient(circle at 50% 50%, rgba(255, 217, 61, 0.08) 0%, transparent 50%),
+      radial-gradient(circle at 30% 80%, rgba(107, 203, 119, 0.08) 0%, transparent 40%),
+      radial-gradient(circle at 70% 20%, rgba(78, 205, 196, 0.08) 0%, transparent 40%),
+      radial-gradient(circle at 90% 50%, rgba(129, 199, 229, 0.08) 0%, transparent 40%);
     animation: pulse 10s ease-in-out infinite;
     pointer-events: none;
   }
@@ -117,24 +118,24 @@
         0deg,
         transparent,
         transparent 2px,
-        rgba(102, 126, 234, 0.1) 2px,
-        rgba(102, 126, 234, 0.1) 4px
+        rgba(255, 142, 83, 0.08) 2px,
+        rgba(255, 142, 83, 0.08) 4px
       ),
       /* Vertical lines */
       repeating-linear-gradient(
         90deg,
         transparent,
         transparent 2px,
-        rgba(118, 75, 162, 0.1) 2px,
-        rgba(118, 75, 162, 0.1) 4px
+        rgba(107, 203, 119, 0.08) 2px,
+        rgba(107, 203, 119, 0.08) 4px
       ),
       /* Diagonal pattern */
       repeating-linear-gradient(
         45deg,
         transparent,
         transparent 10px,
-        rgba(240, 147, 251, 0.1) 10px,
-        rgba(240, 147, 251, 0.1) 12px
+        rgba(78, 205, 196, 0.08) 10px,
+        rgba(78, 205, 196, 0.08) 12px
       );
     background-size: 
       100% 100%,

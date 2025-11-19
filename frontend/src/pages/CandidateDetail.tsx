@@ -13,6 +13,11 @@ import {
   Tag,
   ChevronDown,
   X,
+  Link2,
+  Github,
+  Globe,
+  Briefcase,
+  ExternalLink,
 } from 'lucide-react';
 import { useCandidate, useAddNote, useDeleteNote, useUpdateJobScoreCategory } from '../api/candidates';
 import type { TimelineEvent } from '../api/candidates';
@@ -151,17 +156,32 @@ export const CandidateDetail = () => {
   const parsedResume = resume?.parsed_data;
   const extractedData = parsedResume?.extracted_resume_data;
   const personalInfo = extractedData?.personal_info;
+  const links = personalInfo?.links || {};
   const educationEntries = extractedData?.education || [];
   const experienceEntries = extractedData?.experience || [];
-  // Handle skills as string arrays (new format) or objects (legacy format)
+  // Handle skills - can be grouped by category or flat array
   const technicalSkillsRaw = extractedData?.skills?.technical || [];
   const softSkillsRaw = extractedData?.skills?.soft || [];
   const mentionedSkills = extractedData?.skills?.skills_mentioned_in_job_title || [];
   
-  // Normalize technical skills: if string array, use as is; if object array, extract names
-  const technicalSkills = technicalSkillsRaw.map((skill: any) => 
-    typeof skill === 'string' ? skill : (skill?.name || skill?.toString())
-  ).filter(Boolean);
+  // Normalize technical skills: handle both grouped format [{"category": "...", "items": [...]}] and flat format
+  let technicalSkillsGrouped: Array<{category: string, items: any[]}> = [];
+  let technicalSkillsFlat: string[] = [];
+  
+  if (technicalSkillsRaw.length > 0 && typeof technicalSkillsRaw[0] === 'object' && 'category' in technicalSkillsRaw[0]) {
+    // Grouped format: [{"category": "...", "items": [...]}]
+    technicalSkillsGrouped = technicalSkillsRaw.map((group: any) => ({
+      category: group.category || 'Other',
+      items: (group.items || []).map((item: any) => 
+        typeof item === 'string' ? item : (item?.name || item?.toString())
+      ).filter(Boolean)
+    })).filter((group: any) => group.items.length > 0);
+  } else {
+    // Flat format: ["skill1", "skill2"] or [{"name": "..."}]
+    technicalSkillsFlat = technicalSkillsRaw.map((skill: any) => 
+      typeof skill === 'string' ? skill : (skill?.name || skill?.toString())
+    ).filter(Boolean);
+  }
   
   // Normalize soft skills: if string array, use as is; if object, extract name
   const softSkills = softSkillsRaw.map((skill: any) => 
@@ -457,6 +477,103 @@ export const CandidateDetail = () => {
             </div>
           </div>
 
+          {/* Links */}
+          {(links.linkedin || links.github || links.portfolio || links.website || (links.other && links.other.length > 0)) && (
+            <div className="card p-6">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">Links & Profiles</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {links.linkedin && (
+                  <a
+                    href={links.linkedin}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 hover:border-primary hover:bg-primary/5 transition"
+                  >
+                    <div className="p-2 bg-blue-50 rounded-lg">
+                      <Link2 className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800">LinkedIn</p>
+                      <p className="text-xs text-gray-500 truncate">{links.linkedin}</p>
+                    </div>
+                    <ExternalLink className="h-4 w-4 text-gray-400" />
+                  </a>
+                )}
+                {links.github && (
+                  <a
+                    href={links.github}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 hover:border-primary hover:bg-primary/5 transition"
+                  >
+                    <div className="p-2 bg-gray-900 rounded-lg">
+                      <Github className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800">GitHub</p>
+                      <p className="text-xs text-gray-500 truncate">{links.github}</p>
+                    </div>
+                    <ExternalLink className="h-4 w-4 text-gray-400" />
+                  </a>
+                )}
+                {links.portfolio && (
+                  <a
+                    href={links.portfolio}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 hover:border-primary hover:bg-primary/5 transition"
+                  >
+                    <div className="p-2 bg-purple-50 rounded-lg">
+                      <Briefcase className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800">Portfolio</p>
+                      <p className="text-xs text-gray-500 truncate">{links.portfolio}</p>
+                    </div>
+                    <ExternalLink className="h-4 w-4 text-gray-400" />
+                  </a>
+                )}
+                {links.website && (
+                  <a
+                    href={links.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 hover:border-primary hover:bg-primary/5 transition"
+                  >
+                    <div className="p-2 bg-green-50 rounded-lg">
+                      <Globe className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800">Website</p>
+                      <p className="text-xs text-gray-500 truncate">{links.website}</p>
+                    </div>
+                    <ExternalLink className="h-4 w-4 text-gray-400" />
+                  </a>
+                )}
+                {links.other && Array.isArray(links.other) && links.other.length > 0 && (
+                  <div className="md:col-span-2">
+                    <p className="text-sm font-semibold text-gray-700 mb-2">Other Links</p>
+                    <div className="space-y-2">
+                      {links.other.map((link: string, idx: number) => (
+                        <a
+                          key={idx}
+                          href={link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center space-x-2 p-2 rounded-lg border border-gray-200 hover:border-primary hover:bg-primary/5 transition text-sm text-gray-700"
+                        >
+                          <Link2 className="h-4 w-4 text-gray-400" />
+                          <span className="flex-1 truncate">{link}</span>
+                          <ExternalLink className="h-4 w-4 text-gray-400" />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Education */}
           {educationEntries?.length > 0 && (
             <div className="card p-6">
@@ -607,22 +724,56 @@ export const CandidateDetail = () => {
           )}
 
           {/* Skills */}
-          {(technicalSkills.length > 0 || softSkills.length > 0 || mentionedSkills.length > 0) && (
+          {(technicalSkillsGrouped.length > 0 || technicalSkillsFlat.length > 0 || softSkills.length > 0 || mentionedSkills.length > 0) && (
             <div className="card p-6">
               <h2 className="text-lg font-semibold text-gray-800 mb-4">Skills</h2>
-              {technicalSkills.length > 0 && (
+              {(technicalSkillsGrouped.length > 0 || technicalSkillsFlat.length > 0) && (
                 <div className="mb-4">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Technical Skills</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {technicalSkills.map((skill: string, idx: number) => (
-                      <span
-                        key={`technical-${idx}-${skill}`}
-                        className="px-3 py-1 bg-primary text-white rounded-full text-sm font-medium"
-                      >
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Technical Skills</h3>
+                  {technicalSkillsGrouped.length > 0 ? (
+                    // Grouped by category
+                    <div className="space-y-4">
+                      {technicalSkillsGrouped.map((group, groupIdx) => (
+                        <div key={`group-${groupIdx}`}>
+                          {group.category && group.category !== 'Other' && (
+                            <h4 className="text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">
+                              {group.category}
+                            </h4>
+                          )}
+                          <div className="flex flex-wrap gap-2">
+                            {group.items.map((skill: any, idx: number) => {
+                              const skillName = typeof skill === 'string' ? skill : skill?.name || skill?.toString();
+                              const skillLevel = typeof skill === 'object' && skill?.level ? skill.level : null;
+                              return (
+                                <span
+                                  key={`technical-${groupIdx}-${idx}-${skillName}`}
+                                  className="px-3 py-1 bg-primary text-white rounded-full text-sm font-medium flex items-center gap-1"
+                                  title={skillLevel ? `Level: ${skillLevel}` : undefined}
+                                >
+                                  {skillName}
+                                  {skillLevel && (
+                                    <span className="text-xs opacity-75">({skillLevel})</span>
+                                  )}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    // Flat format (no categories)
+                    <div className="flex flex-wrap gap-2">
+                      {technicalSkillsFlat.map((skill: string, idx: number) => (
+                        <span
+                          key={`technical-${idx}-${skill}`}
+                          className="px-3 py-1 bg-primary text-white rounded-full text-sm font-medium"
+                        >
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
               {softSkills.length > 0 && (
