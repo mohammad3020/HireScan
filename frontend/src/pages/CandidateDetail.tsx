@@ -159,6 +159,18 @@ export const CandidateDetail = () => {
   const links = personalInfo?.links || {};
   const educationEntries = extractedData?.education || [];
   const experienceEntries = extractedData?.experience || [];
+  
+  // Check if there are any valid links
+  const hasValidLinks = () => {
+    const hasValidLink = (link: any) => link && typeof link === 'string' && link.trim().length > 0;
+    const hasValidOther = links.other && Array.isArray(links.other) && 
+      links.other.some((link: any) => hasValidLink(link));
+    return hasValidLink(links.linkedin) || 
+           hasValidLink(links.github) || 
+           hasValidLink(links.portfolio) || 
+           hasValidLink(links.website) || 
+           hasValidOther;
+  };
   // Handle skills - can be grouped by category or flat array
   const technicalSkillsRaw = extractedData?.skills?.technical || [];
   const softSkillsRaw = extractedData?.skills?.soft || [];
@@ -478,11 +490,11 @@ export const CandidateDetail = () => {
           </div>
 
           {/* Links */}
-          {(links.linkedin || links.github || links.portfolio || links.website || (links.other && links.other.length > 0)) && (
+          {hasValidLinks() && (
             <div className="card p-6">
               <h2 className="text-lg font-semibold text-gray-800 mb-4">Links & Profiles</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {links.linkedin && (
+                {links.linkedin && typeof links.linkedin === 'string' && links.linkedin.trim() && (
                   <a
                     href={links.linkedin}
                     target="_blank"
@@ -499,7 +511,7 @@ export const CandidateDetail = () => {
                     <ExternalLink className="h-4 w-4 text-gray-400" />
                   </a>
                 )}
-                {links.github && (
+                {links.github && typeof links.github === 'string' && links.github.trim() && (
                   <a
                     href={links.github}
                     target="_blank"
@@ -516,7 +528,7 @@ export const CandidateDetail = () => {
                     <ExternalLink className="h-4 w-4 text-gray-400" />
                   </a>
                 )}
-                {links.portfolio && (
+                {links.portfolio && typeof links.portfolio === 'string' && links.portfolio.trim() && (
                   <a
                     href={links.portfolio}
                     target="_blank"
@@ -533,7 +545,7 @@ export const CandidateDetail = () => {
                     <ExternalLink className="h-4 w-4 text-gray-400" />
                   </a>
                 )}
-                {links.website && (
+                {links.website && typeof links.website === 'string' && links.website.trim() && (
                   <a
                     href={links.website}
                     target="_blank"
@@ -550,23 +562,25 @@ export const CandidateDetail = () => {
                     <ExternalLink className="h-4 w-4 text-gray-400" />
                   </a>
                 )}
-                {links.other && Array.isArray(links.other) && links.other.length > 0 && (
+                {links.other && Array.isArray(links.other) && links.other.filter((link: any) => link && typeof link === 'string' && link.trim().length > 0).length > 0 && (
                   <div className="md:col-span-2">
                     <p className="text-sm font-semibold text-gray-700 mb-2">Other Links</p>
                     <div className="space-y-2">
-                      {links.other.map((link: string, idx: number) => (
-                        <a
-                          key={idx}
-                          href={link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center space-x-2 p-2 rounded-lg border border-gray-200 hover:border-primary hover:bg-primary/5 transition text-sm text-gray-700"
-                        >
-                          <Link2 className="h-4 w-4 text-gray-400" />
-                          <span className="flex-1 truncate">{link}</span>
-                          <ExternalLink className="h-4 w-4 text-gray-400" />
-                        </a>
-                      ))}
+                      {links.other
+                        .filter((link: any) => link && typeof link === 'string' && link.trim().length > 0)
+                        .map((link: string, idx: number) => (
+                          <a
+                            key={idx}
+                            href={link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center space-x-2 p-2 rounded-lg border border-gray-200 hover:border-primary hover:bg-primary/5 transition text-sm text-gray-700"
+                          >
+                            <Link2 className="h-4 w-4 text-gray-400" />
+                            <span className="flex-1 truncate">{link}</span>
+                            <ExternalLink className="h-4 w-4 text-gray-400" />
+                          </a>
+                        ))}
                     </div>
                   </div>
                 )}
@@ -1237,7 +1251,7 @@ export const CandidateDetail = () => {
                 )}
                 {finalScores.seniority_match_score !== undefined && finalScores.seniority_match_score !== null && (
                   <div className="text-center">
-                    <p className="text-xs uppercase text-gray-500 mb-2">Seniority Match</p>
+                    <p className="text-xs uppercase text-gray-500 mb-2">Job Match</p>
                     <ScoreBadge value={finalScores.seniority_match_score} />
                   </div>
                 )}

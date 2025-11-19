@@ -497,7 +497,7 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
                   <SortableHeader label="Overall Weighted" columnKey="overallWeightedScore" />
                 </th>
                 <th className="px-6 py-4">
-                  <SortableHeader label="Seniority Match" columnKey="seniorityMatchScore" />
+                  <SortableHeader label="Job Match" columnKey="seniorityMatchScore" />
                 </th>
                 <th className="px-4 py-4">
                   <SortableHeader label="Skills" columnKey="skills" />
