@@ -231,6 +231,10 @@ class OpenRouterClient:
                 return parsed
             else:
                 logger.error(f"Parsed content is not a dict: {type(parsed)}")
+                # If it's a string, log it for debugging
+                if isinstance(parsed, str):
+                    logger.error(f"JSON parsing returned a string instead of dict. Content was a JSON-encoded string: {parsed[:500]}")
+                    logger.error(f"Original content preview: {content[:500]}")
                 raise ValueError(f"Resume parsing failed: Expected dict, got {type(parsed)}")
         except json.JSONDecodeError as e:
             logger.error(f"JSON decode error: {str(e)}")

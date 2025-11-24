@@ -2,10 +2,12 @@
 Jobs app views
 """
 import logging
+import threading
 from rest_framework import viewsets, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
+from django.db import close_old_connections
 from .models import Department, Job
 from .serializers import DepartmentSerializer, JobSerializer
 from candidates.models import JobScore
@@ -42,15 +44,29 @@ class JobViewSet(viewsets.ModelViewSet):
         """Update job and re-evaluate all candidates for this job"""
         instance = serializer.save()
         
-        # Re-evaluate all candidates for this job after update
-        logger.info(f"Job {instance.id} updated. Re-evaluating all candidates for this job...")
-        self._reevaluate_candidates_for_job(instance)
+        # Re-evaluate all candidates for this job after update (in background to avoid blocking the response)
+        logger.info(f"Job {instance.id} updated. Scheduling re-evaluation of all candidates for this job...")
+        # Run re-evaluation in a separate thread to avoid blocking the API response
+        # Pass job.id instead of job object to avoid thread-safety issues
+        thread = threading.Thread(target=self._reevaluate_candidates_for_job, args=(instance.id,))
+        thread.daemon = True
+        thread.start()
     
-    def _reevaluate_candidates_for_job(self, job):
+    def _reevaluate_candidates_for_job(self, job_id):
         """
         Re-evaluate all candidates for a job by re-applying auto-reject rules and recalculating scores
         """
+        # Close old database connections for this thread
+        close_old_connections()
+        
         try:
+            # Re-fetch the job object in this thread to ensure fresh database connection
+            try:
+                job = Job.objects.get(id=job_id)
+            except Job.DoesNotExist:
+                logger.error(f"Job {job_id} not found. Skipping re-evaluation.")
+                return
+            
             # Get all job scores for this job
             job_scores = JobScore.objects.filter(job=job).select_related('candidate')
             total_candidates = job_scores.count()
@@ -111,7 +127,7 @@ class JobViewSet(viewsets.ModelViewSet):
             
         except Exception as e:
             logger.error(
-                f"Error re-evaluating candidates for job {job.id}: {str(e)}",
+                f"Error re-evaluating candidates for job {job_id}: {str(e)}",
                 exc_info=True
             )
     

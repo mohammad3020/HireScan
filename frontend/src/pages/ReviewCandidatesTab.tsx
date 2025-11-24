@@ -41,6 +41,7 @@ type Candidate = {
   };
   notes: string;
   aiSummary: string;
+  aiNarrative: string;
   isFavorite: boolean;
   auto_rejected: boolean;
   category: CandidateCategory;
@@ -60,8 +61,6 @@ type SortKeyExtended =
   | 'category';
 type CandidateCategory = 'shortlisted' | 'rejected' | 'interview_scheduled' | 'interviewed' | 'offer_sent' | 'hired';
 type ActiveBucket = 'all' | 'shortlisted' | 'favorite' | 'interview_scheduled' | 'interviewed' | 'offer_sent' | 'hired';
-
-const MAX_VISIBLE_SKILLS = 3;
 
 const scoreClasses = (value: number) => {
   if (value >= 90) return 'border-blue-300 bg-blue-50 text-blue-700';
@@ -110,17 +109,6 @@ const extractSkills = (payload?: SkillsSummary) => {
     ? payload.skills_mentioned_in_job_title.filter((name): name is string => !!name)
     : [];
   return { technical, soft, mentioned };
-};
-
-const getSkillBadgeStyle = (variant: 'technical' | 'soft' | 'mentioned') => {
-  switch (variant) {
-    case 'technical':
-      return 'bg-sky-50 text-sky-700 border border-sky-100';
-    case 'soft':
-      return 'bg-rose-50 text-rose-700 border border-rose-100';
-    default:
-      return 'bg-gray-100 text-gray-700 border border-gray-200';
-  }
 };
 
 interface ReviewCandidatesTabProps {
@@ -180,6 +168,7 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
         skillsBreakdown,
         notes: candidate.notes || '',
         aiSummary: candidate.ai_summary || candidate.ai_review || '',
+        aiNarrative: candidate.ai_narrative || candidate.ai_summary || candidate.ai_review || '',
         isFavorite: favorites[candidateId] || false,
         auto_rejected: candidate.auto_rejected || false,
         category: (candidate.category || (candidate.auto_rejected ? 'rejected' : 'shortlisted')) as CandidateCategory,
@@ -322,9 +311,6 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
     return [...bucketFilteredCandidates].sort((a, b) => {
       if (sortKey === 'name') {
         return a.name.localeCompare(b.name) * dir;
-      }
-      if (sortKey === 'skills') {
-        return (a.skills.length - b.skills.length) * dir;
       }
       if (sortKey === 'category') {
         const categoryOrder: Record<CandidateCategory, number> = {
@@ -499,9 +485,6 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
                 <th className="px-6 py-4">
                   <SortableHeader label="Job Match" columnKey="seniorityMatchScore" />
                 </th>
-                <th className="px-4 py-4">
-                  <SortableHeader label="Skills" columnKey="skills" />
-                </th>
                 <th className="px-4 py-4 text-center" />
                 <th className="px-3 py-4 text-center" />
                 <th className="px-3 py-4 text-center">
@@ -565,35 +548,6 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
                         <ScoreBadge value={candidate.seniorityMatchScore} />
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      {(() => {
-                        const skillBadges = [
-                          ...candidate.skillsBreakdown.technical.map((name) => ({ name, variant: 'technical' as const })),
-                          ...candidate.skillsBreakdown.soft.map((name) => ({ name, variant: 'soft' as const })),
-                          ...candidate.skillsBreakdown.mentioned.map((name) => ({ name, variant: 'mentioned' as const })),
-                        ];
-                        const visibleSkills = skillBadges.slice(0, MAX_VISIBLE_SKILLS);
-                        const remaining = Math.max(skillBadges.length - visibleSkills.length, 0);
-                        
-                        return (
-                          <div className="flex flex-wrap items-center gap-2">
-                            {visibleSkills.map(({ name, variant }) => (
-                              <span
-                                key={`${variant}-${name}`}
-                                className={`rounded-full px-3 py-1 text-xs font-medium ${getSkillBadgeStyle(variant)}`}
-                              >
-                                {name}
-                              </span>
-                            ))}
-                            {remaining > 0 && (
-                              <span className="rounded-full bg-gray-200 px-3 py-1 text-xs font-medium text-gray-600">
-                                +{remaining} more
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })()}
-                    </td>
                     <td className="px-3 py-4 text-center">
                       <div className="relative flex justify-center">
                         <button
@@ -644,13 +598,16 @@ export const ReviewCandidatesTab = ({ jobId }: ReviewCandidatesTabProps) => {
                         {openAiId === candidate.id && (
                           <div
                             onClick={(e) => e.stopPropagation()}
-                            className="absolute right-0 bottom-full z-20 mb-2 w-64 rounded-lg border border-purple-200 bg-white p-4 text-left text-sm text-gray-700 shadow-lg"
+                            className="absolute right-0 bottom-full z-20 mb-2 w-96 max-w-md rounded-lg border border-purple-200 bg-white p-4 text-left text-sm text-gray-700 shadow-lg"
                           >
                             <div className="mb-2 text-xs font-semibold text-purple-700">
                               AI Review
                             </div>
-                            <p className="text-sm leading-5 text-gray-600 whitespace-pre-wrap">
-                              {candidate.aiSummary || 'No AI review available.'}
+                            <p className="text-sm leading-6 text-gray-600 whitespace-pre-wrap">
+                              {(() => {
+                                const text = candidate.aiNarrative || candidate.aiSummary || 'No AI review available.';
+                                return text.length > 200 ? text.substring(0, 200) + '...' : text;
+                              })()}
                             </p>
                           </div>
                         )}

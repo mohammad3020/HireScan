@@ -215,19 +215,33 @@ class ReviewDashboardView(APIView):
                 candidate_data['ai_review'] = ai_review
                 
                 # Also check interpretation for AI review content
+                # Check both direct interpretation field and scoring_results.interpretation
                 interpretation = parsed_resume.get('interpretation', {}) if isinstance(parsed_resume, dict) else {}
+                # Also check scoring_results for interpretation (as per serializer structure)
+                scoring_results_data = parsed_resume.get('scoring_results', {}) if isinstance(parsed_resume, dict) else {}
+                if isinstance(scoring_results_data, dict) and scoring_results_data.get('interpretation') and not interpretation:
+                    interpretation = scoring_results_data.get('interpretation', {})
+                
                 if isinstance(interpretation, dict):
+                    # Extract narrative from overall_analysis.narrative (from parse_resume.md lines 792-793)
+                    overall_analysis = interpretation.get('overall_analysis', {})
+                    narrative = overall_analysis.get('narrative', '') if isinstance(overall_analysis, dict) else ''
+                    
                     # Build AI summary from interpretation if available
                     interpretation_parts = []
-                    if interpretation.get('overall_assessment'):
+                    if narrative:
+                        # Prioritize narrative from overall_analysis
+                        candidate_data['ai_narrative'] = narrative
+                        candidate_data['ai_summary'] = narrative
+                    elif interpretation.get('overall_assessment'):
                         interpretation_parts.append(interpretation.get('overall_assessment'))
                     if interpretation.get('seniority_fit_analysis', {}).get('explanation'):
                         interpretation_parts.append(interpretation.get('seniority_fit_analysis', {}).get('explanation'))
                     
-                    if interpretation_parts:
+                    if interpretation_parts and not narrative:
                         interpretation_text = ' '.join(interpretation_parts)
                         candidate_data['ai_summary'] = ai_review or interpretation_text or candidate_data.get('ai_summary', '')
-                    else:
+                    elif not narrative:
                         candidate_data['ai_summary'] = ai_review or candidate_data.get('ai_summary', '')
                 else:
                     candidate_data['ai_summary'] = ai_review or candidate_data.get('ai_summary', '')
@@ -254,6 +268,7 @@ class ReviewDashboardView(APIView):
                 candidate_data['skillset'] = ''
                 candidate_data['ai_review'] = ''
                 candidate_data['ai_summary'] = ''
+                candidate_data['ai_narrative'] = ''
                 candidate_data['skills_payload'] = {}
                 candidate_data['scoring_summary'] = {}
                 candidate_data['experience_depth_score'] = None

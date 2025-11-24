@@ -459,7 +459,31 @@ def parse_resume_service(resume_instance, job=None, file_item_id=None):
     links = personal_info.get('links', {}) if isinstance(personal_info, dict) else {}
     
     # Update ParsedResume with personal information
-    full_name_raw = personal_info.get('full_name', '') or ''
+    # Try multiple paths to extract full_name (comprehensive extraction like Step 15)
+    full_name_raw = None
+    
+    # Path 1: Check personal_info.full_name (current path)
+    if isinstance(personal_info, dict):
+        full_name_raw = personal_info.get('full_name') or None
+    
+    # Path 2: Check extracted_resume_data.personal_info.full_name (nested structure)
+    if not full_name_raw and isinstance(extracted_resume_data, dict):
+        nested_personal_info = extracted_resume_data.get('personal_info', {})
+        if isinstance(nested_personal_info, dict):
+            full_name_raw = nested_personal_info.get('full_name') or None
+    
+    # Path 3: Check parsed_data.personal_info.full_name (flat structure)
+    if not full_name_raw:
+        flat_personal_info = parsed_data.get('personal_info', {})
+        if isinstance(flat_personal_info, dict):
+            full_name_raw = flat_personal_info.get('full_name') or None
+    
+    # Path 4: Check full_name at root level
+    if not full_name_raw:
+        full_name_raw = parsed_data.get('full_name') or None
+    
+    # Convert to string and normalize
+    full_name_raw = str(full_name_raw).strip() if full_name_raw else ''
     logger.info(f"[RESUME {resume_id}] full_name_raw extracted: '{full_name_raw}' (type: {type(full_name_raw)}, len: {len(str(full_name_raw))})")
     
     # Ignore "unknown" values from AI parsing
@@ -573,6 +597,7 @@ def parse_resume_service(resume_instance, job=None, file_item_id=None):
     if should_update:
         old_name = candidate.name
         candidate.name = parsed_resume.full_name
+        candidate.save()  # Save the name update
         logger.info(f"[RESUME {resume_id}] Updated candidate {candidate.id} name from '{old_name}' to '{parsed_resume.full_name}'")
     else:
         logger.info(f"[RESUME {resume_id}] Skipped updating candidate name - conditions not met")
@@ -628,57 +653,6 @@ def parse_resume_service(resume_instance, job=None, file_item_id=None):
         raise ValueError("Resume parsing failed: فایل رزومه تکراری ست") from exc
     
     logger.info(f"[RESUME {resume_id}] Updated candidate {candidate.id}: {candidate.name}, {candidate.email}")
-    
-    # Extract full_name from raw_json_response and update candidate name
-    # This is an additional step to ensure we get the name directly from the raw JSON response
-    if parsed_resume.raw_json_response:
-        try:
-            raw_json = parsed_resume.raw_json_response
-            # Try different paths to find full_name in the JSON structure
-            full_name_from_raw = None
-            
-            # Path 1: extracted_resume_data.personal_info.full_name
-            extracted_data = raw_json.get('extracted_resume_data', {})
-            if isinstance(extracted_data, dict):
-                personal_info = extracted_data.get('personal_info', {})
-                if isinstance(personal_info, dict):
-                    full_name_from_raw = personal_info.get('full_name')
-            
-            # Path 2: personal_info.full_name (flat structure)
-            if not full_name_from_raw:
-                personal_info = raw_json.get('personal_info', {})
-                if isinstance(personal_info, dict):
-                    full_name_from_raw = personal_info.get('full_name')
-            
-            # Path 3: full_name at root level
-            if not full_name_from_raw:
-                full_name_from_raw = raw_json.get('full_name')
-            
-            # Update candidate name if we found a valid full_name
-            if full_name_from_raw:
-                full_name_str = str(full_name_from_raw).strip()
-                full_name_normalized = full_name_str.lower()
-                
-                # Ignore "unknown" values
-                if full_name_str and full_name_normalized != 'unknown' and full_name_normalized != '':
-                    old_candidate_name = candidate.name
-                    candidate.name = full_name_str
-                    candidate.save()
-                    logger.info(
-                        f"[RESUME {resume_id}] Updated candidate {candidate.id} name from raw_json_response: "
-                        f"'{old_candidate_name}' -> '{full_name_str}'"
-                    )
-                else:
-                    logger.debug(
-                        f"[RESUME {resume_id}] full_name from raw_json_response is empty or 'unknown': '{full_name_str}'"
-                    )
-            else:
-                logger.debug(f"[RESUME {resume_id}] full_name not found in raw_json_response")
-        except Exception as e:
-            logger.warning(
-                f"[RESUME {resume_id}] Error extracting full_name from raw_json_response: {str(e)}",
-                exc_info=True
-            )
     
     # Delete existing related records
     Education.objects.filter(parsed_resume=parsed_resume).delete()
@@ -766,14 +740,14 @@ def parse_resume_service(resume_instance, job=None, file_item_id=None):
             degree=edu_data.get('degree', ''),
             field=edu_data.get('field', ''),
             institution=edu_data.get('institution', ''),
-            location=edu_data.get('location', ''),
-            institution_category=edu_data.get('institution_category', ''),
+            location=edu_data.get('location') or '',
+            institution_category=edu_data.get('institution_category') or '',
             graduation_year=edu_data.get('graduation_year'),
-            start_date=edu_data.get('start_date', ''),
+            start_date=edu_data.get('start_date') or '',
             end_date=end_date,
-            gpa=edu_data.get('gpa', ''),
-            honors=edu_data.get('honors', ''),
-            thesis=edu_data.get('thesis', ''),
+            gpa=edu_data.get('gpa') or '',
+            honors=edu_data.get('honors') or '',
+            thesis=edu_data.get('thesis') or '',
             relevant_courses=edu_data.get('relevant_courses', []),
             order=idx
         )
@@ -781,10 +755,10 @@ def parse_resume_service(resume_instance, job=None, file_item_id=None):
     # Create Experience records
     for idx, exp_data in enumerate(experience_entries):
         # Support both formats: 'experiences' (from sample) and 'experience' (current)
-        job_title = exp_data.get('job_title', '') or exp_data.get('role', '')
+        job_title = exp_data.get('job_title') or exp_data.get('role') or ''
         is_current = exp_data.get('is_current', False) or exp_data.get('is_currently_employed', False)
-        end_date = exp_data.get('end_date', '')
-        description = exp_data.get('description', '')
+        end_date = exp_data.get('end_date') or ''
+        description = exp_data.get('description') or ''
         
         # If end_date is null or empty, mark as current
         if not end_date or end_date.lower() in ['null', 'current', 'present', 'تاکنون']:
@@ -803,20 +777,20 @@ def parse_resume_service(resume_instance, job=None, file_item_id=None):
         
         Experience.objects.create(
             parsed_resume=parsed_resume,
-            job_title=job_title,
-            role=exp_data.get('role', '') or job_title,  # Legacy field
-            company=exp_data.get('company', ''),
-            company_type=exp_data.get('company_type', ''),
-            location=exp_data.get('location', ''),
-            employment_type=exp_data.get('employment_type', ''),
-            start_date=exp_data.get('start_date', ''),
-            end_date=end_date,
-            duration=exp_data.get('duration', ''),
+            job_title=job_title or '',
+            role=(exp_data.get('role') or job_title) or '',  # Legacy field
+            company=exp_data.get('company') or '',
+            company_type=exp_data.get('company_type') or '',
+            location=exp_data.get('location') or '',
+            employment_type=exp_data.get('employment_type') or '',
+            start_date=exp_data.get('start_date') or '',
+            end_date=end_date or '',
+            duration=exp_data.get('duration') or '',
             duration_months=exp_data.get('duration_months'),
             is_currently_employed=is_current,
             is_current=is_current,  # Legacy field
-            reasoning=exp_data.get('reasoning', ''),
-            description=description,  # Legacy field
+            reasoning=exp_data.get('reasoning') or '',
+            description=description or '',  # Legacy field
             responsibilities=responsibilities,
             extracted_skills=exp_data.get('extracted_skills', []),
             order=idx
@@ -839,7 +813,7 @@ def parse_resume_service(resume_instance, job=None, file_item_id=None):
                             parsed_resume=parsed_resume,
                             category=category or '',
                             name=item.get('name', ''),
-                            level=item.get('level', '')
+                            level=item.get('level') or ''
                         )
                     elif isinstance(item, str):
                         # If item is a string, use it as the name
@@ -855,9 +829,9 @@ def parse_resume_service(resume_instance, job=None, file_item_id=None):
             if isinstance(category_data, dict) and category_data.get('name'):
                 TechnicalSkill.objects.create(
                     parsed_resume=parsed_resume,
-                    category=category_data.get('category', '') or '',
+                    category=category_data.get('category') or '',
                     name=category_data.get('name', ''),
-                    level=category_data.get('level', '')
+                    level=category_data.get('level') or ''
                 )
                 continue
             
@@ -872,25 +846,32 @@ def parse_resume_service(resume_instance, job=None, file_item_id=None):
         
         # Create Soft Skills
         soft_skills = skills_data.get('soft', []) or []
+        # Deduplicate soft skills to avoid UNIQUE constraint errors
+        seen_soft_skills = set()
         for skill_item in soft_skills:
+            skill_name = None
             if isinstance(skill_item, dict) and skill_item.get('name'):
-                SoftSkill.objects.create(
-                    parsed_resume=parsed_resume,
-                    name=skill_item.get('name')
-                )
+                skill_name = (skill_item.get('name') or '').strip()
             elif isinstance(skill_item, str):
-                SoftSkill.objects.create(
+                skill_name = skill_item.strip()
+            
+            # Skip empty names and duplicates
+            if skill_name and skill_name not in seen_soft_skills:
+                seen_soft_skills.add(skill_name)
+                SoftSkill.objects.get_or_create(
                     parsed_resume=parsed_resume,
-                    name=skill_item
+                    name=skill_name,
+                    defaults={}
                 )
     
     # Handle flat structure (from parse_resume sample.md)
     elif isinstance(skills_data, list):
+        seen_soft_skills = set()
         for skill_item in skills_data:
             if isinstance(skill_item, dict):
-                skill_name = skill_item.get('name', '')
-                skill_category = skill_item.get('category', '')
-                skill_proficiency = skill_item.get('proficiency', '')
+                skill_name = skill_item.get('name') or ''
+                skill_category = skill_item.get('category') or ''
+                skill_proficiency = skill_item.get('proficiency') or ''
                 
                 # Determine if it's technical or soft skill based on category
                 if skill_category and skill_category.lower() not in ['soft skills', 'soft', 'interpersonal']:
@@ -898,13 +879,18 @@ def parse_resume_service(resume_instance, job=None, file_item_id=None):
                         parsed_resume=parsed_resume,
                         category=skill_category or 'General',
                         name=skill_name,
-                        level=skill_proficiency
+                        level=skill_proficiency or ''
                     )
                 else:
-                    SoftSkill.objects.create(
-                        parsed_resume=parsed_resume,
-                        name=skill_name
-                    )
+                    # Skip empty names and duplicates
+                    skill_name = skill_name.strip()
+                    if skill_name and skill_name not in seen_soft_skills:
+                        seen_soft_skills.add(skill_name)
+                        SoftSkill.objects.get_or_create(
+                            parsed_resume=parsed_resume,
+                            name=skill_name,
+                            defaults={}
+                        )
     
     # Create Skills Mentioned in Job Title
     # Only process if skills_data is a dict (nested structure)
@@ -920,11 +906,11 @@ def parse_resume_service(resume_instance, job=None, file_item_id=None):
         Project.objects.create(
             parsed_resume=parsed_resume,
             name=project_data.get('name', ''),
-            role=project_data.get('role', ''),
-            date=project_data.get('date', ''),
+            role=project_data.get('role') or '',
+            date=project_data.get('date') or '',
             technologies=project_data.get('technologies', []),
-            description=project_data.get('description', ''),
-            link=project_data.get('link', ''),
+            description=project_data.get('description') or '',
+            link=project_data.get('link') or '',
             order=idx
         )
     
@@ -933,10 +919,10 @@ def parse_resume_service(resume_instance, job=None, file_item_id=None):
         Award.objects.create(
             parsed_resume=parsed_resume,
             title=award_data.get('title', ''),
-            issuer=award_data.get('issuer', ''),
-            rank=award_data.get('rank', ''),
-            date=award_data.get('date', ''),
-            description=award_data.get('description', ''),
+            issuer=award_data.get('issuer') or '',
+            rank=award_data.get('rank') or '',
+            date=award_data.get('date') or '',
+            description=award_data.get('description') or '',
             order=idx
         )
     
@@ -954,7 +940,7 @@ def parse_resume_service(resume_instance, job=None, file_item_id=None):
             Language.objects.create(
                 parsed_resume=parsed_resume,
                 language=lang_data.get('language', ''),
-                proficiency=lang_data.get('proficiency', ''),
+                proficiency=lang_data.get('proficiency') or '',
                 skills=lang_data.get('skills', {}),
                 certificates=lang_data.get('certificates', [])
             )
@@ -972,12 +958,12 @@ def parse_resume_service(resume_instance, job=None, file_item_id=None):
         Course.objects.create(
             parsed_resume=parsed_resume,
             name=course_data.get('name', ''),
-            provider=course_data.get('provider', ''),
-            instructor=course_data.get('instructor', ''),
-            completion_date=course_data.get('completion_date', ''),
-            duration=course_data.get('duration', ''),
-            certificate_id=course_data.get('certificate_id', ''),
-            verification_link=course_data.get('verification_link', ''),
+            provider=course_data.get('provider') or '',
+            instructor=course_data.get('instructor') or '',
+            completion_date=course_data.get('completion_date') or '',
+            duration=course_data.get('duration') or '',
+            certificate_id=course_data.get('certificate_id') or '',
+            verification_link=course_data.get('verification_link') or '',
             order=idx
         )
     
@@ -994,11 +980,11 @@ def parse_resume_service(resume_instance, job=None, file_item_id=None):
         Certification.objects.create(
             parsed_resume=parsed_resume,
             name=cert_data.get('name', '') or cert_data.get('title', ''),
-            issuer=cert_data.get('issuer', ''),
-            date=cert_data.get('date', ''),
-            description=cert_data.get('description', ''),
-            certificate_id=cert_data.get('certificate_id', ''),
-            verification_link=cert_data.get('verification_link', ''),
+            issuer=cert_data.get('issuer') or '',
+            date=cert_data.get('date') or '',
+            description=cert_data.get('description') or '',
+            certificate_id=cert_data.get('certificate_id') or '',
+            verification_link=cert_data.get('verification_link') or '',
             order=idx
         )
     
@@ -1008,12 +994,12 @@ def parse_resume_service(resume_instance, job=None, file_item_id=None):
             parsed_resume=parsed_resume,
             title=pub_data.get('title', ''),
             authors=pub_data.get('authors', []),
-            venue=pub_data.get('venue', ''),
-            year=pub_data.get('year', ''),
-            volume_pages=pub_data.get('volume_pages', ''),
-            doi=pub_data.get('doi', ''),
-            link=pub_data.get('link', ''),
-            citations=pub_data.get('citations', ''),
+            venue=pub_data.get('venue') or '',
+            year=pub_data.get('year') or '',
+            volume_pages=pub_data.get('volume_pages') or '',
+            doi=pub_data.get('doi') or '',
+            link=pub_data.get('link') or '',
+            citations=pub_data.get('citations') or '',
             order=idx
         )
     
@@ -1023,6 +1009,176 @@ def parse_resume_service(resume_instance, job=None, file_item_id=None):
     
     db_ops_time = time.time() - db_ops_start
     logger.info(f"[RESUME {resume_id}] Database operations completed in {db_ops_time:.2f} seconds at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    
+    # Step 15: Extract full_name from parsed JSON and update candidate name
+    # This is a dedicated step to ensure full_name from JSON is properly set in candidate.name
+    logger.info(f"[RESUME {resume_id}] [STEP 15] Starting full_name extraction from parsed JSON data")
+    logger.info(f"[RESUME {resume_id}] [STEP 15] Current candidate.name: '{candidate.name}'")
+    step15_start = time.time()
+    
+    try:
+        # Try to get full_name from parsed_data (the main parsed structure)
+        full_name_from_json = None
+        
+        # Path 1: Check extracted_resume_data.personal_info.full_name (nested structure)
+        extracted_resume_data = parsed_data.get('extracted_resume_data', {})
+        logger.info(f"[RESUME {resume_id}] [STEP 15] Path 1 - extracted_resume_data exists: {bool(extracted_resume_data)}")
+        if isinstance(extracted_resume_data, dict):
+            personal_info_nested = extracted_resume_data.get('personal_info', {})
+            if isinstance(personal_info_nested, dict):
+                full_name_from_json = personal_info_nested.get('full_name')
+                logger.info(f"[RESUME {resume_id}] [STEP 15] Path 1 - Found full_name: '{full_name_from_json}'")
+        
+        # Path 2: Check personal_info.full_name (flat structure)
+        if not full_name_from_json:
+            personal_info_flat = parsed_data.get('personal_info', {})
+            logger.info(f"[RESUME {resume_id}] [STEP 15] Path 2 - personal_info exists: {bool(personal_info_flat)}, type: {type(personal_info_flat)}")
+            if isinstance(personal_info_flat, dict):
+                full_name_from_json = personal_info_flat.get('full_name')
+                logger.info(f"[RESUME {resume_id}] [STEP 15] Path 2 - Found full_name: '{full_name_from_json}'")
+        
+        # Path 3: Check full_name at root level
+        if not full_name_from_json:
+            full_name_from_json = parsed_data.get('full_name')
+            logger.info(f"[RESUME {resume_id}] [STEP 15] Path 3 - Found full_name at root: '{full_name_from_json}'")
+        
+        # Path 4: Also check raw_json_response as fallback
+        if not full_name_from_json and parsed_resume.raw_json_response:
+            logger.info(f"[RESUME {resume_id}] [STEP 15] Path 4 - Checking raw_json_response")
+            raw_json = parsed_resume.raw_json_response
+            extracted_data = raw_json.get('extracted_resume_data', {})
+            if isinstance(extracted_data, dict):
+                personal_info = extracted_data.get('personal_info', {})
+                if isinstance(personal_info, dict):
+                    full_name_from_json = personal_info.get('full_name')
+                    logger.info(f"[RESUME {resume_id}] [STEP 15] Path 4a - Found full_name: '{full_name_from_json}'")
+            
+            if not full_name_from_json:
+                personal_info = raw_json.get('personal_info', {})
+                if isinstance(personal_info, dict):
+                    full_name_from_json = personal_info.get('full_name')
+                    logger.info(f"[RESUME {resume_id}] [STEP 15] Path 4b - Found full_name: '{full_name_from_json}'")
+            
+            if not full_name_from_json:
+                full_name_from_json = raw_json.get('full_name')
+                logger.info(f"[RESUME {resume_id}] [STEP 15] Path 4c - Found full_name at root: '{full_name_from_json}'")
+        
+        logger.info(f"[RESUME {resume_id}] [STEP 15] Final full_name_from_json: '{full_name_from_json}'")
+        
+        # Update candidate name if we found a valid full_name
+        if full_name_from_json:
+            full_name_str = str(full_name_from_json).strip()
+            full_name_normalized = full_name_str.lower()
+            logger.info(f"[RESUME {resume_id}] [STEP 15] full_name_str: '{full_name_str}', normalized: '{full_name_normalized}'")
+            
+            # Ignore empty, "unknown", or invalid values
+            if full_name_str and full_name_normalized != 'unknown' and full_name_normalized != '':
+                # Always update candidate name from JSON in Step 15 (force update)
+                candidate_name_current = (candidate.name or '').strip()
+                candidate_name_normalized = candidate_name_current.lower()
+                logger.info(f"[RESUME {resume_id}] [STEP 15] Current candidate.name: '{candidate_name_current}', normalized: '{candidate_name_normalized}'")
+                
+                # Force update: always set name from JSON in Step 15
+                old_candidate_name = candidate.name
+                candidate.name = full_name_str
+                candidate.save()
+                logger.info(
+                    f"[RESUME {resume_id}] [STEP 15] ✓ Updated candidate {candidate.id} name from JSON: "
+                    f"'{old_candidate_name}' -> '{full_name_str}'"
+                )
+            else:
+                logger.warning(
+                    f"[RESUME {resume_id}] [STEP 15] full_name from JSON is empty or 'unknown': '{full_name_str}'"
+                )
+        else:
+            logger.warning(f"[RESUME {resume_id}] [STEP 15] ✗ full_name not found in parsed JSON data")
+        
+        step15_time = time.time() - step15_start
+        logger.info(f"[RESUME {resume_id}] [STEP 15] full_name extraction completed in {step15_time:.2f} seconds")
+        
+    except Exception as e:
+        logger.warning(
+            f"[RESUME {resume_id}] [STEP 15] Error extracting full_name from JSON: {str(e)}",
+            exc_info=True
+        )
+        # Don't fail the whole process if this step fails
+    
+    # Final Check Step: Extract full_name from raw_json_response in database and update candidate.name
+    # This is the final verification step to ensure name is set from raw JSON response
+    logger.info(f"[RESUME {resume_id}] [FINAL CHECK] Starting final name extraction from raw_json_response in database")
+    final_check_start = time.time()
+    
+    try:
+        # Reload parsed_resume from database to get the latest raw_json_response
+        parsed_resume.refresh_from_db()
+        
+        # Get raw_json_response from database
+        raw_json_db = parsed_resume.raw_json_response
+        logger.info(f"[RESUME {resume_id}] [FINAL CHECK] raw_json_response exists: {bool(raw_json_db)}, type: {type(raw_json_db)}")
+        
+        if raw_json_db and isinstance(raw_json_db, dict):
+            full_name_from_raw_db = None
+            
+            # Path 1: Check extracted_resume_data.personal_info.full_name (nested structure)
+            extracted_data = raw_json_db.get('extracted_resume_data', {})
+            if isinstance(extracted_data, dict):
+                personal_info_nested = extracted_data.get('personal_info', {})
+                if isinstance(personal_info_nested, dict):
+                    full_name_from_raw_db = personal_info_nested.get('full_name')
+                    logger.info(f"[RESUME {resume_id}] [FINAL CHECK] Path 1 - Found full_name: '{full_name_from_raw_db}'")
+            
+            # Path 2: Check personal_info.full_name (flat structure)
+            if not full_name_from_raw_db:
+                personal_info_flat = raw_json_db.get('personal_info', {})
+                if isinstance(personal_info_flat, dict):
+                    full_name_from_raw_db = personal_info_flat.get('full_name')
+                    logger.info(f"[RESUME {resume_id}] [FINAL CHECK] Path 2 - Found full_name: '{full_name_from_raw_db}'")
+            
+            # Path 3: Check full_name at root level
+            if not full_name_from_raw_db:
+                full_name_from_raw_db = raw_json_db.get('full_name')
+                logger.info(f"[RESUME {resume_id}] [FINAL CHECK] Path 3 - Found full_name at root: '{full_name_from_raw_db}'")
+            
+            logger.info(f"[RESUME {resume_id}] [FINAL CHECK] Final full_name_from_raw_db: '{full_name_from_raw_db}'")
+            
+            # Update candidate.name if we found a valid full_name
+            if full_name_from_raw_db:
+                full_name_str = str(full_name_from_raw_db).strip()
+                full_name_normalized = full_name_str.lower()
+                logger.info(f"[RESUME {resume_id}] [FINAL CHECK] full_name_str: '{full_name_str}', normalized: '{full_name_normalized}'")
+                
+                # Ignore empty, "unknown", or invalid values
+                if full_name_str and full_name_normalized != 'unknown' and full_name_normalized != '':
+                    # Reload candidate from database to get latest state
+                    candidate.refresh_from_db()
+                    candidate_name_before = candidate.name
+                    
+                    # Force update: always set name from raw_json_response in final check
+                    candidate.name = full_name_str
+                    candidate.save()
+                    
+                    logger.info(
+                        f"[RESUME {resume_id}] [FINAL CHECK] ✓✓✓ FINAL UPDATE: Updated candidate {candidate.id} name from raw_json_response: "
+                        f"'{candidate_name_before}' -> '{full_name_str}'"
+                    )
+                else:
+                    logger.warning(
+                        f"[RESUME {resume_id}] [FINAL CHECK] full_name from raw_json_response is empty or 'unknown': '{full_name_str}'"
+                    )
+            else:
+                logger.warning(f"[RESUME {resume_id}] [FINAL CHECK] ✗ full_name not found in raw_json_response")
+        else:
+            logger.warning(f"[RESUME {resume_id}] [FINAL CHECK] raw_json_response is empty or not a dict")
+        
+        final_check_time = time.time() - final_check_start
+        logger.info(f"[RESUME {resume_id}] [FINAL CHECK] Final check completed in {final_check_time:.2f} seconds")
+        
+    except Exception as e:
+        logger.warning(
+            f"[RESUME {resume_id}] [FINAL CHECK] Error in final name extraction: {str(e)}",
+            exc_info=True
+        )
+        # Don't fail the whole process if final check fails
     
     parse_total_time = time.time() - parse_start_time
     TimelineEvent.objects.create(

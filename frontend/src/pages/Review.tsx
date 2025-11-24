@@ -45,6 +45,7 @@ type Candidate = {
   };
   notes: string;
   aiSummary: string;
+  aiNarrative: string;
   isFavorite: boolean;
   auto_rejected: boolean;
   category: CandidateCategory;
@@ -136,6 +137,9 @@ const generateCandidatesForJob = (
       },
       notes: auto_rejected ? 'Auto-rejected based on criteria.' : `Candidate ${i + 1} for job ${jobId}.`,
       aiSummary: auto_rejected 
+        ? 'Does not meet minimum requirements.' 
+        : `Match score: ${score}. ${score >= 80 ? 'Strong candidate' : score >= 70 ? 'Good candidate' : 'Average candidate'}.`,
+      aiNarrative: auto_rejected 
         ? 'Does not meet minimum requirements.' 
         : `Match score: ${score}. ${score >= 80 ? 'Strong candidate' : score >= 70 ? 'Good candidate' : 'Average candidate'}.`,
       isFavorite: !auto_rejected && seededRandom(seed + 7) < 0.2,
@@ -579,6 +583,7 @@ type APICandidate = {
   seniority_match_score?: number | string | null;
   ai_review?: string;
   ai_summary?: string;
+  ai_narrative?: string;
   notes?: string;
   skills_payload?: SkillsSummary;
 };
@@ -593,8 +598,6 @@ type SortKeyExtended =
   | 'index'
   | 'category';
 type ActiveBucket = 'all' | 'shortlisted' | 'favorite' | 'interview_scheduled' | 'interviewed' | 'offer_sent' | 'hired';
-
-const MAX_VISIBLE_SKILLS = 3;
 
 const scoreClasses = (value: number) => {
   if (value >= 90) return 'border-blue-300 bg-blue-50 text-blue-700';
@@ -643,17 +646,6 @@ const extractSkills = (payload?: SkillsSummary) => {
     ? payload.skills_mentioned_in_job_title.filter((name): name is string => !!name)
     : [];
   return { technical, soft, mentioned };
-};
-
-const getSkillBadgeStyle = (variant: 'technical' | 'soft' | 'mentioned') => {
-  switch (variant) {
-    case 'technical':
-      return 'bg-sky-50 text-sky-700 border border-sky-100';
-    case 'soft':
-      return 'bg-rose-50 text-rose-700 border border-rose-100';
-    default:
-      return 'bg-gray-100 text-gray-700 border border-gray-200';
-  }
 };
 
 export const Review = () => {
@@ -792,6 +784,7 @@ export const Review = () => {
         skillsBreakdown,
         notes: c.notes || '',
         aiSummary: c.ai_summary || c.ai_review || '',
+        aiNarrative: c.ai_narrative || c.ai_summary || c.ai_review || '',
         isFavorite: favorites[c.candidate] || false,
         auto_rejected: c.auto_rejected,
         category: (c.category || (c.auto_rejected ? 'rejected' : 'shortlisted')) as CandidateCategory,
@@ -910,9 +903,6 @@ export const Review = () => {
     return [...bucketFilteredCandidates].sort((a, b) => {
       if (sortKey === 'name') {
         return a.name.localeCompare(b.name) * dir;
-      }
-      if (sortKey === 'skills') {
-        return (a.skills.length - b.skills.length) * dir;
       }
       if (sortKey === 'category') {
         const categoryOrder: Record<CandidateCategory, number> = {
@@ -1131,9 +1121,6 @@ export const Review = () => {
                 <th className="px-6 py-4">
                   <SortableHeader label="Job Match" columnKey="seniorityMatchScore" />
                 </th>
-                <th className="px-4 py-4">
-                  <SortableHeader label="Skills" columnKey="skills" />
-                </th>
                 <th className="px-4 py-4 text-center" />
                 <th className="px-3 py-4 text-center" />
                 <th className="px-3 py-4 text-center">
@@ -1144,7 +1131,7 @@ export const Review = () => {
             <tbody className="divide-y divide-gray-100 bg-white">
               {sortedCandidates.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center">
+                  <td colSpan={8} className="px-6 py-12 text-center">
                     <div className="flex flex-col items-center space-y-2">
                       <p className="text-sm font-medium text-gray-700">No candidates found for this job</p>
                       <p className="text-xs text-gray-500">
@@ -1197,35 +1184,6 @@ export const Review = () => {
                         <ScoreBadge value={candidate.seniorityMatchScore} />
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      {(() => {
-                        const skillBadges = [
-                          ...candidate.skillsBreakdown.technical.map((name) => ({ name, variant: 'technical' as const })),
-                          ...candidate.skillsBreakdown.soft.map((name) => ({ name, variant: 'soft' as const })),
-                          ...candidate.skillsBreakdown.mentioned.map((name) => ({ name, variant: 'mentioned' as const })),
-                        ];
-                        const visibleSkills = skillBadges.slice(0, MAX_VISIBLE_SKILLS);
-                        const remaining = Math.max(skillBadges.length - visibleSkills.length, 0);
-                        
-                        return (
-                          <div className="flex flex-wrap items-center gap-2">
-                            {visibleSkills.map(({ name, variant }) => (
-                              <span
-                                key={`${variant}-${name}`}
-                                className={`rounded-full px-3 py-1 text-xs font-medium ${getSkillBadgeStyle(variant)}`}
-                              >
-                                {name}
-                              </span>
-                            ))}
-                            {remaining > 0 && (
-                              <span className="rounded-full bg-gray-200 px-3 py-1 text-xs font-medium text-gray-600">
-                                +{remaining} more
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })()}
-                    </td>
                     <td className="px-3 py-4 text-center">
                       <div className="relative flex justify-center">
                         <button
@@ -1276,13 +1234,16 @@ export const Review = () => {
                         {openAiId === candidate.id && (
                           <div
                             onClick={(e) => e.stopPropagation()}
-                            className="absolute right-0 bottom-full z-20 mb-2 w-64 rounded-lg border border-purple-200 bg-white p-4 text-left text-sm text-gray-700 shadow-lg"
+                            className="absolute right-0 bottom-full z-20 mb-2 w-96 max-w-md rounded-lg border border-purple-200 bg-white p-4 text-left text-sm text-gray-700 shadow-lg"
                           >
                             <div className="mb-2 text-xs font-semibold text-purple-700">
                               AI Review
                             </div>
-                            <p className="text-sm leading-5 text-gray-600 whitespace-pre-wrap">
-                              {candidate.aiSummary || 'No AI review available.'}
+                            <p className="text-sm leading-6 text-gray-600 whitespace-pre-wrap">
+                              {(() => {
+                                const text = candidate.aiNarrative || candidate.aiSummary || 'No AI review available.';
+                                return text.length > 200 ? text.substring(0, 200) + '...' : text;
+                              })()}
                             </p>
                           </div>
                         )}

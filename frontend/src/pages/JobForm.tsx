@@ -627,14 +627,62 @@ export const JobForm = () => {
 
       if (isEdit && id) {
         await updateJobMutation.mutateAsync({ id: Number(id), data: submitData });
+        // After successful update, navigate back to job profile
+        navigate(`/jobs/${id}/profile`);
       } else {
-        await createJobMutation.mutateAsync(submitData);
+        const newJob = await createJobMutation.mutateAsync(submitData);
+        // After successful create, navigate to jobs list
+        navigate('/jobs');
+      }
+    } catch (error: any) {
+      console.error('Failed to save job:', error);
+      
+      // Don't show alert for authentication errors (user will be redirected to login)
+      if (error?.response?.status === 401) {
+        return; // Let the client interceptor handle the redirect
       }
       
-      navigate('/jobs');
-    } catch (error) {
-      console.error('Failed to save job:', error);
-      alert('Failed to save job. Please try again.');
+      // Handle 403 (Forbidden) or 404 (Not Found) - redirect to jobs list
+      if (error?.response?.status === 403 || error?.response?.status === 404) {
+        alert('You do not have permission to perform this action or the job was not found.');
+        navigate('/jobs');
+        return;
+      }
+      
+      // Extract error message from response
+      let errorMessage = 'Failed to save job. Please try again.';
+      if (error?.response?.data) {
+        const data = error.response.data;
+        if (typeof data === 'string') {
+          errorMessage = data;
+        } else if (data.detail) {
+          errorMessage = data.detail;
+        } else if (data.message) {
+          errorMessage = data.message;
+        } else if (data.error) {
+          errorMessage = data.error;
+        } else if (typeof data === 'object') {
+          // Handle validation errors
+          const validationErrors = Object.entries(data)
+            .map(([key, value]: [string, any]) => {
+              if (Array.isArray(value)) {
+                return `${key}: ${value.join(', ')}`;
+              }
+              return `${key}: ${value}`;
+            })
+            .join('\n');
+          if (validationErrors) {
+            errorMessage = validationErrors;
+          }
+        }
+      } else if (error?.userMessage) {
+        errorMessage = error.userMessage;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      // Show error message but keep user on the form page so they can fix errors
+      alert(errorMessage);
     }
   };
 

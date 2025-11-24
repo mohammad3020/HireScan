@@ -15,7 +15,7 @@
     overflow-x: hidden;
   }
 
-  /* Fun & Cool Animated Background with Vibrant Colors */
+  /* Simple Light Gray Background */
   body::before {
     content: '';
     position: fixed;
@@ -24,146 +24,7 @@
     width: 100%;
     height: 100%;
     z-index: -1;
-    background: linear-gradient(135deg, 
-      #FF6B6B 0%, 
-      #FF8E53 16%, 
-      #FFD93D 33%, 
-      #6BCB77 50%, 
-      #4ECDC4 66%, 
-      #81C7E5 83%, 
-      #FF6B6B 100%);
-    background-size: 400% 400%;
-    animation: gradientShift 20s ease infinite;
-  }
-
-  /* Animated Grid Pattern with 10% opacity */
-  body::after {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: -1;
-    background-image: 
-      /* Main grid lines */
-      linear-gradient(rgba(255, 107, 107, 0.08) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 107, 107, 0.08) 1px, transparent 1px),
-      /* Diagonal lines */
-      linear-gradient(45deg, rgba(255, 142, 83, 0.08) 1px, transparent 1px),
-      linear-gradient(-45deg, rgba(107, 203, 119, 0.08) 1px, transparent 1px);
-    background-size: 
-      60px 60px,
-      60px 60px,
-      80px 80px,
-      80px 80px;
-    animation: gridMove 25s linear infinite;
-    pointer-events: none;
-  }
-
-  @keyframes gradientShift {
-    0% {
-      background-position: 0% 50%;
-    }
-    50% {
-      background-position: 100% 50%;
-    }
-    100% {
-      background-position: 0% 50%;
-    }
-  }
-
-  @keyframes gridMove {
-    0% {
-      transform: translate(0, 0);
-    }
-    100% {
-      transform: translate(60px, 60px);
-    }
-  }
-
-  /* Hexagonal and Geometric Pattern Overlay */
-  #root::before {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: -1;
-    background-image: 
-      /* Radial gradients with vibrant colors */
-      radial-gradient(circle at 15% 30%, rgba(255, 107, 107, 0.08) 0%, transparent 40%),
-      radial-gradient(circle at 85% 70%, rgba(255, 142, 83, 0.08) 0%, transparent 40%),
-      radial-gradient(circle at 50% 50%, rgba(255, 217, 61, 0.08) 0%, transparent 50%),
-      radial-gradient(circle at 30% 80%, rgba(107, 203, 119, 0.08) 0%, transparent 40%),
-      radial-gradient(circle at 70% 20%, rgba(78, 205, 196, 0.08) 0%, transparent 40%),
-      radial-gradient(circle at 90% 50%, rgba(129, 199, 229, 0.08) 0%, transparent 40%);
-    animation: pulse 10s ease-in-out infinite;
-    pointer-events: none;
-  }
-
-  /* Additional geometric lines pattern */
-  #root::after {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: -1;
-    background-image: 
-      /* Horizontal lines */
-      repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 2px,
-        rgba(255, 142, 83, 0.08) 2px,
-        rgba(255, 142, 83, 0.08) 4px
-      ),
-      /* Vertical lines */
-      repeating-linear-gradient(
-        90deg,
-        transparent,
-        transparent 2px,
-        rgba(107, 203, 119, 0.08) 2px,
-        rgba(107, 203, 119, 0.08) 4px
-      ),
-      /* Diagonal pattern */
-      repeating-linear-gradient(
-        45deg,
-        transparent,
-        transparent 10px,
-        rgba(78, 205, 196, 0.08) 10px,
-        rgba(78, 205, 196, 0.08) 12px
-      );
-    background-size: 
-      100% 100%,
-      100% 100%,
-      200% 200%;
-    animation: lineMove 30s linear infinite;
-    pointer-events: none;
-    opacity: 0.6;
-  }
-
-  @keyframes pulse {
-    0%, 100% {
-      opacity: 0.6;
-      transform: scale(1);
-    }
-    50% {
-      opacity: 0.9;
-      transform: scale(1.05);
-    }
-  }
-
-  @keyframes lineMove {
-    0% {
-      background-position: 0 0, 0 0, 0 0;
-    }
-    100% {
-      background-position: 0 100px, 100px 0, 200px 200px;
-    }
+    background: #F5F5F5;
   }
 }
 

@@ -33,6 +33,7 @@ export interface ReviewDashboard {
       seniority_match_score?: number | string | null;
       ai_review?: string;
       ai_summary?: string;
+      ai_narrative?: string;
       notes?: string;
     }
   >;
